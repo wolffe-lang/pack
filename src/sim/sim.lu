@@ -1635,7 +1635,6 @@ pub fn spawn_side(s: Sim, top: int) -> int {
 /// the unavailable gap ticks so the late curve retains its event rate:
 /// p_roll = p / (1 - (gap-1)*p), a geometric wait plus a fixed gap.
 pub fn paced_spawn_roll(s: Sim) -> int {
-    if s.tick - s.last_spawn_tick < SPAWN_GAP_TICKS { return 0 }
     if s.spawned == 0 {
         let deadline = SPAWN_FIRST_MIN +
             world.hash(s.seed + 5400, 0, 1, SPAWN_FIRST_MAX - SPAWN_FIRST_MIN + 1)
