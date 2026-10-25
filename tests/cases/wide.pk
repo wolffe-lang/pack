@@ -1,0 +1,8 @@
+# frames 30 every 30
+# The large field the perf gate measures: 200x60, a trot.
+pk 1
+seed 11
+tier rich
+size 200x60
+t 5 right
+t 9 right

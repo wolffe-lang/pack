@@ -1,0 +1,8 @@
+# frames 90 every 30
+# A straight trot: no input for three seconds. The path scrolls, the
+# gait cycles, the wolf follows the path's centre only as far as its
+# starting column takes it.
+pk 1
+seed 7
+tier rich
+size 80x24

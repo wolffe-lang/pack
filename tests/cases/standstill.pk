@@ -1,0 +1,8 @@
+# frames 60 every 20
+# A standstill: Down at the first tick, then nothing. The wolf brakes to a
+# stop and stands; stamina regenerates; the path does not scroll.
+pk 1
+seed 7
+tier rich
+size 80x24
+t 0 down

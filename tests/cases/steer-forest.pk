@@ -1,0 +1,19 @@
+# frames 120 every 30
+# A steer into the forest edge: left, held by taps, until the wolf is in
+# the trees, slowed and scratched (the body dims), then straight.
+pk 1
+seed 7
+tier rich
+size 80x24
+t 0 left
+t 4 left
+t 8 left
+t 12 left
+t 16 left
+t 20 left
+t 40 left
+t 44 left
+t 48 left
+t 52 left
+t 56 left
+t 60 left

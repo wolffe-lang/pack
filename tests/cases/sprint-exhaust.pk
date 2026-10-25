@@ -1,0 +1,14 @@
+# frames 240 every 40
+# A sprint to exhaustion: Up every burst until stamina is gone and the
+# wolf pants, then the recovery.
+pk 1
+seed 7
+tier rich
+size 80x24
+t 0 up
+t 25 up
+t 50 up
+t 75 up
+t 100 up
+t 125 up
+t 150 up
