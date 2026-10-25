@@ -88,6 +88,8 @@ def row_latency(bin):
     if len(samples) < 20:
         print("perf-idle: latency only %d of 20 keys drew a frame FAILED" % len(samples))
         return False
+    print("perf-idle: latency samples ms: %s" % " ".join("%.0f" % x for x in samples))
+    print("perf-idle: latency run's closing line: %s" % s.err.decode(errors="replace").strip())
     ordered = sorted(samples)
     med, p90, mx = statistics.median(samples), ordered[int(len(ordered) * 0.9) - 1], max(samples)
     ok = med < 40 * SLACK and p90 < 70 * SLACK
