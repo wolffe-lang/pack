@@ -5,19 +5,20 @@ the terminal layer promises (campaign rule 4: restored on every exit path).
     python3 -I tools/pty [--bin target/release/pack] [--rows quit,sigint,trap,agree-rich,agree-plain]
                          [--keep]
 
-A shell holds the pty's session so the terminal outlives the program (on
-macOS the slave is revoked when its session leader exits), reports `stty -a`
-before and after on a pipe, launches the program as a job with the tty on
-its standard streams, and ignores INT itself once the job runs so a typed
-Ctrl-C reaches the job alone. The rows:
+A holder process is the pty's session leader so the terminal outlives the
+program (on macOS the slave is revoked when its session leader exits); it
+runs the game as a job in its own foreground process group, the way a shell
+does, and records the terminal's settings before and after. The rows:
 
   quit        keys typed (Down, Shift+Down, Space, z), then q: exit 0, the
               alternate screen entered and left, the cursor hidden then
               shown, raw mode undone (stty -a before and after equal, less
               `pendin` on macOS, which the kernel sets after any return to
               canonical mode, and less the window size), the leave bytes last.
-  sigint      the same, ended by SIGINT sent to the process: exit 0 (the
-              interrupt is a listened meaning and ends the loop cleanly).
+  ctrl-c      the same, ended by the byte 0x03 typed into the pty: the line
+              discipline raises the interrupt for the foreground group, the
+              game alone, which hears it as a meaning (std.signal) and ends
+              its loop cleanly: exit 0 and the same restore assertions.
   trap        `--trap-at 20`: the process traps (exit 134, `wolf-trap` on
               stderr) and the runtime restores: the same assertions on the
               terminal.
@@ -29,7 +30,7 @@ Ctrl-C reaches the job alone. The rows:
 Exit 0 when every row passes; each row prints one line. Captures are kept
 under target/pty/ with --keep (and always for a failed row).
 """
-import argparse, fcntl, os, pty, re, select, signal, struct, subprocess, sys, termios, time
+import argparse, fcntl, os, pty, re, select, struct, subprocess, sys, termios, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENTER_ALT, LEAVE_ALT = b"\x1b[?1049h", b"\x1b[?1049l"
@@ -44,24 +45,49 @@ def stty_words(text):
 
 
 class Session:
+    """A pseudo-terminal with the game running in it, the way a shell runs
+    a job. A HOLDER process is the session leader and keeps the terminal
+    open (on macOS the slave is revoked once its session leader exits, so
+    the holder outlives the game); the game runs in its own process group,
+    made the terminal's foreground group (tcsetpgrp), so what the line
+    discipline raises for a typed Ctrl-C reaches the game alone. The holder
+    records the terminal's settings before and after (tcgetattr, and
+    `stty -a` on the slave for the record) and the game's exit status on a
+    pipe. Nothing here traps, masks or sends a signal."""
+
     def __init__(self, argv, rows, cols, env):
         self.master, slave = pty.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
         r_rep, w_rep = os.pipe()
-        r_pid, w_pid = os.pipe()
-        cmd = " ".join("'%s'" % a.replace("'", "'\\''") for a in argv)
-        script = ("stty -a >&3; echo ---- >&3; %s </dev/tty 2>&4 & echo $! >&5; trap '' INT; wait $!; "
-                  "echo status=$? >&3; trap - INT; stty -a >&3") % cmd
         r_err, w_err = os.pipe()
+        r_pid, w_pid = os.pipe()
         self.pid = os.fork()
         if self.pid == 0:
             os.setsid()
             fcntl.ioctl(slave, termios.TIOCSCTTY, 0)
-            os.dup2(slave, 0); os.dup2(slave, 1); os.dup2(slave, 2)
-            os.dup2(w_rep, 3); os.dup2(w_err, 4); os.dup2(w_pid, 5)
-            os.closerange(6, 1024)
-            os.execve("/bin/sh", ["sh", "-c", script], env)
-        for fd in (slave, w_rep, w_pid, w_err):
+            before = termios.tcgetattr(slave)
+            stty_before = subprocess.run(["stty", "-a"], stdin=slave, capture_output=True, text=True).stdout
+            game = os.fork()
+            if game == 0:
+                os.setpgid(0, 0)
+                os.dup2(slave, 0); os.dup2(slave, 1); os.dup2(w_err, 2)
+                os.closerange(3, 1024)
+                os.execve(argv[0], argv, env)
+            try:
+                os.setpgid(game, game)
+            except OSError:
+                pass
+            os.tcsetpgrp(slave, game)
+            os.write(w_pid, str(game).encode())
+            os.close(w_pid)
+            _, st = os.waitpid(game, 0)
+            after = termios.tcgetattr(slave)
+            stty_after = subprocess.run(["stty", "-a"], stdin=slave, capture_output=True, text=True).stdout
+            status = os.WEXITSTATUS(st) if os.WIFEXITED(st) else 128 + os.WTERMSIG(st)
+            report = repr((before, after, stty_before, stty_after, status)).encode()
+            os.write(w_rep, report)
+            os._exit(0)
+        for fd in (slave, w_rep, w_err, w_pid):
             os.close(fd)
         self.r_rep, self.r_err = r_rep, r_err
         self.out = b""
@@ -103,8 +129,6 @@ class Session:
                 break
             self.pump(0.05)
         else:
-            os.kill(self.pid, signal.SIGKILL)
-            os.waitpid(self.pid, 0)
             raise RuntimeError("the session did not end within %.0f s" % timeout)
         self.pump(0.1)
         rep = b""
@@ -114,18 +138,29 @@ class Session:
                 break
             rep += c
         os.close(self.r_rep); os.close(self.r_err); os.close(self.master)
-        before, rest = rep.split(b"----\n", 1)
-        status_line, after = rest.split(b"\n", 1)
-        self.status = int(status_line.decode().split("=")[1])
-        self.before, self.after = before.decode(), after.decode()
+        import ast
+        self.before, self.after, self.stty_before, self.stty_after, self.status = ast.literal_eval(rep.decode())
+
+
+PENDIN = 0x20000000
+
+
+def termios_words(attr):
+    """A termios record as comparable words, less macOS's PENDIN state flag
+    (the kernel sets it after any return to canonical mode; the spec's own
+    restore witness records the same) and less the speeds."""
+    iflag, oflag, cflag, lflag, _, _, cc = attr
+    return [iflag, oflag, cflag, lflag - (lflag & PENDIN), [c if isinstance(c, int) else c for c in cc]]
 
 
 def common_checks(s, want_status, problems):
     if s.status != want_status:
         problems.append("exit status %d, wanted %d" % (s.status, want_status))
-    if stty_words(s.before) != stty_words(s.after):
-        b, a = stty_words(s.before), stty_words(s.after)
-        problems.append("stty differs after: %s" % " ".join(sorted(set(a) ^ set(b))))
+    if termios_words(s.before) != termios_words(s.after):
+        problems.append("termios differs after: before %r after %r" % (termios_words(s.before)[:4], termios_words(s.after)[:4]))
+    if stty_words(s.stty_before) != stty_words(s.stty_after):
+        b, a = stty_words(s.stty_before), stty_words(s.stty_after)
+        problems.append("stty -a differs after: %s" % " ".join(sorted(set(a) ^ set(b))))
     if ENTER_ALT not in s.out:
         problems.append("the alternate screen was never entered")
     if LEAVE_ALT not in s.out:
@@ -153,8 +188,10 @@ def row_keys(bin, name, how):
     s = Session([bin, "--seed", "7"], 24, 80, env_for())
     s.pump(0.4)
     s.type(b"\x1b[B"); s.type(b"\x1b[1;2B"); s.type(b" "); s.type(b"z")
-    if how == "sigint":
-        os.kill(s.job, signal.SIGINT)
+    if how == "ctrl-c":
+        # The byte 0x03: the line discipline raises the interrupt for the
+        # foreground group, which is the game alone.
+        s.type(b"\x03")
     else:
         s.type(b"q")
     s.finish()
@@ -240,7 +277,7 @@ def mac_memory_ok():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--bin", default=os.path.join(ROOT, "target", "release", "pack"))
-    ap.add_argument("--rows", default="quit,sigint,trap,agree-rich,agree-plain")
+    ap.add_argument("--rows", default="quit,ctrl-c,trap,agree-rich,agree-plain")
     ap.add_argument("--keep", action="store_true")
     a = ap.parse_args()
     if not mac_memory_ok():
@@ -252,7 +289,7 @@ def main():
     failed = 0
     for name in a.rows.split(","):
         try:
-            if name in ("quit", "sigint"):
+            if name in ("quit", "ctrl-c"):
                 s, problems = row_keys(bin, name, name)
             elif name == "trap":
                 s, problems = row_trap(bin)

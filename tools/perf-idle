@@ -16,12 +16,13 @@ tools/pty's Session.
 
 PACK_PERF_SLACK multiplies the latency bars.
 """
-import importlib.util, os, select, signal, statistics, sys, time
+import importlib.util, os, select, statistics, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-spec = importlib.util.spec_from_file_location("ptyrun", os.path.join(ROOT, "tools", "pty"))
-ptyrun = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(ptyrun)
+import importlib.machinery
+_loader = importlib.machinery.SourceFileLoader("ptyrun", os.path.join(ROOT, "tools", "pty"))
+ptyrun = importlib.util.module_from_spec(importlib.util.spec_from_loader("ptyrun", _loader))
+_loader.exec_module(ptyrun)
 SLACK = float(os.environ.get("PACK_PERF_SLACK", "1"))
 
 
