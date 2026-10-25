@@ -1460,7 +1460,7 @@ pub fn shadow_perceives(sh: Shadow, x: int, y: int) -> bool {
     if d <= PERCEIVE_NEAR * world.FP { return true }
     if d > PERCEIVE * world.FP { return false }
     let dot = dx * sh.face_x + dy * sh.face_y
-    dot >= 0 &&
+    dot < 0 &&
         4 * dot * dot >= (sh.face_x * sh.face_x + sh.face_y * sh.face_y) * (dx * dx + dy * dy)
 }
 
