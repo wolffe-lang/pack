@@ -1,0 +1,77 @@
+//! member: false
+//!
+//! docs/GLYPHS.md names every code point the rich tier uses, no more and
+//! no fewer: the file is PAX's font specification, so it is held to the
+//! code by this test, which reads it from the repository root (where
+//! tools/test runs).
+
+use std.fs
+use tier
+
+fn hex_value(s: str) -> int {
+    var v = 0
+    for b in s.bytes() {
+        let c = b as int
+        var d = -1
+        if c >= 48 && c <= 57 {
+            d = c - 48
+        } else if c >= 65 && c <= 70 {
+            d = c - 55
+        } else if c >= 97 && c <= 102 {
+            d = c - 87
+        }
+        if d < 0 {
+            return -1
+        }
+        v = v * 16 + d
+    }
+    v
+}
+
+fn listed_code_points(text: str) -> List[int] {
+    var cps = List[int]()
+    for line in text.lines() {
+        if line.starts_with("| U+") {
+            let rest = line[4..]
+            let end = rest.find(" ") else rest.len
+            let v = hex_value(rest[0..end])
+            if v >= 0 {
+                (mut cps).push(v)
+            }
+        }
+    }
+    cps
+}
+
+fn test_glyphs_doc_matches_the_tier() {
+    let text = fs.read_text("docs/GLYPHS.md") else |_| {
+        assert(false, "docs/GLYPHS.md is read from the repository root")
+        ""
+    }
+    let listed = listed_code_points(text)
+    let used = tier.rich_code_points()
+    assert(
+        listed.len == used.len,
+        "the doc lists {listed.len} code points, the tier uses {used.len}",
+    )
+    var i = 0
+    while i < used.len {
+        assert(
+            listed[i] == used[i],
+            "entry {i}: the doc has U+{listed[i]} (decimal), the tier U+{used[i]}",
+        )
+        i += 1
+    }
+}
+
+fn test_plain_tier_needs_no_row() {
+    var s = 0
+    while s < tier.SPRITE_COUNT {
+        var v = 0
+        while v < 8 {
+            assert(tier.glyph(tier.PLAIN, s, v).cp <= 255, "sprite {s}")
+            v += 1
+        }
+        s += 1
+    }
+}
