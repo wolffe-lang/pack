@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""tools/perf-idle — the two perf rows that need a real terminal: wake-ups
+at idle and input latency. Drives the release binary in a pty through
+tools/pty's Session.
+
+  idle     the game standing still (Down typed) for 10 s: the voluntary
+           context switches of the process over the window, from
+           /proc/PID/status on Linux (a loud SKIP elsewhere: macOS has no
+           such counter without root). The bar: one wake a tick, 300 in
+           10 s, with a fifth of slack either way (240 to 360): fewer means
+           the tick is not running, more means the loop wakes for nothing.
+  latency  Left typed 20 times, a second apart; the time from the write to
+           the first byte of the next frame. The bar: the median under one
+           tick plus a render (40 ms) and the maximum under two ticks
+           (70 ms); the real-time clock of a shared host is the noise.
+
+PACK_PERF_SLACK multiplies the latency bars.
+"""
+import importlib.util, os, select, signal, statistics, sys, time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+spec = importlib.util.spec_from_file_location("ptyrun", os.path.join(ROOT, "tools", "pty"))
+ptyrun = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(ptyrun)
+SLACK = float(os.environ.get("PACK_PERF_SLACK", "1"))
+
+
+def ctxt(pid):
+    try:
+        with open("/proc/%d/status" % pid) as f:
+            for line in f:
+                if line.startswith("voluntary_ctxt_switches:"):
+                    return int(line.split()[1])
+    except OSError:
+        return None
+    return None
+
+
+def row_idle(bin):
+    s = ptyrun.Session([bin, "--seed", "7"], 24, 80, ptyrun.env_for())
+    s.pump(0.4)
+    s.type(b"\x1b[B", settle=0.5)
+    a = ctxt(s.job)
+    if a is None:
+        s.type(b"q")
+        s.finish()
+        print("perf-idle: idle SKIP (no /proc on this host; measure on Linux)")
+        return True
+    s.pump(10.0)
+    b = ctxt(s.job)
+    s.type(b"q")
+    s.finish()
+    wakes = b - a
+    ok = 240 <= wakes <= 360
+    print("perf-idle: idle %d voluntary context switches in 10 s at a standstill (bar 240..360) %s" % (wakes, "ok" if ok else "FAILED"))
+    return ok
+
+
+def row_latency(bin):
+    s = ptyrun.Session([bin, "--seed", "7"], 24, 80, ptyrun.env_for())
+    s.pump(0.5)
+    samples = []
+    for i in range(20):
+        s.pump(0.3)
+        before = len(s.out)
+        t0 = time.monotonic()
+        os.write(s.master, b"\x1b[D")
+        deadline = t0 + 1.0
+        while time.monotonic() < deadline:
+            r, _, _ = select.select([s.master], [], [], 0.001)
+            if r:
+                chunk = os.read(s.master, 65536)
+                s.out += chunk
+                if len(s.out) > before:
+                    samples.append((time.monotonic() - t0) * 1000)
+                    break
+    s.type(b"q")
+    s.finish()
+    if len(samples) < 20:
+        print("perf-idle: latency only %d of 20 keys drew a frame FAILED" % len(samples))
+        return False
+    med, mx = statistics.median(samples), max(samples)
+    ok = med < 40 * SLACK and mx < 70 * SLACK
+    print("perf-idle: latency median %.1f ms max %.1f ms over 20 keys (bars %.0f / %.0f ms) %s" % (med, mx, 40 * SLACK, 70 * SLACK, "ok" if ok else "FAILED"))
+    return ok
+
+
+def main():
+    bin = os.path.abspath(sys.argv[sys.argv.index("--bin") + 1]) if "--bin" in sys.argv else os.path.join(ROOT, "target", "release", "pack")
+    if not ptyrun.mac_memory_ok():
+        return 3
+    ok = row_idle(bin)
+    ok = row_latency(bin) and ok
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

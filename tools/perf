@@ -1,0 +1,51 @@
+#!/bin/sh
+# perf — the performance gate (campaign: a frame's render under 1 ms at
+# 80x24 and under 4 ms at 200x60 on release; input-to-frame latency one
+# tick; zero wake-ups between ticks at idle).
+#
+#   tools/perf [--bin BIN]        PACK_PERF_SLACK=N multiplies the bars
+#                                 (1 on a kasumi-class host, 3 on CI)
+#
+# The render bars come from `pack --bench` (render + diff a frame, release,
+# 300 frames of a scripted steer, both tiers, both sizes: the average is
+# gated, the p99 and max recorded). The idle and latency rows come from
+# tools/perf-idle, which drives the real binary in a pty: the voluntary
+# context switches of a standing game over 10 s (Linux's /proc; a loud
+# SKIP elsewhere) and the time from a key to the next frame's bytes.
+# Evidence lands in target/perf/.
+set -eu
+PACK_ROOT=$(cd "$(dirname "$0")/.." && pwd)
+cd "$PACK_ROOT"
+. tools/lib-mem.sh
+require_memory
+bin=target/release/pack
+while [ $# -gt 0 ]; do
+    case $1 in
+    --bin) bin=$2; shift ;;
+    *) echo "perf: unknown option $1" >&2; exit 2 ;;
+    esac
+    shift
+done
+[ -x "$bin" ] || tools/build --release
+slack=${PACK_PERF_SLACK:-1}
+mkdir -p target/perf
+status=0
+echo "perf: host $(uname -s) $(uname -m), slack x$slack" | tee target/perf/summary.txt
+for spec in "80x24 1000" "200x60 4000"; do
+    size=${spec% *}
+    bar=${spec#* }
+    for tier in rich plain; do
+        line=$("$bin" --bench --size "$size" --tier "$tier" --frames 300 --seed 7)
+        echo "$line" | tee -a target/perf/summary.txt
+        avg=$(echo "$line" | sed -n 's/.*avg_us \([0-9]*\).*/\1/p')
+        limit=$((bar * slack))
+        if [ "$avg" -lt "$limit" ]; then
+            echo "perf: $size $tier avg ${avg} us < ${limit} us ok" | tee -a target/perf/summary.txt
+        else
+            echo "perf: $size $tier avg ${avg} us >= ${limit} us FAILED" | tee -a target/perf/summary.txt
+            status=1
+        fi
+    done
+done
+python3 -I tools/perf-idle --bin "$bin" | tee -a target/perf/summary.txt || status=1
+exit $status
