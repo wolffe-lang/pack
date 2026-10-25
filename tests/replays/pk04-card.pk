@@ -1,0 +1,16 @@
+pk 1
+seed 16
+tier rich
+size 80x24
+# score 51
+t 21 health -10
+t 22 health -10
+t 24 health -10
+t 26 health -10
+t 28 health -10
+t 29 health -10
+t 31 health -10
+t 32 health -10
+t 33 health -10
+t 35 health -10
+t 273 quit

@@ -8,6 +8,9 @@
 use input
 use sim
 use trail
+use std.fs
+use replay
+use controls
 use world
 
 fn none() -> List[int] {
@@ -1322,5 +1325,55 @@ fn test_pk04_all_animated_bodies_stay_separate_in_a_fight_and_resize() {
         s.stamina = sim.STAMINA_MAX
         assert(!sim.any_pose_overlap(s), "no animated overlap in live fight")
         t += 1
+    }
+}
+
+fn test_pk04_actual_stop_and_restart_keep_five_and_ten_ticks() {
+    var s = sim.new(11, 200, 60)
+    var t = 0
+    while t < 4 {
+        sim.step(mut s, if t == 0 then one(sim.KEY_DOWN) else none(), 0)
+        assert(s.speed > 0, "not stopped before the fifth tick")
+        t += 1
+    }
+    sim.step(mut s, none(), 0)
+    assert(s.speed == 0, "stopped on fifth tick")
+    s.stopping = false
+    t = 0
+    while t < 9 {
+        sim.step(mut s, none(), 0)
+        assert(s.speed < sim.TROT_V, "not at trot before tenth tick")
+        t += 1
+    }
+    sim.step(mut s, none(), 0)
+    assert(s.speed == sim.TROT_V, "at trot on tenth tick")
+}
+
+fn test_pk04_re_recorded_terminal_replays_verify_their_scores() {
+    for name in ["card", "title"] {
+        let text = fs.read_text("tests/replays/pk04-{name}.pk") else |_| {
+            assert(false, "recorded terminal replay must exist")
+            ""
+        }
+        let rp = replay.from_text(text) else |_| {
+            assert(false, "recorded terminal replay must parse")
+            replay.new(16, 1, 80, 24)
+        }
+        let expected = replay.score_of(text) else -1
+        assert(expected == 51, "newly recorded score, not an old accepted score")
+        var s = sim.new_at(rp.seed, rp.cols, rp.rows, rp.start)
+        var keys = none()
+        var tick = 0
+        while tick < replay.last_tick(rp) {
+            (mut keys).reset()
+            let (cols, rows, health) = replay.at(rp, tick, mut keys)
+            if cols > 0 { sim.resize(mut s, cols, rows) }
+            sim.step(mut s, keys, health)
+            tick += 1
+        }
+        assert(
+            s.dead && sim.score(s) == expected,
+            "the real terminal replay verifies at the current constants",
+        )
     }
 }
