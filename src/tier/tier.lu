@@ -55,10 +55,12 @@ pub const SP_WOLF_LEGS: int = 8
 /// A fainted wolf's cell (variant 0 head, 1 body).
 pub const SP_FAINTED: int = 9
 
-/// A shadow wolf's body cell.
+/// A shadow wolf's body cell (variant 0 solid; 1 and 2 the fade of a
+/// vanquished shadow, pk02).
 pub const SP_SHADOW_BODY: int = 10
 
-/// A shadow wolf's red eye.
+/// A shadow wolf's red eye (variant 0 bright, 1 dim: the eyes pulse while
+/// it chases, are dim while it lurks and steady through an attack).
 pub const SP_SHADOW_EYE: int = 11
 
 /// A deer's cell (variant 0 head, 1 body).
@@ -122,6 +124,9 @@ pub const C_DEER: int = 11
 /// The fainted (fg).
 pub const C_FAINT: int = 12
 
+/// A red eye, dim (fg): the pulse's other phase, a lurker's eyes.
+pub const C_EYE_DIM: int = 13
+
 /// The colour index a palette role has on a tier.
 pub fn palette(tier: int, role: int) -> int {
     if tier == RICH {
@@ -139,6 +144,7 @@ pub fn palette(tier: int, role: int) -> int {
             10 => 196,  // C_EYE
             11 => 173,  // C_DEER
             12 => 243,  // C_FAINT
+            13 => 124,  // C_EYE_DIM
             _ => grid.COLOR_DEFAULT,
         }
     }
@@ -156,6 +162,7 @@ pub fn palette(tier: int, role: int) -> int {
         10 => 9,  // C_EYE
         11 => 11,  // C_DEER
         12 => 8,  // C_FAINT
+        13 => 1,  // C_EYE_DIM
         _ => grid.COLOR_DEFAULT,
     }
 }
@@ -246,8 +253,8 @@ fn rich(sprite: int, v: int) -> grid.Cell {
                 0,
             ),  // SP_WOLF_TAIL
         9 => c(t, if v == 0 then 9617 else 9604, C_FAINT, C_PATH, 0),  // SP_FAINTED
-        10 => c(t, 9608, C_SHADOW, C_PATH, 0),  // SP_SHADOW_BODY
-        11 => c(t, 9642, C_EYE, C_SHADOW, 0),  // SP_SHADOW_EYE
+        10 => c(t, if v == 0 then 9608 else if v == 1 then 9619 else 9617, C_SHADOW, C_PATH, 0),  // SP_SHADOW_BODY
+        11 => c(t, 9642, if v == 0 then C_EYE else C_EYE_DIM, C_SHADOW, 0),  // SP_SHADOW_EYE
         12 => c(t, if v == 0 then 9600 else 9608, C_DEER, C_PATH, 0),  // SP_DEER
         14 =>
             c(
@@ -309,12 +316,45 @@ fn plain(sprite: int, v: int) -> grid.Cell {
                 grid.ATTR_BOLD,
             ),  // SP_WOLF_TAIL
         9 => c(t, if v == 0 then 120 else 95, C_FAINT, C_PATH, 0),  // SP_FAINTED
-        10 => c(t, 87, C_SHADOW, C_PATH, grid.ATTR_BOLD),  // SP_SHADOW_BODY
-        11 => c(t, 58, C_EYE, C_PATH, grid.ATTR_BOLD),  // SP_SHADOW_EYE
+        10 =>
+            c(
+                t,
+                if v == 0 then 87 else if v == 1 then 119 else 46,
+                C_SHADOW,
+                C_PATH,
+                grid.ATTR_BOLD,
+            ),  // SP_SHADOW_BODY
+        11 => c(t, 58, if v == 0 then C_EYE else C_EYE_DIM, C_PATH, grid.ATTR_BOLD),  // SP_SHADOW_EYE
         12 => c(t, if v == 0 then 89 else 124, C_DEER, C_PATH, grid.ATTR_BOLD),  // SP_DEER
         14 => c(t, if v == 0 then 39 else 96, C_FUR, C_PATH, 0),  // SP_WOLF_EAR
         _ => grid.blank(),
     }
+}
+
+/// A cell of the death card's text (pk02): a Latin-1 code point in fur on
+/// the forest floor, bold when `emphasis` (the score line). The card's
+/// text is ASCII, inside PAX's font today, so it adds no row to
+/// `docs/GLYPHS.md`; its frame is drawn with the blocks the wolf already
+/// uses (`card_frame`).
+pub fn card_text(tier: int, cp: int, emphasis: bool) -> grid.Cell {
+    let attrs = if emphasis || tier == PLAIN then grid.ATTR_BOLD else 0
+    c(tier, cp, C_FUR, C_FLOOR, attrs)
+}
+
+/// A cell of the card's frame: `which` 0 the top edge, 1 the bottom, 2 a
+/// side. Rich: the upper and lower half blocks and the full block (all in
+/// `docs/GLYPHS.md`); plain: `-` and `|`.
+pub fn card_frame(tier: int, which: int) -> grid.Cell {
+    if tier == RICH {
+        return c(
+            tier,
+            if which == 0 then 9600 else if which == 1 then 9604 else 9608,
+            C_FUR_DIM,
+            C_FLOOR,
+            0,
+        )
+    }
+    c(tier, if which == 2 then 124 else 45, C_FUR_DIM, C_FLOOR, 0)
 }
 
 /// The colour dialect a tier renders in: the plain tier the sixteen, the
