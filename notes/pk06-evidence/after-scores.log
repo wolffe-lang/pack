@@ -1,0 +1,4 @@
+SCORE tests/replays/pk04-card.pk 51 vanquished 0 dead 1
+SCORE tests/replays/pk04-title.pk 51 vanquished 0 dead 1
+SCORE tests/cases/leap-lands.pk 856 vanquished 2 dead 0
+SCORE tests/cases/alternating-leap.pk 4 vanquished 0 dead 0

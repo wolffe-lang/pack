@@ -1,0 +1,28 @@
+use sim
+use replay
+use controls
+use std.fs
+
+fn main() {
+    let files = ["tests/replays/pk04-card.pk", "tests/replays/pk04-title.pk",
+        "tests/cases/leap-lands.pk", "tests/cases/alternating-leap.pk"]
+    let frames = [300, 300, 240, 24]
+    var i = 0
+    while i < files.len {
+        let path = files[i]
+        let text = fs.read_text(path) else |_| { print("FAIL read {path}"); return }
+        let rp = replay.from_text(text, controls.vocab()) else |_| { print("FAIL parse {path}"); return }
+        var s = sim.new_at(rp.seed, rp.cols, rp.rows, rp.start)
+        var keys = List[int]()
+        var tick = 0
+        while tick < frames[i] {
+            (mut keys).reset()
+            let (cols, rows, health) = replay.at(rp, tick, mut keys)
+            if cols > 0 { sim.resize(mut s, cols, rows) }
+            sim.step(mut s, keys, health)
+            tick += 1
+        }
+        print("SCORE {path} {sim.score(s)} vanquished {s.vanquished} dead {if s.dead then 1 else 0}")
+        i += 1
+    }
+}
