@@ -7,9 +7,11 @@
 //! replay and record paths, and the two tools the pty runner and the art
 //! study need (`--apply`, `--probe-glyphs`).
 //!
-//! Track 19 of the wolffe-lang planning repo; this is M-PK0, the engine:
-//! one wolf trotting up a scrolling path. The pack, the shadows, the deer
-//! and the card are pk01-pk03's.
+//! Track 19 of the wolffe-lang planning repo. pk00 was the engine (M-PK0:
+//! one wolf on a scrolling path); pk01 made it a pack in a forest (M-PK1:
+//! five wolves in formation, health as fainting and return, the forest's
+//! density, posture as the HUD). The shadows, the deer and the card are
+//! pk02's and pk03's.
 
 use art
 use clock
@@ -67,7 +69,8 @@ fn usage_text() -> str {
         "  --ticks N                         quit after N ticks\n" +
         "  --trace                           one line a tick on standard error: the bytes read, the keys\n" +
         "                                    applied, the steer and heading; a line per frame that carries a key\n" +
-        "  --debug                           allow the debug knobs: --speed-scale N (percent of every speed)\n"
+        "  --debug                           allow the debug knobs: --speed-scale N (percent of every speed),\n" +
+        "                                    the keys - and = (the pack's health down and up by ten)\n"
 }
 
 fn options_default() -> Options {
@@ -281,12 +284,12 @@ fn run_headless(o: Options, args: List[str]) -> int {
     var k = 0
     while k < o.frames {
         (mut keys).reset()
-        let (c, rows) = replay.at(r, k, mut keys)
+        let (c, rows, health) = replay.at(r, k, mut keys)
         if c > 0 {
             sim.resize(mut s, c, rows)
             g = grid.new(rows, c)
         }
-        sim.step(mut s, keys)
+        sim.step(mut s, keys, health)
         if (k + 1) % o.every == 0 && k + 1 < o.frames {
             art.render(s, r.tier, mut g)
             write_frame(o.dump, "frame-{pad4(k + 1)}", g) else |_| {
@@ -498,7 +501,7 @@ fn run_bench(o: Options) -> int {
         } else if k % 50 == 0 {
             (mut keys).push(sim.KEY_UP)
         }
-        sim.step(mut s, keys)
+        sim.step(mut s, keys, 0)
         let r0 = clock.now_ns()
         art.render(s, t, mut back)
         grid.diff(front, back, k == 0, mut pen, mut out, tier.dialect(t, false))
@@ -589,6 +592,10 @@ fn run_selftest() -> int {
     (mut rows).push("q|7")
     (mut rows).push("Q|7")
     (mut rows).push("\x03|8")
+    (mut rows).push("-|9")
+    (mut rows).push("_|9")
+    (mut rows).push("=|10")
+    (mut rows).push("+|10")
     (mut rows).push("\x1b|7")
     (mut rows).push("\x1b |7 6")
     (mut rows).push("\x1b[57;2u|")
@@ -784,8 +791,10 @@ fn run_live(o: Options, args: List[str]) -> int {
         var n = 0
         while n < due {
             (mut tick_keys).reset()
+            var health = 0
             if replaying {
-                let (rc, rr) = replay.at(rp, s.tick, mut tick_keys)
+                let (rc, rr, rh) = replay.at(rp, s.tick, mut tick_keys)
+                health = rh
                 if rc > 0 {
                     sim.resize(mut s, rc, rr)
                     front = grid.new(rr, rc)
@@ -802,16 +811,24 @@ fn run_live(o: Options, args: List[str]) -> int {
                     if k == input.KEY_QUIT || k == input.KEY_INTERRUPT {
                         ended = if k == input.KEY_QUIT then "the quit key" else "Ctrl-C as a byte"
                         quit = true
+                    } else if k == input.KEY_HEALTH_DOWN || k == input.KEY_HEALTH_UP {
+                        // The debug keys: health by ten, recorded as a
+                        // `health` event; nothing without --debug.
+                        if o.debug {
+                            let delta = if k == input.KEY_HEALTH_DOWN then -10 else 10
+                            health += delta
+                            replay.push_health(mut rec, s.tick, delta)
+                        }
                     } else {
                         (mut tick_keys).push(k)
                         replay.push_key(mut rec, s.tick, k)
                     }
                 }
             }
-            sim.step(mut s, tick_keys)
+            sim.step(mut s, tick_keys, health)
             if o.trace {
                 eprint(
-                    "trace tick {s.tick} in {trace_bytes} keys {tick_keys.len} queue {keys.len} steer {sim.steer_target(s)} heading {sim.steer_heading(s)} x {sim.steer_x(s)} y {sim.steer_y(s)} wall_us {(clock.now_ns() - t0_ns) / 1000}",
+                    "trace tick {s.tick} in {trace_bytes} keys {tick_keys.len} queue {keys.len} steer {sim.steer_target(s)} heading {sim.steer_heading(s)} x {sim.steer_x(s)} y {sim.steer_y(s)} stamina {s.stamina} health {s.health} down {s.down} spawn {sim.spawn_rate(s)} wall_us {(clock.now_ns() - t0_ns) / 1000}",
                 )
                 trace_bytes = 0
             }
@@ -876,7 +893,7 @@ fn run_live(o: Options, args: List[str]) -> int {
     let avg_us = if frames > 0 then render_ns / frames / 1000 else 0
     let late_avg_us = if late_n > 0 then late_ns / late_n / 1000 else 0
     eprint(
-        "pack: ended by {ended}; {s.tick} ticks, {frames} frames, {c.dropped} dropped, {c.waits} waits, {sim.distance_cells(s)} cells; render avg {avg_us} us max {render_max_ns / 1000} us; wait late avg {late_avg_us} us max {late_max_ns / 1000} us over {late_n}; seed {rp.seed} tier {tier.name(rp.tier)} {cols}x{rows}{if o.speed_scale != 100 then " speed-scale {o.speed_scale}" else ""}",
+        "pack: ended by {ended}; {s.tick} ticks, {frames} frames, {c.dropped} dropped, {c.waits} waits, {sim.distance_cells(s)} cells, health {s.health} ({s.down} down), stamina {s.stamina}; render avg {avg_us} us max {render_max_ns / 1000} us; wait late avg {late_avg_us} us max {late_max_ns / 1000} us over {late_n}; seed {rp.seed} tier {tier.name(rp.tier)} {cols}x{rows}{if o.speed_scale != 100 then " speed-scale {o.speed_scale}" else ""}",
     )
     0
 }
@@ -897,7 +914,7 @@ fn main() -> int {
         return 2
     }
     if o.version {
-        print("pack 0.0.0 (pk00: the engine)")
+        print("pack 0.1.0 (pk01: the pack and the forest)")
         return 0
     }
     if o.apply_path != "" {
