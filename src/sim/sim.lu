@@ -23,9 +23,44 @@
 //! **Health** is the pack's (campaign): at each floor the farthest wolf
 //! faints and is left behind as the world scrolls past; at each recovery
 //! threshold a fainted wolf sprints back from the bottom edge to its slot
-//! (R-pk01-3 A: at `RETURN_V`). Health moves only by the replay's `health`
-//! events (the goldens) and the debug keys until pk02's shadows. **Stamina**
-//! is one value for the pack (R-pk01-1 A): an exhausted pack pants.
+//! (R-pk01-3 A: at `RETURN_V`). Health moves by the shadows' landed attacks
+//! (pk02), by the replay's `health` events (the goldens) and by the debug
+//! keys. **Stamina** is one value for the pack (R-pk01-1 A): an exhausted
+//! pack pants, and cannot sprint or leap.
+//!
+//! **The shadows** (pk02, M-PK2). A shadow wolf has the wolves' realism
+//! bars: a position, a lateral heading turned at `SHADOW_TURN_RATE`
+//! (R-pk02-1 A: the wolves' rate), a speed moved at `SHADOW_ACCEL` and
+//! `SHADOW_BRAKE`, and a direction along the path. Shadows are the seed's:
+//! each tick the world's hash of the tick is rolled against
+//! `world.spawn_rate` (thousandths a tick) and a shadow appears at the
+//! forest edge just above the top of the screen — alone, or in a group of
+//! two or three once the rate passes `GROUP_RATE` — and lurks there, eyes
+//! on the path. A lurking shadow that sees a pack member within `PERCEIVE`
+//! cells turns toward it and stalks down the path at `STALK_V`; once the
+//! pack is past it, it decelerates, its direction flips only when its speed
+//! has reached zero (no pivot), and it chases at `CHASE_V` = 1.3 v, faster
+//! than the trot and slower than the sprint, so a sprint shakes it and a
+//! trot does not. Chasing shadows flock: separation (the pack's rule, now
+//! over every pair of bodies), cohesion toward the shadows within
+//! `FLOCK_CELLS`, and pursuit of the nearest pack member. A shadow within
+//! `REACH` of its target winds up an attack over `ATTACK_WINDUP` ticks and
+//! lands it if the target is still in reach: `DAMAGE` to the pack's health
+//! when another shadow is in reach too (a group attack lands once per
+//! shadow in it, R-pk02-2 A), `DAMAGE_LONE` alone; then `ATTACK_COOLDOWN`.
+//! A shadow more than `GONE_ROWS` behind the alpha is gone.
+//!
+//! **The leap** (Space) takes the pack together: `LEAP_STAMINA` paid, a
+//! lunge of `LEAP_TICKS` at the sprint, and every shadow within
+//! `LEAP_REACH` cells of a running wolf is vanquished (its eyes go out and
+//! its body fades over `FADE_TICKS`); the spent pack cannot leap — the
+//! pant refuses and nothing happens. **The parry** (Shift+Down or `z`) is
+//! a press, never a stance: for `PARRY_WINDOW` ticks any attack that lands
+//! is turned (no damage; the shadow recoils `PARRY_PUSH` cells over
+//! `PARRY_RECOIL` ticks and loses its speed), then `PARRY_COOLDOWN`
+//! (R-pk02-3 A). **Death**: at health 0 the alpha is alone, and the next
+//! landed attack ends the run (`dead`, `died_tick`); the simulation then
+//! stands still while the tick keeps counting for the card.
 //!
 //! The alpha's eye (innovation 2): the alpha sits `WOLF_ROW_FROM_BOTTOM`
 //! rows above the bottom of the screen, and the screen shows the path
@@ -165,6 +200,141 @@ pub const BODY_H: int = 2
 /// invisible), never through each other.
 pub const BUMP: int = 128
 
+// The shadows (pk02). Every number proposed 2026-10-25, the maintainer's
+// to tune by play (R-PK-7); mirrored in docs/DESIGN.md.
+
+/// A shadow's chase speed, 1.3 v (the campaign's bar: faster than the
+/// trot, slower than the sprint).
+pub const CHASE_V: int = 52
+
+/// A shadow stalking down the path toward the oncoming pack moves at v/2,
+/// so its turn happens on the screen rather than below it.
+pub const STALK_V: int = 20
+
+/// A shadow's acceleration, FP units a tick each tick (the wolves').
+pub const SHADOW_ACCEL: int = 4
+
+/// A shadow's braking (the wolves'): the deceleration before its turn.
+pub const SHADOW_BRAKE: int = 8
+
+/// A shadow's maximum turn rate, heading units a tick (R-pk02-1 A: the
+/// wolves' `TURN_RATE`).
+pub const SHADOW_TURN_RATE: int = 12
+
+/// The perception radius, cells: a lurking shadow turns toward a pack
+/// member this close (the larger of the sideways and the along distance).
+pub const PERCEIVE: int = 8
+
+/// Above this spawn rate (thousandths a tick) shadows come in groups.
+pub const GROUP_RATE: int = 5
+
+/// A shadow this many rows behind the alpha is gone.
+pub const GONE_ROWS: int = 12
+
+/// Shadows alive at once, at most (the spawn waits).
+pub const SHADOW_MAX: int = 12
+
+/// Attack reach, cells, as `PERCEIVE` measures: bodies three cells wide
+/// that touch sideways are three cells apart centre to centre, and a bump
+/// leaves them four; a shadow on a wolf's flank is in reach.
+pub const REACH: int = 4
+
+/// A chasing shadow stops steering toward its target's column this close
+/// to it (cells): it rides the flank where the bump left it rather than
+/// jostling in every tick.
+pub const FLANK: int = 4
+
+/// The ticks an attack winds up before it lands (300 ms: the lunge the
+/// player reads and parries).
+pub const ATTACK_WINDUP: int = 9
+
+/// The ticks between one shadow's attacks.
+pub const ATTACK_COOLDOWN: int = 30
+
+/// Health a landed attack costs when another shadow is in reach too (a
+/// group attack: two landed cost one wolf). R-pk02-2 A.
+pub const DAMAGE: int = 10
+
+/// Health a lone shadow's landed attack costs.
+pub const DAMAGE_LONE: int = 5
+
+/// Cohesion: a chasing shadow is drawn toward the other shadows within
+/// this many cells.
+pub const FLOCK_CELLS: int = 8
+
+/// The cohesion's pull: a shadow closes this fraction of its offset to the
+/// flock's centre a tick (1/32), at most `COHESION_MAX`.
+pub const COHESION: int = 32
+
+/// The cohesion's bound, FP units a tick.
+pub const COHESION_MAX: int = 8
+
+/// The leap's reach, cells from any running wolf: the attack reach, so a
+/// shadow that can bite can be leapt on.
+pub const LEAP_REACH: int = 4
+
+/// The ticks between leaps.
+pub const LEAP_COOLDOWN: int = 20
+
+/// Stamina a leap costs (a fifth of the ceiling: about five leaps, then
+/// the pant).
+pub const LEAP_STAMINA: int = 60
+
+/// The lunge: the pack at the sprint for this many ticks after a leap.
+pub const LEAP_TICKS: int = 6
+
+/// A vanquished shadow's body fades over this many ticks, then is gone.
+pub const FADE_TICKS: int = 15
+
+/// The parry's window, ticks after the press (R-pk02-3 A: 300 ms).
+pub const PARRY_WINDOW: int = 9
+
+/// The ticks between parries.
+pub const PARRY_COOLDOWN: int = 30
+
+/// A turned shadow recoils this many cells away from its target.
+pub const PARRY_PUSH: int = 3
+
+/// Over this many ticks (half a cell a tick: a visible knock-back, no
+/// teleport).
+pub const PARRY_RECOIL: int = 6
+
+/// The red eyes pulse every this many ticks while a shadow chases.
+pub const EYE_PULSE: int = 4
+
+/// A shadow's states.
+pub const LURKING: int = 0
+
+/// Chasing (or stalking) its target.
+pub const CHASING: int = 1
+
+/// Winding up an attack.
+pub const ATTACKING: int = 2
+
+/// Vanquished by a leap: fading.
+pub const VANQUISHED: int = 3
+
+/// Gone: removed at the end of the tick.
+pub const GONE: int = 4
+
+/// One shadow wolf: its position, lateral heading, speed and direction
+/// along the path (`dir` +1 up the path with the pack, -1 down toward the
+/// oncoming pack), its state, the pack member it pursues, its attack's
+/// windup and cooldown, a parry's recoil, its fade.
+pub struct Shadow {
+    x: int,
+    y: int,
+    heading: int,
+    speed: int,
+    dir: int,
+    state: int,
+    target: int,
+    windup: int,
+    cooldown: int,
+    recoil: int,
+    fade: int,
+}
+
 /// Postures (the HUD is posture, innovation 5).
 pub const POSTURE_TROT: int = 0
 
@@ -176,6 +346,9 @@ pub const POSTURE_SPRINT: int = 2
 
 /// Panting: exhausted, no sprint until `EXHAUST_RECOVER`.
 pub const POSTURE_PANT: int = 3
+
+/// Leaping: the lunge after Space (pk02).
+pub const POSTURE_LEAP: int = 4
 
 /// Stamina bands, read in the ears and the tail.
 pub const BAND_FRESH: int = 0
@@ -250,8 +423,8 @@ pub struct Wolf {
 
 /// The simulation: the seed, the screen's size, the tick count, the pack
 /// (the reference point and its steer, the five wolves, the shared stamina
-/// and health), and counts of the keys the engine does not yet act on
-/// (pk02's).
+/// and health), the shadows, the leap's and the parry's timers, the
+/// run's counts (vanquished, landed, turned, spawned) and its death.
 pub struct Sim {
     seed: int,
     cols: int,
@@ -276,6 +449,17 @@ pub struct Sim {
     speed_scale: int,
     leaps: int,
     parries: int,
+    shadows: List[Shadow],
+    leap_left: int,
+    leap_ready_at: int,
+    parry_until: int,
+    parry_ready_at: int,
+    vanquished: int,
+    landed: int,
+    turned: int,
+    spawned: int,
+    dead: bool,
+    died_tick: int,
 }
 
 /// A slot's sideways offset from the reference, in cells: the leaders two
@@ -362,6 +546,17 @@ pub fn new(seed: int, cols: int, rows: int) -> Sim {
         speed_scale: 100,
         leaps: 0,
         parries: 0,
+        shadows: List[Shadow](),
+        leap_left: 0,
+        leap_ready_at: 0,
+        parry_until: 0,
+        parry_ready_at: 0,
+        vanquished: 0,
+        landed: 0,
+        turned: 0,
+        spawned: 0,
+        dead: false,
+        died_tick: 0,
     }
 }
 
@@ -385,6 +580,13 @@ pub fn resize(mut s: Sim, cols: int, rows: int) {
             w.x = w.x * cols / s.cols
             s.wolves[i] = w
             i += 1
+        }
+        var k = 0
+        while k < s.shadows.len {
+            var sh = copy s.shadows[k]
+            sh.x = sh.x * cols / s.cols
+            s.shadows[k] = sh
+            k += 1
         }
     }
     s.cols = cols
@@ -470,7 +672,7 @@ fn pack_target(s: Sim) -> int {
     var target = scaled(s, TROT_V)
     if s.stopping {
         target = 0
-    } else if s.sprint_left > 0 {
+    } else if s.sprint_left > 0 || s.leap_left > 0 {
         target = scaled(s, SPRINT_V)
     }
     target * (100 - HEALTH_SLOW * (HEALTH_MAX - s.health) / HEALTH_MAX) / 100
@@ -574,6 +776,12 @@ fn health_step(mut s: Sim) {
 /// One tick: apply `keys` (in order) and `health_delta` (the replay's
 /// `health` event or a debug key; zero otherwise), then move the pack.
 pub fn step(mut s: Sim, keys: List[int], health_delta: int) {
+    if s.dead {
+        // The run is over: the world stands still under the card while the
+        // tick keeps counting (the replay's clock for the card's keys).
+        s.tick += 1
+        return
+    }
     // A run of the same key in one tick is one press (autorepeat bytes
     // that arrived together); the hold decides how long it lasts.
     var left = false
@@ -595,8 +803,13 @@ pub fn step(mut s: Sim, keys: List[int], health_delta: int) {
             s.sprint_left = 0
         } else if k == KEY_LEAP {
             s.leaps += 1
+            leap(mut s)
         } else if k == KEY_PARRY {
             s.parries += 1
+            if s.parry_ready_at <= s.tick {
+                s.parry_until = s.tick + PARRY_WINDOW
+                s.parry_ready_at = s.tick + PARRY_COOLDOWN
+            }
         }
     }
     if left {
@@ -605,8 +818,21 @@ pub fn step(mut s: Sim, keys: List[int], health_delta: int) {
     if right {
         hold_press(mut s.hold_right, s.tick)
     }
-    s.health = clamp(s.health + health_delta, 0, HEALTH_MAX)
+    // The shadows: spawn, perceive, chase, flock, attack. Their landed
+    // attacks join the replay's and the debug keys' channel into health;
+    // at health 0 the alpha is alone and the next landed attack ends the
+    // run.
+    spawn_shadows(mut s)
+    let damage = shadows_step(mut s)
+    if damage > 0 && s.health == 0 {
+        s.dead = true
+        s.died_tick = s.tick
+    }
+    s.health = clamp(s.health + health_delta - damage, 0, HEALTH_MAX)
     health_step(mut s)
+    if s.leap_left > 0 {
+        s.leap_left -= 1
+    }
     // Steering: the heading target is the held steer (both held cancel),
     // and the reference's heading turns toward it at the turn rate;
     // released, it returns to straight at the same rate and the sideways
@@ -726,12 +952,43 @@ fn split(speed: int, h: int) -> (int, int) {
     (vx, vy)
 }
 
-/// The separation rule: two running bodies whose footprints overlap are
-/// nudged apart sideways, each by `BUMP` or by half the overlap if that is
-/// more, the one on the left to the left; a tie goes by slot order. Pairs
-/// in a fixed order, and the pass repeats while a push made a new pair
-/// touch (at most `PACK_SIZE` passes), so the result is the seed's alone
-/// and no overlap survives; `bumps` counts the nudges.
+/// The bodies the separation rule sees: the five wolves, then the live
+/// shadows (a fainted wolf and a vanquished shadow are not bodies).
+fn body_count(s: Sim) -> int {
+    PACK_SIZE + s.shadows.len
+}
+
+/// Body `k`'s position and whether it is live: `(x, y, live)`.
+fn body(s: Sim, k: int) -> (int, int, bool) {
+    if k < PACK_SIZE {
+        let w = copy s.wolves[k]
+        return (w.x, w.y, w.state != FAINTED)
+    }
+    let sh = copy s.shadows[k - PACK_SIZE]
+    (sh.x, sh.y, sh.state != VANQUISHED && sh.state != GONE)
+}
+
+/// Move body `k` sideways to `x`.
+fn set_body_x(mut s: Sim, k: int, x: int) {
+    if k < PACK_SIZE {
+        var w = copy s.wolves[k]
+        w.x = x
+        s.wolves[k] = w
+        return
+    }
+    var sh = copy s.shadows[k - PACK_SIZE]
+    sh.x = x
+    s.shadows[k - PACK_SIZE] = sh
+}
+
+/// The separation rule over every pair of live bodies — wolves and
+/// shadows alike, so a pack wolf and a shadow bump too and nothing ever
+/// overlaps: two bodies whose footprints overlap are nudged apart
+/// sideways, each by `BUMP` or by half the overlap if that is more, the
+/// one on the left to the left; a tie goes by body order. Pairs in a fixed
+/// order, and the pass repeats while a push made a new pair touch (at most
+/// `PACK_SIZE` passes), so the result is the seed's alone and no overlap
+/// survives; `bumps` counts the nudges.
 fn separate(mut s: Sim) {
     var pass = 0
     while pass < PACK_SIZE && separate_pass(mut s) {
@@ -743,16 +1000,17 @@ fn separate(mut s: Sim) {
 fn separate_pass(mut s: Sim) -> bool {
     let sep_x = BODY_W * world.FP
     let sep_y = BODY_H * world.FP
+    let n = body_count(s)
     var pushed = false
     var i = 0
-    while i < PACK_SIZE {
+    while i < n {
         var j = i + 1
-        while j < PACK_SIZE {
-            var a = copy s.wolves[i]
-            var b = copy s.wolves[j]
-            if a.state != FAINTED && b.state != FAINTED {
-                let dx = b.x - a.x
-                let dy = b.y - a.y
+        while j < n {
+            let (ax0, ay, a_live) = body(s, i)
+            let (bx0, by, b_live) = body(s, j)
+            if a_live && b_live {
+                let dx = bx0 - ax0
+                let dy = by - ay
                 if abs(dx) < sep_x && abs(dy) < sep_y {
                     var push = (sep_x - abs(dx) + 1) / 2
                     if push < BUMP {
@@ -762,24 +1020,24 @@ fn separate_pass(mut s: Sim) -> bool {
                     pushed = true
                     // The one on the left goes left, the other right; the
                     // share the field's edge refuses one goes to the other.
+                    var lx = ax0
+                    var rx = bx0
                     if dx < 0 {
-                        let t = a
-                        a = b
-                        b = t
+                        lx = bx0
+                        rx = ax0
                     }
-                    let ax = clamp_x(a.x - push, s.cols)
-                    let lost_a = ax - (a.x - push)
-                    let bx = clamp_x(b.x + push + lost_a, s.cols)
-                    let lost_b = b.x + push + lost_a - bx
-                    a.x = clamp_x(ax - lost_b, s.cols)
-                    b.x = bx
+                    let lx1 = clamp_x(lx - push, s.cols)
+                    let lost_l = lx1 - (lx - push)
+                    let rx1 = clamp_x(rx + push + lost_l, s.cols)
+                    let lost_r = rx + push + lost_l - rx1
+                    let lx2 = clamp_x(lx1 - lost_r, s.cols)
                     if dx < 0 {
-                        let t = a
-                        a = b
-                        b = t
+                        set_body_x(mut s, i, rx1)
+                        set_body_x(mut s, j, lx2)
+                    } else {
+                        set_body_x(mut s, i, lx2)
+                        set_body_x(mut s, j, rx1)
                     }
-                    s.wolves[i] = a
-                    s.wolves[j] = b
                 }
             }
             j += 1
@@ -789,21 +1047,20 @@ fn separate_pass(mut s: Sim) -> bool {
     pushed
 }
 
-/// Whether any two running bodies overlap now (a test's and the trace's
-/// question; the separation rule keeps it false).
+/// Whether any two live bodies (wolves and shadows) overlap now (a test's
+/// and the trace's question; the separation rule keeps it false).
 pub fn any_overlap(s: Sim) -> bool {
     let sep_x = BODY_W * world.FP
     let sep_y = BODY_H * world.FP
+    let n = body_count(s)
     var i = 0
-    while i < PACK_SIZE {
+    while i < n {
         var j = i + 1
-        while j < PACK_SIZE {
-            let a = copy s.wolves[i]
-            let b = copy s.wolves[j]
-            if a.state != FAINTED && b.state != FAINTED {
-                if abs(b.x - a.x) < sep_x && abs(b.y - a.y) < sep_y {
-                    return true
-                }
+        while j < n {
+            let (ax, ay, a_live) = body(s, i)
+            let (bx, by, b_live) = body(s, j)
+            if a_live && b_live && abs(bx - ax) < sep_x && abs(by - ay) < sep_y {
+                return true
             }
             j += 1
         }
@@ -825,6 +1082,9 @@ pub fn wolf_posture(s: Sim, i: int) -> int {
     let w = copy s.wolves[i]
     if w.speed == 0 {
         return POSTURE_STAND
+    }
+    if s.leap_left > 0 && w.state == RUNNING {
+        return POSTURE_LEAP
     }
     if w.state == RETURNING || s.sprint_left > 0 && w.speed > scaled(s, TROT_V) {
         return POSTURE_SPRINT
@@ -882,4 +1142,380 @@ pub fn distance_cells(s: Sim) -> int {
 /// and the forest's density at its row (`world.spawn_rate`).
 pub fn spawn_rate(s: Sim) -> int {
     world.spawn_rate(s.seed, alpha(s).y / world.FP)
+}
+
+// The shadows (pk02).
+
+/// A shadow's row on the screen (its body's), by the alpha's eye.
+pub fn shadow_screen_row(s: Sim, k: int) -> int {
+    wolf_row(s) - (s.shadows[k].y / world.FP - alpha(s).y / world.FP)
+}
+
+/// A shadow's screen column.
+pub fn shadow_screen_col(s: Sim, k: int) -> int {
+    s.shadows[k].x / world.FP
+}
+
+/// Whether a shadow is alive (lurking, chasing or attacking).
+pub fn shadow_alive(sh: Shadow) -> bool {
+    sh.state == LURKING || sh.state == CHASING || sh.state == ATTACKING
+}
+
+/// How many shadows are alive now.
+pub fn shadows_alive(s: Sim) -> int {
+    var n = 0
+    for sh in s.shadows {
+        if shadow_alive(sh) {
+            n += 1
+        }
+    }
+    n
+}
+
+/// The eye variant a shadow is drawn with at `tick`: 1 (dim) while it
+/// lurks or is pushed back, pulsing bright and dim every `EYE_PULSE` ticks
+/// while it chases, 0 (bright, steady) through an attack's windup.
+pub fn shadow_eyes(sh: Shadow, tick: int) -> int {
+    if sh.state == ATTACKING {
+        return 0
+    }
+    if sh.state == CHASING && sh.recoil == 0 {
+        return tick / EYE_PULSE % 2
+    }
+    1
+}
+
+/// The spawn roll at `tick`: how many shadows appear (0 for none): the
+/// world's hash of the tick against `rate` thousandths; one, or two or
+/// three (by a second hash) once the rate passes `GROUP_RATE`. Pure, so a
+/// run's spawns are the seed's and a test can read the odds.
+pub fn spawn_roll(seed: int, tick: int, rate: int) -> int {
+    if world.hash(seed + 5000, tick, 1, 1000) >= rate {
+        return 0
+    }
+    if rate <= GROUP_RATE {
+        return 1
+    }
+    2 + world.hash(seed + 5000, tick, 2, 2)
+}
+
+/// A shadow lurking at the forest edge of world row `row`, on `side` (-1
+/// left, 1 right): half a cell into the verge, facing down the path.
+fn lurker(s: Sim, row: int, side: int) -> Shadow {
+    let (centre, half) = world.path(s.seed, s.cols, row)
+    Shadow {
+        x: clamp_x(centre + side * (half + world.FP / 2), s.cols),
+        y: row * world.FP,
+        heading: 0,
+        speed: 0,
+        dir: -1,
+        state: LURKING,
+        target: ALPHA,
+        windup: 0,
+        cooldown: 0,
+        recoil: 0,
+        fade: 0,
+    }
+}
+
+/// Spawn: roll the tick; a shadow (or a group spaced three rows apart,
+/// the same side) appears at the forest edge one row above the top of the
+/// screen, while fewer than `SHADOW_MAX` are alive.
+fn spawn_shadows(mut s: Sim) {
+    let n = spawn_roll(s.seed, s.tick, spawn_rate(s))
+    if n == 0 {
+        return
+    }
+    let side = if world.hash(s.seed + 5000, s.tick, 3, 2) == 0 then -1 else 1
+    let top = world_row(s, 0) + 1
+    var k = 0
+    while k < n && shadows_alive(s) < SHADOW_MAX {
+        (mut s.shadows).push(lurker(s, top + 3 * k, side))
+        s.spawned += 1
+        k += 1
+    }
+}
+
+/// Place `n` shadows chasing around the pack at once (the perf gate's
+/// `--bench-shadows`; nothing in a game calls it).
+pub fn seed_shadows(mut s: Sim, n: int) {
+    var k = 0
+    while k < n {
+        let side = if k % 2 == 0 then -1 else 1
+        let row = alpha(s).y / world.FP + 10 - 3 * k
+        var sh = lurker(s, row, side)
+        sh.state = CHASING
+        sh.dir = if k % 3 == 0 then -1 else 1
+        sh.speed = if k % 3 == 0 then STALK_V else CHASE_V
+        (mut s.shadows).push(sh)
+        k += 1
+    }
+}
+
+/// The distance between two points as `PERCEIVE` and `REACH` measure it:
+/// the larger of the sideways and the along distance, in FP units.
+fn reach_dist(ax: int, ay: int, bx: int, by: int) -> int {
+    let dx = abs(bx - ax)
+    let dy = abs(by - ay)
+    if dx > dy then dx else dy
+}
+
+/// The nearest running or returning pack member to `(x, y)`, or -1 when
+/// every wolf has fainted (never: the alpha never faints).
+fn nearest_wolf(s: Sim, x: int, y: int) -> int {
+    var best = -1
+    var best_d = 0
+    var i = 0
+    while i < PACK_SIZE {
+        let w = copy s.wolves[i]
+        if w.state != FAINTED {
+            let d = reach_dist(x, y, w.x, w.y)
+            if best < 0 || d < best_d {
+                best = i
+                best_d = d
+            }
+        }
+        i += 1
+    }
+    best
+}
+
+/// How many shadows are alive within `REACH` of any running wolf.
+fn shadows_in_reach(s: Sim) -> int {
+    var n = 0
+    for sh in s.shadows {
+        if shadow_alive(sh) {
+            let w = copy s.wolves[sh.target]
+            if w.state != FAINTED && reach_dist(sh.x, sh.y, w.x, w.y) <= REACH * world.FP {
+                n += 1
+            }
+        }
+    }
+    n
+}
+
+/// The leap: the pack together, paid in stamina; every shadow within
+/// `LEAP_REACH` of a running wolf is vanquished. The spent pack cannot
+/// leap: the pant refuses, nothing happens.
+fn leap(mut s: Sim) {
+    if s.exhausted || s.stamina < LEAP_STAMINA || s.leap_ready_at > s.tick {
+        return
+    }
+    s.stamina -= LEAP_STAMINA
+    s.leap_ready_at = s.tick + LEAP_COOLDOWN
+    s.leap_left = LEAP_TICKS
+    s.stopping = false
+    var k = 0
+    while k < s.shadows.len {
+        var sh = copy s.shadows[k]
+        if shadow_alive(sh) {
+            var hit = false
+            var i = 0
+            while i < PACK_SIZE {
+                let w = copy s.wolves[i]
+                if w.state != FAINTED && reach_dist(sh.x, sh.y, w.x, w.y) <= LEAP_REACH * world.FP {
+                    hit = true
+                }
+                i += 1
+            }
+            if hit {
+                sh.state = VANQUISHED
+                sh.fade = 0
+                sh.speed = 0
+                s.shadows[k] = sh
+                s.vanquished += 1
+            }
+        }
+        k += 1
+    }
+}
+
+/// One tick of every shadow: perception, the chase (direction, speed,
+/// heading, the move), the flock's cohesion, the attack; the health the
+/// landed attacks cost is returned (a turned attack costs nothing). Gone
+/// shadows are dropped from the list at the end.
+fn shadows_step(mut s: Sim) -> int {
+    var damage = 0
+    let in_reach_before = shadows_in_reach(s)
+    var k = 0
+    while k < s.shadows.len {
+        var sh = copy s.shadows[k]
+        if sh.state == VANQUISHED {
+            sh.fade += 1
+            if sh.fade >= FADE_TICKS {
+                sh.state = GONE
+            }
+            s.shadows[k] = sh
+            k += 1
+            continue
+        }
+        if sh.state == GONE {
+            k += 1
+            continue
+        }
+        // Pursuit of the nearest pack member; perception for a lurker.
+        let t = nearest_wolf(s, sh.x, sh.y)
+        if t >= 0 {
+            sh.target = t
+        }
+        let w = copy s.wolves[sh.target]
+        let d = reach_dist(sh.x, sh.y, w.x, w.y)
+        if sh.state == LURKING {
+            if d <= PERCEIVE * world.FP {
+                sh.state = CHASING
+            }
+        }
+        if sh.state != LURKING {
+            if sh.recoil > 0 {
+                // The parry's knock-back: half a cell a tick away from the
+                // target, the speed lost.
+                sh.recoil -= 1
+                sh.speed = 0
+                let away = if sh.y >= w.y then 1 else -1
+                sh.y += away * PARRY_PUSH * world.FP / PARRY_RECOIL
+            } else {
+                // Where it wants to go: up the path after a pack that
+                // passed it at the chase speed, down the path toward an
+                // oncoming pack at the stalk, level with a target in reach.
+                let want_dir = if w.y > sh.y then 1 else -1
+                var want_speed = if want_dir > 0 then scaled(s, CHASE_V) else scaled(s, STALK_V)
+                if abs(w.y - sh.y) <= REACH * world.FP && want_dir == sh.dir {
+                    want_speed = if w.speed < want_speed then w.speed else want_speed
+                }
+                if want_dir != sh.dir {
+                    // Decelerate; the direction flips only at rest (no pivot).
+                    sh.speed = toward(sh.speed, 0, scaled(s, SHADOW_BRAKE))
+                    if sh.speed == 0 {
+                        sh.dir = want_dir
+                    }
+                } else {
+                    sh.speed = toward(
+                        sh.speed,
+                        want_speed,
+                        if want_speed < sh.speed {
+                            scaled(s, SHADOW_BRAKE)
+                        } else {
+                            scaled(s, SHADOW_ACCEL)
+                        },
+                    )
+                }
+                // The lateral heading turns toward the target's column at
+                // the turn rate; the move is the heading's split of the
+                // speed along its direction.
+                let off = w.x - sh.x
+                let aim = if off > FLANK * world.FP {
+                    STEER_HEADING
+                } else if off < 0 - FLANK * world.FP {
+                    0 - STEER_HEADING
+                } else {
+                    0
+                }
+                sh.heading = toward(sh.heading, aim, SHADOW_TURN_RATE)
+                let lateral = if sh.speed > scaled(s, STALK_V) then sh.speed else scaled(s, STALK_V)
+                let (vx, _) = split(lateral, sh.heading)
+                let (_, vy) = split(sh.speed, sh.heading)
+                var nx = sh.x + vx
+                // Cohesion toward the other chasing shadows within
+                // FLOCK_CELLS, bounded.
+                let (cx, cy) = cohesion(s, k)
+                nx += cx
+                sh.x = clamp_x(nx, s.cols)
+                sh.y += sh.dir * vy + cy
+            }
+            // The attack: in reach, wind up; landing, cost health unless a
+            // parry turns it; then the cooldown.
+            if sh.cooldown > 0 {
+                sh.cooldown -= 1
+            }
+            let w2 = copy s.wolves[sh.target]
+            let near = reach_dist(sh.x, sh.y, w2.x, w2.y) <= REACH * world.FP
+            if sh.state == ATTACKING {
+                if !near {
+                    sh.state = CHASING
+                    sh.windup = 0
+                } else {
+                    sh.windup -= 1
+                    if sh.windup <= 0 {
+                        if s.tick < s.parry_until {
+                            s.turned += 1
+                            sh.recoil = PARRY_RECOIL
+                            sh.speed = 0
+                        } else {
+                            damage += if in_reach_before >= 2 then DAMAGE else DAMAGE_LONE
+                            s.landed += 1
+                        }
+                        sh.state = CHASING
+                        sh.cooldown = ATTACK_COOLDOWN
+                    }
+                }
+            } else if near && sh.cooldown == 0 && sh.recoil == 0 {
+                sh.state = ATTACKING
+                sh.windup = ATTACK_WINDUP
+            }
+        }
+        // Shaken, or never woken: far enough behind the alpha, it is gone.
+        if sh.y < alpha(s).y - GONE_ROWS * world.FP {
+            sh.state = GONE
+        }
+        s.shadows[k] = sh
+        k += 1
+    }
+    // Drop the gone, keeping order (the pairs' order is the seed's).
+    var n = 0
+    k = 0
+    while k < s.shadows.len {
+        if s.shadows[k].state != GONE {
+            if n != k {
+                s.shadows[n] = copy s.shadows[k]
+            }
+            n += 1
+        }
+        k += 1
+    }
+    while s.shadows.len > n {
+        let _ = (mut s.shadows).pop() else lurker(s, 0, 1)
+    }
+    damage
+}
+
+/// The cohesion pull on shadow `k`: toward the centre of the other alive
+/// chasing shadows within `FLOCK_CELLS`, a fraction of the offset a tick,
+/// bounded.
+fn cohesion(s: Sim, k: int) -> (int, int) {
+    let me = copy s.shadows[k]
+    var sx: int = 0
+    var sy: int = 0
+    var n = 0
+    var j = 0
+    while j < s.shadows.len {
+        if j != k {
+            let o = copy s.shadows[j]
+            if o.state == CHASING || o.state == ATTACKING {
+                if reach_dist(me.x, me.y, o.x, o.y) <= FLOCK_CELLS * world.FP {
+                    sx += o.x
+                    sy += o.y
+                    n += 1
+                }
+            }
+        }
+        j += 1
+    }
+    if n == 0 {
+        return (0, 0)
+    }
+    (
+        clamp((sx / n - me.x) / COHESION, 0 - COHESION_MAX, COHESION_MAX),
+        clamp((sy / n - me.y) / COHESION, 0 - COHESION_MAX, COHESION_MAX),
+    )
+}
+
+/// Seconds the run lasted (to its death, or so far).
+pub fn seconds(s: Sim) -> int {
+    (if s.dead then s.died_tick else s.tick) / 30
+}
+
+/// The score: shadows vanquished × 100 + seconds survived × 2 + the
+/// distance in cells (the campaign's formula).
+pub fn score(s: Sim) -> int {
+    s.vanquished * 100 + seconds(s) * 2 + distance_cells(s)
 }
