@@ -5,7 +5,9 @@
 //! forest edge, the formation (slots, lag, wander, no overlap), health as
 //! fainting and return, the spawn rate.
 
+use input
 use sim
+use trail
 use world
 
 fn none() -> List[int] {
@@ -189,7 +191,7 @@ fn test_a_tap_holds_for_the_tap_ticks() {
         sim.step(mut s, none(), 0)
         i += 1
     }
-    assert(held_ticks == sim.HOLD_TAP_TICKS, "held for {held_ticks} ticks")
+    assert(held_ticks == input.HOLD_TAP_TICKS, "held for {held_ticks} ticks")
 }
 
 fn pressed(i: int) -> bool {
@@ -217,7 +219,7 @@ fn test_a_held_run_releases_within_the_interval_and_margin() {
         i += 1
     }
     assert(
-        released_at > last_press && released_at <= last_press + 3 + sim.HOLD_MARGIN + 1,
+        released_at > last_press && released_at <= last_press + 3 + input.HOLD_MARGIN + 1,
         "released at {released_at}, the last press at {last_press}",
     )
     assert(s.heading == 0, "straight by tick 120")
@@ -454,10 +456,10 @@ fn test_spawn_rate_is_the_worlds_at_the_alphas_row() {
     var s = sim.new(3, 80, 24)
     run(mut s, 100)
     assert(
-        sim.spawn_rate(s) == world.spawn_rate(3, sim.distance_cells(s)),
+        sim.spawn_rate(s) == trail.spawn_rate(3, sim.distance_cells(s)),
         "the alpha's row feeds the rate: {sim.spawn_rate(s)}",
     )
-    assert(world.spawn_rate(3, 4000) > world.spawn_rate(3, 0), "and it rises with distance")
+    assert(trail.spawn_rate(3, 4000) > trail.spawn_rate(3, 0), "and it rises with distance")
 }
 
 // The shadows (pk02).
@@ -520,7 +522,7 @@ fn test_shadows_spawn_at_the_edge_ahead_from_the_seed() {
         if first_tick < 0 && a.spawned > 0 {
             first_tick = i
             let sh = copy a.shadows[0]
-            let (centre, half) = world.path(16, 80, sh.y / world.FP)
+            let (centre, half) = trail.path(16, 80, sh.y / world.FP)
             let d = if sh.x > centre then sh.x - centre else centre - sh.x
             assert(d > half, "spawned in the forest edge, not on the path: {d} vs {half}")
             assert(sh.state == sim.LURKING && sh.speed == 0, "a lurker stands still")
@@ -846,10 +848,10 @@ fn test_deer_roll_is_the_seeds_and_rarer_than_the_shadows() {
     var shadows = 0
     var tick = 0
     while tick < 3000 {
-        if sim.deer_roll(9, tick, world.deer_rate(9, 0)) {
+        if sim.deer_roll(9, tick, trail.deer_rate(9, 0)) {
             deer += 1
         }
-        if sim.spawn_roll(9, tick, world.SPAWN_CEILING) > 0 {
+        if sim.spawn_roll(9, tick, trail.SPAWN_CEILING) > 0 {
             shadows += 1
         }
         assert(
@@ -878,7 +880,7 @@ fn test_deer_spawn_on_the_path_ahead_from_the_seed() {
         if first < 0 && a.deer_spawned > 0 {
             first = i
             let d = copy a.deer[0]
-            let (centre, half) = world.path(11, 80, d.y / world.FP)
+            let (centre, half) = trail.path(11, 80, d.y / world.FP)
             let off = if d.x > centre then d.x - centre else centre - d.x
             assert(off <= half, "spawned on the path: {off} inside {half}")
             assert(d.state == sim.DEER_WANDERING, "a grazer")
@@ -1028,41 +1030,41 @@ fn test_the_curve_is_gentle_first_then_groups_then_a_ceiling() {
     // thousandth; groups (above GROUP_RATE) come only after the ramp has
     // climbed to them (the first forty-five seconds at the trot); the
     // ceiling holds far out, and the second minute is a fight.
-    let groups_from = (sim.GROUP_RATE - world.SPAWN_RAMP_BASE + 1) * world.SPAWN_RAMP_ROWS
+    let groups_from = (sim.GROUP_RATE - trail.SPAWN_RAMP_BASE + 1) * trail.SPAWN_RAMP_ROWS
     var seed = 1
     while seed <= 20 {
         var r = 0
-        while r < world.SPAWN_RAMP_ROWS {
+        while r < trail.SPAWN_RAMP_ROWS {
             assert(
-                world.spawn_rate(seed, r) <= 1,
-                "seed {seed} row {r}: {world.spawn_rate(seed, r)}",
+                trail.spawn_rate(seed, r) <= 1,
+                "seed {seed} row {r}: {trail.spawn_rate(seed, r)}",
             )
             r += 7
         }
         r = 0
         while r < groups_from {
             assert(
-                world.spawn_rate(seed, r) <= sim.GROUP_RATE,
+                trail.spawn_rate(seed, r) <= sim.GROUP_RATE,
                 "no groups before row {groups_from}",
             )
             r += 10
         }
-        assert(world.spawn_rate(seed, 5000) == world.SPAWN_CEILING, "the ceiling at 5000 rows")
+        assert(trail.spawn_rate(seed, 5000) == trail.SPAWN_CEILING, "the ceiling at 5000 rows")
         assert(
-            world.spawn_rate(seed, 560) >= 4,
-            "the second minute is a fight: {world.spawn_rate(seed, 560)}",
+            trail.spawn_rate(seed, 560) >= 4,
+            "the second minute is a fight: {trail.spawn_rate(seed, 560)}",
         )
         seed += 1
     }
     assert(groups_from >= 200, "groups no sooner than forty seconds: row {groups_from}")
     // Seed 16 (a stand) reaches groups within two minutes.
-    assert(world.spawn_rate(16, 560) > sim.GROUP_RATE, "groups by the second minute in a stand")
+    assert(trail.spawn_rate(16, 560) > sim.GROUP_RATE, "groups by the second minute in a stand")
 }
 
 fn test_deer_rate_follows_the_curve_and_the_clearings() {
-    assert(world.deer_rate(11, 0) > world.deer_rate(16, 0), "more deer in a clearing than a stand")
-    assert(world.deer_rate(7, 5000) > world.deer_rate(7, 0), "more deer as the shadows come")
-    assert(world.deer_rate(7, 0) >= 1, "never none")
+    assert(trail.deer_rate(11, 0) > trail.deer_rate(16, 0), "more deer in a clearing than a stand")
+    assert(trail.deer_rate(7, 5000) > trail.deer_rate(7, 0), "more deer as the shadows come")
+    assert(trail.deer_rate(7, 0) >= 1, "never none")
 }
 
 fn test_a_spawn_lurks_on_the_outside_of_the_bend() {
@@ -1074,8 +1076,8 @@ fn test_a_spawn_lurks_on_the_outside_of_the_bend() {
     while seed <= 40 && !found {
         var s = sim.new(seed, 80, 24)
         let top = sim.world_row(s, 0) + 1
-        let (here, _) = world.path(seed, 80, 0)
-        let (there, _) = world.path(seed, 80, top)
+        let (here, _) = trail.path(seed, 80, 0)
+        let (there, _) = trail.path(seed, 80, top)
         if there - here > world.FP {
             assert(sim.spawn_side(s, top) == -1, "seed {seed}: bending right, the left verge")
             found = true
@@ -1108,8 +1110,8 @@ fn test_a_run_can_start_up_the_path() {
     var s = sim.new_at(7, 80, 24, 1200)
     assert(sim.distance_cells(s) == 1200, "the alpha at row 1200: {sim.distance_cells(s)}")
     assert(sim.phase(s) == 256, "full dusk there")
-    assert(sim.spawn_rate(s) == world.spawn_rate(7, 1200), "the curve read there")
-    let (centre, half) = world.path(7, 80, 1200)
+    assert(sim.spawn_rate(s) == trail.spawn_rate(7, 1200), "the curve read there")
+    let (centre, half) = trail.path(7, 80, 1200)
     let a = sim.alpha(s)
     assert(a.x >= centre - half && a.x <= centre + half, "on the path at row 1200")
     run(mut s, 10)

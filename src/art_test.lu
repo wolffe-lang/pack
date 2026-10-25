@@ -9,6 +9,7 @@
 use art
 use grid
 use sim
+use sprites
 use tier
 use world
 
@@ -38,7 +39,7 @@ fn test_alpha_sits_low_on_the_screen_and_the_pack_ahead() {
     art.render(s, tier.RICH, mut g)
     let row = sim.wolf_row(s)
     let col = sim.screen_col(s, sim.ALPHA)
-    let body = tier.glyph(tier.RICH, tier.SP_WOLF_BODY, 0)
+    let body = sprites.glyph(tier.RICH, sprites.SP_WOLF_BODY, 0)
     assert(grid.same(grid.at(g, row, col), body), "the alpha's body cell at {row},{col}")
     assert(row == 19, "row {row} of 24")
     var i = 0
@@ -70,7 +71,7 @@ fn test_a_fainted_wolf_is_drawn_where_it_lies_then_leaves_the_screen() {
     assert(f >= 0, "one fainted")
     var g = grid.new(24, 80)
     art.render(s, tier.RICH, mut g)
-    let fainted = tier.glyph(tier.RICH, tier.SP_FAINTED, 0)
+    let fainted = sprites.glyph(tier.RICH, sprites.SP_FAINTED, 0)
     assert(
         grid.same(grid.at(g, sim.screen_row(s, f), sim.screen_col(s, f)), fainted),
         "drawn fainted at {sim.screen_row(s, f)}",
@@ -178,14 +179,14 @@ fn test_a_shadow_is_drawn_where_the_simulation_has_it_eyes_toward_the_pack() {
     art.render(s, tier.RICH, mut g)
     let row = sim.shadow_screen_row(s, 0)
     let col = sim.shadow_screen_col(s, 0)
-    let body = tier.glyph(tier.RICH, tier.SP_SHADOW_BODY, 0)
+    let body = sprites.glyph(tier.RICH, sprites.SP_SHADOW_BODY, 0)
     assert(grid.same(grid.at(g, row, col), body), "the body row at {row},{col}")
     // Facing up the path (chasing from behind): the eyes are on the row above.
     let eye = grid.at(g, row - 1, col - 1)
-    assert(eye.cp == tier.glyph(tier.RICH, tier.SP_SHADOW_EYE, 0).cp, "an eye above the body")
+    assert(eye.cp == sprites.glyph(tier.RICH, sprites.SP_SHADOW_EYE, 0).cp, "an eye above the body")
     assert(
-        eye.fg == tier.palette(tier.RICH, tier.C_EYE) ||
-            eye.fg == tier.palette(tier.RICH, tier.C_EYE_DIM),
+        eye.fg == sprites.palette(tier.RICH, sprites.C_EYE) ||
+            eye.fg == sprites.palette(tier.RICH, sprites.C_EYE_DIM),
         "red",
     )
     // Facing down (lurking ahead): the eyes are on the row below.
@@ -200,7 +201,7 @@ fn test_a_shadow_is_drawn_where_the_simulation_has_it_eyes_toward_the_pack() {
     let lr = sim.shadow_screen_row(l, 0)
     let lc = sim.shadow_screen_col(l, 0)
     assert(
-        grid.at(h, lr, lc - 1).cp == tier.glyph(tier.RICH, tier.SP_SHADOW_EYE, 1).cp,
+        grid.at(h, lr, lc - 1).cp == sprites.glyph(tier.RICH, sprites.SP_SHADOW_EYE, 1).cp,
         "eyes below the body, dim",
     )
     assert(grid.same(grid.at(h, lr - 1, lc), body), "the body above")
@@ -218,18 +219,18 @@ fn test_a_vanquished_shadow_fades_then_is_not_drawn() {
     let col = sim.shadow_screen_col(s, 0)
     let shade = grid.at(g, row, col)
     assert(
-        shade.cp == tier.glyph(tier.RICH, tier.SP_SHADOW_BODY, 1).cp,
+        shade.cp == sprites.glyph(tier.RICH, sprites.SP_SHADOW_BODY, 1).cp,
         "the dark shade early in the fade",
     )
     assert(
-        grid.at(g, row - 1, col - 1).cp != tier.glyph(tier.RICH, tier.SP_SHADOW_EYE, 0).cp,
+        grid.at(g, row - 1, col - 1).cp != sprites.glyph(tier.RICH, sprites.SP_SHADOW_EYE, 0).cp,
         "the eyes are out",
     )
     s.shadows[0].fade = sim.FADE_TICKS - 2
     var h = grid.new(24, 80)
     art.render(s, tier.RICH, mut h)
     assert(
-        grid.at(h, row, col).cp == tier.glyph(tier.RICH, tier.SP_SHADOW_BODY, 2).cp,
+        grid.at(h, row, col).cp == sprites.glyph(tier.RICH, sprites.SP_SHADOW_BODY, 2).cp,
         "the light shade late",
     )
 }
@@ -348,13 +349,16 @@ fn test_night_changes_the_colours_and_not_the_glyphs() {
     let row = sim.wolf_row(night)
     let col = sim.screen_col(night, sim.ALPHA)
     let body = grid.at(a, row, col)
-    assert(body.fg == tier.rich_key(tier.C_FUR, 2), "the alpha's fur is night's: {body.fg}")
-    assert(body.bg == tier.rich_key(tier.C_PATH, 2), "on night's path: {body.bg}")
-    assert(body.cp == tier.glyph(tier.RICH, tier.SP_WOLF_BODY, 0).cp, "the glyph is the day's")
+    assert(body.fg == sprites.rich_key(sprites.C_FUR, 2), "the alpha's fur is night's: {body.fg}")
+    assert(body.bg == sprites.rich_key(sprites.C_PATH, 2), "on night's path: {body.bg}")
+    assert(
+        body.cp == sprites.glyph(tier.RICH, sprites.SP_WOLF_BODY, 0).cp,
+        "the glyph is the day's",
+    )
     var floor_cells = 0
     var i = 0
     while i < a.cells.len {
-        if a.cells[i].bg == tier.rich_key(tier.C_FLOOR, 2) {
+        if a.cells[i].bg == sprites.rich_key(sprites.C_FLOOR, 2) {
             floor_cells += 1
         }
         i += 1
@@ -368,8 +372,8 @@ fn test_night_changes_the_colours_and_not_the_glyphs() {
     let scol = sim.shadow_screen_col(night, 0)
     let eye = grid.at(g, srow - 1, scol - 1)
     assert(
-        eye.fg == tier.palette(tier.RICH, tier.C_EYE) ||
-            eye.fg == tier.palette(tier.RICH, tier.C_EYE_DIM),
+        eye.fg == sprites.palette(tier.RICH, sprites.C_EYE) ||
+            eye.fg == sprites.palette(tier.RICH, sprites.C_EYE_DIM),
         "red at night",
     )
     // Dusk is neither: between the keyframes on the path.
@@ -378,7 +382,8 @@ fn test_night_changes_the_colours_and_not_the_glyphs() {
     art.render(dusk, tier.RICH, mut d)
     let dbody = grid.at(d, sim.wolf_row(dusk), sim.screen_col(dusk, sim.ALPHA))
     assert(
-        dbody.bg != tier.rich_key(tier.C_PATH, 0) && dbody.bg != tier.rich_key(tier.C_PATH, 2),
+        dbody.bg != sprites.rich_key(sprites.C_PATH, 0) &&
+            dbody.bg != sprites.rich_key(sprites.C_PATH, 2),
         "between dusk and night the path is neither day's nor night's: {dbody.bg}",
     )
     var p = grid.new(24, 80)
