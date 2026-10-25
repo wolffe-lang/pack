@@ -23,8 +23,11 @@ The terminal must be at least 80 columns by 24 rows; the field grows to fill a l
 deer, dusk, the death card and replays verified. Deer graze the path and bolt up it at one and a half
 times the trot when a wolf comes close; they tire, slow below the trot and are run down, and each one
 brought down feeds the pack (the first thing that raises health, so a fainted wolf can return). The
-difficulty curve ramps with distance: groups begin no sooner than about 46 seconds at a flat trot,
-and the ceiling arrives in roughly three to four minutes, with more deer where there are more shadows and in clearings. The afternoon turns to
+first shadow appears alone after twenty to thirty seconds. Further births are at least two seconds apart,
+with groups only after the first minute and no forest-edge lurker clump larger than five. The distance
+curve rises smoothly toward its ceiling in roughly three to four minutes. Deer become moderately more
+frequent as health falls, up to twice the normal rate at quarter health, with at most four while hurt
+instead of three; they still have to be caught. Healthy packs keep the original deer schedule. The afternoon turns to
 dusk after about 111 seconds at a flat trot and to night after about 334, on both tiers, the shadows' red eyes unchanged so
 they come with the dark. The title card holds the seed, the last score and the best (kept in
 `~/.pack/best`), runs the same seed again on `r`, the next on any key, and plays a saved replay (`p` the
@@ -83,7 +86,8 @@ target/pack --debug --speed-scale 150   every speed at 150 percent, to tune by p
 `pack --help` lists the rest: the headless mode that writes frames for the goldens, `--bench`, `--trace`
 (one line a tick on standard error), the glyph probe. Seeds worth a look: 11 starts in a clearing with
 deer; 4 has a deer on the path within two seconds; 3 shows the pack bump in a right turn; 16 starts in a
-dense stand, and `--seed 16 --start 600` puts a group of three shadows on you within five seconds.
+dense stand; `--start` advances the forest and dusk but never bypasses the twenty-second quiet opening
+or the first-minute restriction on groups.
 
 ## Tests
 
@@ -91,12 +95,12 @@ Determinism is the oracle. A run is a pure function of the seed, the inputs, the
 `tests/cases/*.pk` (thirty-eight cases: a standstill, a trot, a steer into the forest, a sprint to exhaustion, a
 formation turn with a bump, a faint and a return, a clearing, a dense stand, a resize mid-run, the wide
 field, the shadows' five — a spawn and a chase with the turn, a group attack, a leap that lands and the
-fade, a parry that turns an attack, a death and its card, all from row 600 where the curve has groups — a
+fade, a parry that turns an attack, a death and its card, all from row 600 with capture windows retimed to the first paced births — a
 deer fleeing and run down, dusk coming, dusk and night, alternating pack leaps, and a shadow
 windup captured every tick, plus nine aimed-leap cases including the default and Up, and eight last-key-only repeat cases covering every diagonal in both orders) are run headless on both tiers and diffed
 against `tests/goldens/` cell for cell (`.lair/tools/goldens`), with the art study's sheets and the title card.
 Shadows and deer are the seed's, never a replay event, so the same file meets the same on every machine.
-The unit tests (`.lair/tools/test`, 160 of them (pack 99, pinned engine 61)) cover the diff renderer with a terminal model, the key decoder
+The unit tests (`.lair/tools/test`, 175 of them (pack 114, pinned engine 61)) cover the diff renderer with a terminal model, the key decoder
 with every sequence split at every byte and the prompt's text mode, the clock, the world's noise and
 density, the curve and the deer's rate, the simulation's bars (the speeds, the turn rate, the held key, the
 formation's lag, the wander and the bumps, health's floors and returns, the shadows' roll, perception, the
