@@ -39,7 +39,7 @@ fn forest_sprite(kind: int) -> int {
 fn terrain_row(s: sim.Sim, t: int, row: int, mut g: grid.Grid) {
     let wr = sim.world_row(s, row)
     let (centre, half) = world.path(s.seed, s.cols, wr)
-    let density = world.density(s.seed, wr)
+    let density = world.FP / 2
     var col = 0
     while col < s.cols {
         let xc = col * world.FP + world.FP / 2
