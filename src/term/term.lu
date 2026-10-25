@@ -1,0 +1,222 @@
+//! term — the terminal layer: raw mode and the alternate screen through
+//! `std.term`, the restore on every exit path, the size and its change,
+//! the refusals by name. The one module that touches the terminal.
+//!
+//! **Restore on every exit path** (campaign rule 4). The runtime's
+//! `restore_at_exit` is registered BEFORE the first byte is written and
+//! before the mode changes, with the saved mode and the leave bytes (the
+//! alternate screen left, the cursor shown, the attributes reset), so a
+//! return from `main`, an error row, `os_exit` and a trap all restore in
+//! the runtime, with no code of pack's running (`[os.term.restore]`). The
+//! signals a terminal sends — Ctrl-C's interrupt, a TERM, a HUP, a QUIT —
+//! are listened for and end the loop, which restores through `leave` and
+//! then `main`'s return. Only a death nobody can listen for (KILL, a fault
+//! outside the stack guard) restores nothing; the pty runner measures the
+//! three paths the contract names (`q`, SIGINT, a trap).
+//!
+//! The restore is registered on **standard output**: the runtime writes
+//! the leave bytes through a duplicate of the handle it is given, and a
+//! program started as `pack < /dev/tty` has a read-only descriptor 0,
+//! where the write would fail silently (measured by pk00's probe under
+//! the pty runner). The mode is read and set through the same handle;
+//! both name one terminal.
+//!
+//! **Refusals by name**: `not_tty` when either standard stream is not a
+//! terminal, `dumb` for `TERM=dumb`, `small` for a window under the
+//! minimum (R-PK-6: 80 by 24; the field scales up, never down), `io` for
+//! a terminal that refuses its mode. `message` gives each its sentence.
+
+use std.env
+use std.fs
+use std.io as std_io
+use std.signal
+use std.term as std_term
+
+/// The minimum columns (R-pk00-1 A, = R-PK-6).
+pub const MIN_COLS: int = 80
+
+/// The minimum rows.
+pub const MIN_ROWS: int = 24
+
+/// The terminal: the saved mode, whether raw mode and the alternate
+/// screen are on, the size, the environment's say on the tier.
+pub struct Term {
+    saved: std_term.Mode,
+    raw: bool,
+    alt: bool,
+    rows: int,
+    cols: int,
+    truecolor: bool,
+    term_name: str,
+}
+
+/// Why the terminal was refused.
+error OpenErrors = {not_tty, dumb, small, io}
+
+/// A key read's rows: the end of input (a hang-up) or the host's failure.
+error ReadErrors = {eof, io}
+
+/// The sentence for a refusal, for standard error.
+pub fn message(e: str) -> str {
+    if e == "not_tty" {
+        return "pack: standard input and output must be a terminal (try: pack --headless)"
+    }
+    if e == "dumb" {
+        return "pack: TERM=dumb cannot draw the forest"
+    }
+    if e == "small" {
+        return "pack: the terminal is smaller than {MIN_COLS}x{MIN_ROWS}; enlarge it"
+    }
+    "pack: the terminal refused its mode"
+}
+
+/// The bytes that enter the alternate screen and hide the cursor.
+pub fn enter_bytes() -> str {
+    "\x1b[?1049h\x1b[?25l\x1b[H\x1b[2J"
+}
+
+/// The bytes that leave it: attributes reset, cursor shown, main screen.
+pub fn leave_bytes() -> str {
+    "\x1b[0m\x1b[?25h\x1b[?1049l"
+}
+
+/// Open the terminal: both standard streams must be terminals, `TERM`
+/// not dumb, the size at least the minimum. Nothing is changed yet.
+pub fn open() -> Term ! OpenErrors {
+    let tin = fs.stdin()
+    let tout = fs.stdout()
+    let in_tty = std_io.is_terminal(tin) else false
+    let out_tty = std_io.is_terminal(tout) else false
+    if !in_tty || !out_tty {
+        return not_tty
+    }
+    let term_name = env.get("TERM") else ""
+    if term_name == "dumb" {
+        return dumb
+    }
+    let saved = std_term.mode(tout) else |_| {
+        return io
+    }
+    let size = std_term.size(tout) else |_| {
+        return io
+    }
+    var rows = size.rows
+    var cols = size.columns
+    if rows == 0 || cols == 0 {
+        // A pseudo-terminal nobody sized: the classic default.
+        rows = 24
+        cols = 80
+    }
+    if rows < MIN_ROWS || cols < MIN_COLS {
+        return small
+    }
+    Term {
+        saved: saved,
+        raw: false,
+        alt: false,
+        rows: rows,
+        cols: cols,
+        truecolor: false,
+        term_name: term_name,
+    }
+}
+
+/// The meanings the loop listens for: the window's size, and the four
+/// deaths a terminal or a shell sends that the loop ends cleanly on.
+pub fn signal_set() -> int {
+    signal.resize() | signal.interrupt() | signal.terminate() | signal.reload() | signal.quit()
+}
+
+/// Enter: register the restore (the saved mode and `leave_bytes`), listen
+/// for the signals, set raw mode (signals kept: Ctrl-C arrives as the
+/// interrupt meaning, never as a byte), write the enter bytes.
+pub fn enter(mut t: Term) -> () ! {io} {
+    var tout = fs.stdout()
+    var leave = List[byte]()
+    for b in leave_bytes().bytes() {
+        (mut leave).push(b)
+    }
+    std_term.restore_at_exit(tout, t.saved, leave) else |_| {
+        return io
+    }
+    signal.listen(signal_set()) else |_| {
+        return io
+    }
+    var raw = std_term.raw_bytes(t.saved)
+    raw.signals = true
+    std_term.set_mode(tout, raw) else |_| {
+        return io
+    }
+    t.raw = true
+    var enter = List[byte]()
+    for b in enter_bytes().bytes() {
+        (mut enter).push(b)
+    }
+    fs.write_chunk(mut tout, enter) else |_| {
+        return io
+    }
+    t.alt = true
+}
+
+/// Leave: the leave bytes, the saved mode back, the registration
+/// re-armed with no bytes (so the runtime's restore at `main`'s return
+/// writes nothing twice). Idempotent.
+pub fn leave(mut t: Term) {
+    if !t.alt && !t.raw {
+        return
+    }
+    var tout = fs.stdout()
+    var leave = List[byte]()
+    for b in leave_bytes().bytes() {
+        (mut leave).push(b)
+    }
+    fs.write_chunk(mut tout, leave) else |_| {}
+    std_term.set_mode(tout, t.saved) else |_| {}
+    std_term.restore_at_exit(tout, t.saved, List[byte]()) else |_| {}
+    t.alt = false
+    t.raw = false
+}
+
+/// Re-read the size after a resize; true when it changed. A size under
+/// the minimum is kept as the minimum (the field never shrinks below it;
+/// the terminal clips).
+pub fn resize(mut t: Term) -> bool {
+    let size = std_term.size(fs.stdout()) else |_| {
+        return false
+    }
+    var rows = size.rows
+    var cols = size.columns
+    if rows < MIN_ROWS {
+        rows = MIN_ROWS
+    }
+    if cols < MIN_COLS {
+        cols = MIN_COLS
+    }
+    if rows == t.rows && cols == t.cols {
+        return false
+    }
+    t.rows = rows
+    t.cols = cols
+    true
+}
+
+/// Write a frame's bytes to the terminal.
+pub fn write(bytes: List[byte]) -> () ! {io} {
+    var tout = fs.stdout()
+    fs.write_chunk(mut tout, bytes) else |_| {
+        return io
+    }
+}
+
+/// Read what standard input has, after a wait said it is ready: at most
+/// `max` bytes, into `buf` (its contents replaced). `eof` at a hang-up.
+pub fn read_keys(mut buf: List[byte], max: int) -> () ! ReadErrors {
+    var tin = fs.stdin()
+    (mut buf).reset()
+    region turn {
+        let got = fs.read_chunk(mut tin, max)?
+        for b in got {
+            (mut buf).push(b)
+        }
+    }
+}
