@@ -1,0 +1,78 @@
+//! The world is a pure function of the seed: the same answers twice, in
+//! range, different seeds different forests, and the path continuous.
+
+fn test_deterministic() {
+    var r = 0
+    while r < 200 {
+        let (c1, h1) = path(42, 80, r)
+        let (c2, h2) = path(42, 80, r)
+        assert(c1 == c2 && h1 == h2, "row {r}")
+        assert(forest_kind(42, r, 7, 4) == forest_kind(42, r, 7, 4), "kind {r}")
+        r += 1
+    }
+}
+
+fn test_path_in_range_and_continuous() {
+    var prev = -1
+    var r = -50
+    while r < 2000 {
+        let (c, h) = path(7, 80, r)
+        assert(c >= 25 * FP && c <= 55 * FP, "centre {c} at {r}")
+        assert(h >= 3 * FP && h <= 10 * FP + 1, "half {h} at {r}")
+        if prev >= 0 {
+            let d = if c > prev then c - prev else prev - c
+            assert(d <= FP, "the path bends at most a cell a row ({d} at {r})")
+        }
+        prev = c
+        r += 1
+    }
+}
+
+fn test_seeds_differ() {
+    var same = 0
+    var r = 0
+    while r < 100 {
+        let (a, _) = path(1, 80, r)
+        let (b, _) = path(2, 80, r)
+        if a == b {
+            same += 1
+        }
+        r += 1
+    }
+    assert(same < 10, "two seeds share {same} of 100 centres")
+}
+
+fn test_noise_bounds() {
+    var r = -100
+    while r < 500 {
+        let n = noise(3, 1, r)
+        assert(n >= 0 && n <= FP, "noise {n} at {r}")
+        r += 1
+    }
+}
+
+fn test_forest_density_rises() {
+    var near = 0
+    var far = 0
+    var i = 0
+    while i < 1000 {
+        if forest_kind(5, i, 3, 1) == 3 {
+            near += 1
+        }
+        if forest_kind(5, i, 3, 9) == 3 {
+            far += 1
+        }
+        i += 1
+    }
+    assert(near == 0 && far > 300, "deep forest near {near}, far {far}")
+    assert(forest_kind(5, 1, 1, 0) == 0, "the verge is grass")
+}
+
+fn test_hash_range() {
+    var i = 0
+    while i < 500 {
+        let h = hash(9, i, i * 3, 7)
+        assert(h >= 0 && h < 7, "hash {h}")
+        i += 1
+    }
+}
