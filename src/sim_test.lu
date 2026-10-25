@@ -553,15 +553,56 @@ fn test_shadows_spawn_at_the_edge_ahead_from_the_seed() {
 fn test_a_lurker_perceives_within_the_radius_and_not_beyond() {
     var far = sim.new(1, 80, 24)
     no_spawn(mut far)
-    (mut far.shadows).push(shadow_at(far, sim.PERCEIVE + 8, 0, sim.LURKING))
+    (mut far.shadows).push(shadow_at(far, 40, 0, sim.LURKING))
+    assert(
+        sim.perceive_range(far, far.shadows[0]) < 35 * world.FP,
+        "forty rows ahead is beyond any range at eighty columns",
+    )
     sim.step(mut far, none(), 0)
-    assert(far.shadows[0].state == sim.LURKING, "beyond PERCEIVE it lurks on")
+    assert(far.shadows[0].state == sim.LURKING, "beyond its range it lurks on")
     var near = sim.new(1, 80, 24)
     no_spawn(mut near)
-    (mut near.shadows).push(shadow_at(near, sim.PERCEIVE + 4, 0, sim.LURKING))
+    (mut near.shadows).push(shadow_at(near, sim.PERCEIVE, 0, sim.LURKING))
+    assert(
+        sim.perceive_range(near, near.shadows[0]) >= sim.PERCEIVE * world.FP,
+        "the range is at least PERCEIVE",
+    )
     sim.step(mut near, none(), 0)
     // The leaders are five cells ahead of the alpha: within reach of it.
     assert(near.shadows[0].state == sim.CHASING, "within PERCEIVE of a leader it turns")
+}
+
+fn test_pk07_a_forest_edge_lurker_sees_across_a_wide_path() {
+    // The field grows with the terminal: at 200 columns the path's half
+    // width can pass twenty cells, and a lurker at the forest edge facing
+    // across must still see a pack trotting the centre.
+    var s = sim.new(3, 200, 60)
+    no_spawn(mut s)
+    var row = sim.alpha(s).y / world.FP + 2
+    var wide = row
+    while wide < row + 400 {
+        let (_, half) = trail.path(3, 200, wide)
+        if half >= 16 * world.FP { break }
+        wide += 1
+    }
+    let (centre, half) = trail.path(3, 200, wide)
+    assert(half >= 16 * world.FP, "seed 3 has a wide row within 400: {half}")
+    var sh = shadow_at(s, wide - sim.alpha(s).y / world.FP, 0, sim.LURKING)
+    sh.x = centre + half + world.FP / 2
+    sh.face_x = -2
+    sh.face_y = 0
+    assert(
+        sim.perceive_range(s, sh) >= half + sim.PERCEIVE_ACROSS * world.FP,
+        "the range covers the path",
+    )
+    assert(
+        !sim.shadow_perceives(sh, centre, sh.y, sim.PERCEIVE * world.FP),
+        "PERCEIVE alone would not reach the centre",
+    )
+    assert(
+        sim.shadow_perceives(sh, centre, sh.y, sim.perceive_range(s, sh)),
+        "across the path it sees the centre",
+    )
 }
 
 fn test_a_passed_shadow_decelerates_turns_at_rest_and_chases_at_1_3_v() {
@@ -1160,19 +1201,21 @@ fn test_pk04_detection_cone_contact_and_outward_spawn_bands() {
     var sh = shadow_at(s, 15, 0, sim.LURKING)
     sh.face_x = 2
     sh.face_y = 0
-    assert(sim.shadow_perceives(sh, sh.x + 8 * world.FP, sh.y), "forward edge of range")
-    assert(!sim.shadow_perceives(sh, sh.x + 9 * world.FP, sh.y), "beyond range")
-    assert(!sim.shadow_perceives(sh, sh.x - 4 * world.FP, sh.y), "not behind")
-    assert(sim.shadow_perceives(sh, sh.x - 3 * world.FP, sh.y), "contact all round")
+    let r = 8 * world.FP
+    assert(sim.shadow_perceives(sh, sh.x + 8 * world.FP, sh.y, r), "forward edge of range")
+    assert(!sim.shadow_perceives(sh, sh.x + 9 * world.FP, sh.y, r), "beyond range")
+    assert(!sim.shadow_perceives(sh, sh.x - 4 * world.FP, sh.y, r), "not behind")
+    assert(sim.shadow_perceives(sh, sh.x - 3 * world.FP, sh.y, r), "contact all round")
     assert(
-        sim.shadow_perceives(sh, sh.x + 4 * world.FP, sh.y + 6 * world.FP),
+        sim.shadow_perceives(sh, sh.x + 4 * world.FP, sh.y + 6 * world.FP, r),
         "inside sixty degrees",
     )
     assert(
-        !sim.shadow_perceives(sh, sh.x + 3 * world.FP, sh.y + 6 * world.FP),
+        !sim.shadow_perceives(sh, sh.x + 3 * world.FP, sh.y + 6 * world.FP, r),
         "outside sixty degrees",
     )
     var bands = List[int]()
+    (mut bands).push(0)
     (mut bands).push(0)
     (mut bands).push(0)
     (mut bands).push(0)
@@ -1189,6 +1232,22 @@ fn test_pk04_detection_cone_contact_and_outward_spawn_bands() {
             assert(c.face_x != 0 || c.face_y != 0, "nonzero facing")
             let band = sim.spawn_band(seed, 0, 30)
             bands[band] += 1
+            let (centre, half) = trail.path(seed, 80, 30)
+            let off = (c.x - centre) * side
+            if band == sim.SPAWN_BAND_MID {
+                // pk07: on the path, from the centre to half way out, and
+                // watching the pack come (never up the path).
+                assert(
+                    off >= 0 && off <= half / 2,
+                    "mid band within half the half width: {off} of {half}",
+                )
+                assert(c.face_y < 0, "a mid-path lurker faces down the path")
+            } else {
+                assert(
+                    off >= half - sim.SPAWN_SHOULDER_CELLS * world.FP,
+                    "outer bands at the shoulder or beyond",
+                )
+            }
             let face = if c.face_x == 0 {
                 (if c.face_y < 0 then 0 else 4)
             } else if c.face_y < 0 {
@@ -1204,8 +1263,14 @@ fn test_pk04_detection_cone_contact_and_outward_spawn_bands() {
         }
         seed += 1
     }
-    for n in bands { assert(n > 10, "all three bands represented") }
+    for n in bands { assert(n > 10, "all four bands represented") }
     for n in facings { assert(n > 10, "all five outward facings represented") }
+    // pk07: the facings that look the pack's way (down, diagonally down,
+    // across) outnumber those that look up the path.
+    assert(
+        facings[0] + facings[1] + facings[2] > 2 * (facings[3] + facings[4]),
+        "weighted toward the oncoming pack: {facings[0]} {facings[1]} {facings[2]} vs {facings[3]} {facings[4]}",
+    )
 }
 
 fn test_pk04_detection_considers_every_visible_wolf() {
@@ -1373,7 +1438,7 @@ fn test_pk04_re_recorded_terminal_replays_verify_their_scores() {
         }
         assert(
             s.dead && sim.score(s) == expected,
-            "the real terminal replay verifies at the current constants",
+            "the real terminal replay verifies at the current constants: dead {s.dead} score {sim.score(s)} expected {expected}",
         )
     }
 }
