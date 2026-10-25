@@ -712,6 +712,9 @@ fn run_live(o: Options, args: List[str]) -> int {
                 }
             } else {
                 ended = if w.meaning == 16 then "the interrupt" else "a signal ({w.meaning})"
+                if w.meaning == 16 {
+                    term.keep_raw(mut t)
+                }
                 quit = true
             }
         }

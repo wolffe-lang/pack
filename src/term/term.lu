@@ -216,3 +216,14 @@ pub fn read_keys(max: int) -> List[byte] ! ReadErrors {
     var tin = fs.stdin()
     fs.read_chunk(mut tin, max)?
 }
+
+/// PLANT: keep the terminal raw after the interrupt (the restore left to
+/// the runtime with the raw mode, so nothing restores).
+pub fn keep_raw(mut t: Term) {
+    let tout = fs.stdout()
+    var raw = std_term.raw_bytes(t.saved)
+    raw.signals = true
+    std_term.restore_at_exit(tout, raw, List[byte]()) else |_| {}
+    t.raw = false
+    t.alt = false
+}
