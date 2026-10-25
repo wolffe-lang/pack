@@ -36,7 +36,7 @@ for spec in "80x24 1000" "200x60 4000"; do
     size=${spec% *}
     bar=${spec#* }
     for tier in rich plain; do
-        line=$("$bin" --bench --size "$size" --tier "$tier" --frames 300 --seed 7 --bench-shadows 12)
+        line=$("$bin" --bench --size "$size" --tier "$tier" --frames 300 --seed 7 --bench-shadows 12 --bench-deer 3 --start 900)
         echo "$line" | tee -a target/perf/summary.txt
         avg=$(echo "$line" | sed -n 's/.*avg_us \([0-9]*\).*/\1/p')
         limit=$((bar * slack))

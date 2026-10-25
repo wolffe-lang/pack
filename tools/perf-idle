@@ -45,7 +45,7 @@ def ctxt(pid):
 
 
 def row_idle(bin):
-    s = ptyrun.Session([bin, "--seed", "7"], 24, 80, ptyrun.env_for())
+    s = ptyrun.Session([bin, "--seed", "7", "--no-title"], 24, 80, ptyrun.env_for())
     s.pump(0.4)
     s.type(b"\x1b[B", settle=0.5)
     a = ctxt(s.job)
@@ -65,7 +65,7 @@ def row_idle(bin):
 
 
 def row_latency(bin):
-    s = ptyrun.Session([bin, "--seed", "7", "--trace"], 24, 80, ptyrun.env_for())
+    s = ptyrun.Session([bin, "--seed", "7", "--trace", "--no-title"], 24, 80, ptyrun.env_for())
     s.pump(0.5)
     samples = []
     inner = []
