@@ -24,13 +24,29 @@ fn fixture(seed: int, x: int, y: int, distance: int) -> sim.Sim {
         face_x: 0, face_y: 2, attack_age: 0, attack_dx: 0, attack_dy: 0,
         pose_x: 0, pose_y: 0, x: a.x + x * distance * world.FP,
         y: a.y + y * distance * world.FP, heading: 0, speed: 0,
-        dir: 1, state: sim.CHASING, target: sim.ALPHA, windup: 0,
+        dir: if y > 0 then -1 else 1, state: sim.CHASING, target: sim.ALPHA, windup: 0,
         cooldown: 30, recoil: 0, fade: 0,
     })
+    // Script a target approaching from its compass sector, eight to
+    // four cells at half a grid cell/tick. Reset its relative position
+    // after each AI tick, so every aim sees the same press-time fixture.
+    var beat = 0
+    while beat < 8 {
+        let before = sim.alpha(s)
+        let span = (distance + 4) * world.FP - beat * world.FP / 2
+        s.shadows[0].x = before.x + x * span
+        s.shadows[0].y = before.y + y * span
+        sim.step(mut s, List[int](), 0)
+        beat += 1
+    }
+    let after = sim.alpha(s)
+    s.shadows[0].x = after.x + x * distance * world.FP
+    s.shadows[0].y = after.y + y * distance * world.FP
     s
 }
 
 fn main() {
+    print("APPROACH scripted 8 to 4 grid cells, half a cell/tick, Space at 4")
     let xs = [0, 1, 1, 1, 0, -1, -1, -1]
     let ys = [1, 1, 0, -1, -1, -1, 0, 1]
     var sector = 0
@@ -55,6 +71,9 @@ fn main() {
     while seed <= 20 {
         var a = fixture(seed, 0, -1, 4)
         var b = fixture(seed, 0, -1, 4)
+        // Cost is measured without a surviving enemy changing health.
+        a.shadows = List[sim.Shadow]()
+        b.shadows = List[sim.Shadow]()
         sim.step(mut a, keys(0, 0), 0)
         sim.step(mut b, keys(0, -1), 0)
         var tick = 0
