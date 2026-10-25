@@ -45,11 +45,12 @@ pub const SP_FOREST_DARK: int = 5
 /// The wolf's body cell (variant: the trot frame 0-3 for the side cells).
 pub const SP_WOLF_BODY: int = 6
 
-/// The wolf's head cell (variant 0 normal, 1 panting).
+/// The wolf's head cell (variant 0 normal, 1 panting, 2 spent: the plain
+/// tier's low head).
 pub const SP_WOLF_HEAD: int = 7
 
-/// The wolf's tail cell (variant: the trot frame).
-pub const SP_WOLF_TAIL: int = 8
+/// The wolf's leg cell (variant: the trot frame 0-3).
+pub const SP_WOLF_LEGS: int = 8
 
 /// A fainted wolf's cell (variant 0 head, 1 body).
 pub const SP_FAINTED: int = 9
@@ -66,11 +67,19 @@ pub const SP_DEER: int = 12
 /// The wolf in the forest edge (scratched: dim body).
 pub const SP_WOLF_BODY_DIM: int = 13
 
-/// The wolf's ear cell (rich: variant 0 left, 1 right; plain unused).
+/// The wolf's ear cell (rich: variant side + 2 * stamina band — 0 left,
+/// 1 right; fresh ears up, tired ears back, spent ears flat; plain unused).
 pub const SP_WOLF_EAR: int = 14
 
+/// The wolf's tail cell (variant: stamina band * 4 + the trot frame: a
+/// fresh tail wags with the gait, a tired one is level, a spent one low).
+pub const SP_WOLF_TAIL: int = 15
+
 /// The number of sprites (every id below this).
-pub const SPRITE_COUNT: int = 15
+pub const SPRITE_COUNT: int = 16
+
+/// The most variants any sprite has (the tail's twelve).
+pub const VARIANT_COUNT: int = 16
 
 // The palette, by role (docs/PALETTE.md).
 
@@ -221,12 +230,39 @@ fn rich(sprite: int, v: int) -> grid.Cell {
                 C_FUR,
                 C_PATH,
                 0,
+            ),  // SP_WOLF_LEGS
+        15 =>
+            c(
+                t,
+                if v / 4 % 4 == 0 {
+                    if v % 2 == 0 then 9624 else 9629
+                } else if v / 4 % 4 == 1 {
+                    9600
+                } else {
+                    9604
+                },
+                C_FUR,
+                C_PATH,
+                0,
             ),  // SP_WOLF_TAIL
         9 => c(t, if v == 0 then 9617 else 9604, C_FAINT, C_PATH, 0),  // SP_FAINTED
         10 => c(t, 9608, C_SHADOW, C_PATH, 0),  // SP_SHADOW_BODY
         11 => c(t, 9642, C_EYE, C_SHADOW, 0),  // SP_SHADOW_EYE
         12 => c(t, if v == 0 then 9600 else 9608, C_DEER, C_PATH, 0),  // SP_DEER
-        14 => c(t, if v == 0 then 9629 else 9624, C_FUR, C_PATH, 0),  // SP_WOLF_EAR
+        14 =>
+            c(
+                t,
+                if v / 2 % 4 == 0 {
+                    if v % 2 == 0 then 9629 else 9624
+                } else if v / 2 % 4 == 1 {
+                    if v % 2 == 0 then 9624 else 9629
+                } else {
+                    9600
+                },
+                C_FUR,
+                C_PATH,
+                0,
+            ),  // SP_WOLF_EAR
         _ => grid.blank(),
     }
 }
@@ -256,8 +292,22 @@ fn plain(sprite: int, v: int) -> grid.Cell {
         5 => c(t, 32, C_CANOPY_DARK, C_FLOOR, 0),  // SP_FOREST_DARK
         6 => c(t, 87, C_FUR, C_PATH, grid.ATTR_BOLD),  // SP_WOLF_BODY
         13 => c(t, 87, C_FUR_DIM, C_PATH, 0),  // SP_WOLF_BODY_DIM
-        7 => c(t, if v == 1 then 126 else 94, C_FUR, C_PATH, grid.ATTR_BOLD),  // SP_WOLF_HEAD
-        8 => c(t, if v % 2 == 0 then 44 else 46, C_FUR, C_PATH, grid.ATTR_BOLD),  // SP_WOLF_TAIL
+        7 => c(t, if v == 0 then 87 else 119, C_FUR, C_PATH, grid.ATTR_BOLD),  // SP_WOLF_HEAD
+        8 => c(t, if v % 2 == 0 then 44 else 46, C_FUR, C_PATH, grid.ATTR_BOLD),  // SP_WOLF_LEGS
+        15 =>
+            c(
+                t,
+                if v / 4 % 4 == 0 {
+                    if v % 2 == 0 then 44 else 39
+                } else if v / 4 % 4 == 1 {
+                    44
+                } else {
+                    46
+                },
+                C_FUR,
+                C_PATH,
+                grid.ATTR_BOLD,
+            ),  // SP_WOLF_TAIL
         9 => c(t, if v == 0 then 120 else 95, C_FAINT, C_PATH, 0),  // SP_FAINTED
         10 => c(t, 87, C_SHADOW, C_PATH, grid.ATTR_BOLD),  // SP_SHADOW_BODY
         11 => c(t, 58, C_EYE, C_PATH, grid.ATTR_BOLD),  // SP_SHADOW_EYE
@@ -319,7 +369,7 @@ pub fn rich_code_points() -> List[int] {
     var s = 0
     while s < SPRITE_COUNT {
         var v = 0
-        while v < 8 {
+        while v < VARIANT_COUNT {
             let cp = glyph(RICH, s, v).cp
             var seen = false
             for k in cps {

@@ -68,7 +68,7 @@ fn test_plain_tier_needs_no_row() {
     var s = 0
     while s < tier.SPRITE_COUNT {
         var v = 0
-        while v < 8 {
+        while v < tier.VARIANT_COUNT {
             assert(tier.glyph(tier.PLAIN, s, v).cp <= 255, "sprite {s}")
             v += 1
         }
