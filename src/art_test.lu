@@ -1,0 +1,79 @@
+//! member: false
+//!
+//! The renderer's shape: a frame is deterministic, the wolf is where the
+//! alpha's eye puts it, the plain tier's frame keeps its promise, and the
+//! sheet draws every sprite without trapping.
+
+use art
+use grid
+use sim
+use tier
+
+fn frames_equal(a: grid.Grid, b: grid.Grid) -> bool {
+    var i = 0
+    while i < a.cells.len {
+        if !grid.same(a.cells[i], b.cells[i]) {
+            return false
+        }
+        i += 1
+    }
+    true
+}
+
+fn test_render_is_deterministic() {
+    let s = sim.new(5, 80, 24)
+    var a = grid.new(24, 80)
+    var b = grid.new(24, 80)
+    art.render(s, tier.RICH, mut a)
+    art.render(s, tier.RICH, mut b)
+    assert(frames_equal(a, b), "two renders of one state agree")
+}
+
+fn test_wolf_sits_low_on_the_screen() {
+    let s = sim.new(5, 80, 24)
+    var g = grid.new(24, 80)
+    art.render(s, tier.RICH, mut g)
+    let row = sim.wolf_row(s)
+    let col = s.wolf.x / 256
+    let body = tier.glyph(tier.RICH, tier.SP_WOLF_BODY, 0)
+    assert(grid.same(grid.at(g, row, col), body), "the body cell at {row},{col}")
+    assert(row == 19, "row {row} of 24")
+}
+
+fn test_plain_frame_keeps_the_promise() {
+    var s = sim.new(9, 80, 24)
+    var i = 0
+    while i < 60 {
+        var keys = List[int]()
+        if i % 7 == 0 {
+            (mut keys).push(sim.KEY_LEFT)
+        }
+        sim.step(mut s, keys)
+        i += 1
+    }
+    var g = grid.new(24, 80)
+    art.render(s, tier.PLAIN, mut g)
+    assert(grid.plain_ok(g), "every plain cell is Latin-1 in the sixteen colours")
+}
+
+fn test_frames_change_as_the_wolf_moves() {
+    var s = sim.new(2, 80, 24)
+    var a = grid.new(24, 80)
+    art.render(s, tier.RICH, mut a)
+    var i = 0
+    while i < 10 {
+        sim.step(mut s, List[int]())
+        i += 1
+    }
+    var b = grid.new(24, 80)
+    art.render(s, tier.RICH, mut b)
+    assert(!frames_equal(a, b), "the path scrolled")
+}
+
+fn test_sheet_draws_both_tiers() {
+    let r = art.sheet(tier.RICH)
+    let p = art.sheet(tier.PLAIN)
+    assert(r.rows == 24 && p.cols == 60, "sheet size")
+    assert(grid.plain_ok(p), "the plain sheet keeps the promise")
+    assert(!grid.plain_ok(r), "the rich sheet uses the blocks")
+}
