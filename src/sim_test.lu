@@ -1115,3 +1115,23 @@ fn test_a_run_can_start_up_the_path() {
     run(mut s, 10)
     assert(sim.distance_cells(s) > 1200, "and it moves on")
 }
+
+fn test_pk04_speed_preserves_the_maintainers_ticks_and_wear_down() {
+    assert(sim.TROT_V == 46 && sim.SPRINT_V == 83 && sim.RETURN_V == 83, "15 percent faster")
+    assert(
+        sim.FOREST_V == 23 && sim.FLEE_V == 69 && sim.DEER_TIRED_V == 37 && sim.DEER_WALK_V == 18,
+        "deer match",
+    )
+    assert((sim.TROT_V + sim.ACCEL - 1) / sim.ACCEL == 10, "ten ticks to trot")
+    assert((sim.TROT_V + sim.BRAKE - 1) / sim.BRAKE == 5, "five ticks to stop")
+    assert(sim.CHASE_V == 52 && sim.STALK_V == 20, "shadows unchanged")
+    assert(
+        sim.DEER_STAMINA == 90 && sim.DEER_REGEN_TICKS == 3 && sim.DEER_RECOVER == 60,
+        "wear-down unchanged",
+    )
+    assert(sim.DEER_PERCEIVE == 10 && sim.DEER_CALM == 6, "flight hysteresis unchanged")
+    assert(
+        sim.DUSK_START == 600 && sim.DUSK_FULL == 1200 && sim.NIGHT_FULL == 1800,
+        "dusk rows unchanged",
+    )
+}

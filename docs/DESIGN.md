@@ -14,20 +14,20 @@ begins a run N rows up the path — the same forest, the curve and the dusk read
 minute's groups (`--start 600`), full dusk (`--start 1200`) or the night (`--start 1800`) can be seen at once;
 a replay carries it as its `start` header line.
 
-Units: positions and speeds are in `world.FP` units a cell (256), so a speed of 40 is 0.156 cells a tick.
-The tick is 30 a second (`clock.TICK_HZ`), so 40 is 4.7 cells a second. Headings are in 64ths of a 45-degree
+Units: positions and speeds are in `world.FP` units a cell (256), so a speed of 46 is 0.180 cells a tick.
+The tick is 30 a second (`clock.TICK_HZ`), so 46 is 5.39 cells a second. Headings are in 64ths of a 45-degree
 turn off the path's axis. Stamina and health are in points.
 
 ## The pack's motion (`src/sim/sim.lu`)
 
 | constant | value | meaning | set |
 |---|---|---|---|
-| `TROT_V` | 40 | the trot, `v`: 0.156 cells a tick, 4.7 a second ("migrating, not running the 100 m"; pk00's 96 cut) | 2026-10-25 the maintainer's word |
-| `SPRINT_V` | 72 | the sprint, 1.8 `v` (the campaign's bar): a bounded burst, clearly faster | 2026-10-25 the maintainer's word |
-| `RETURN_V` | 72 | a fainted wolf's return speed, the sprint (R-pk01-3 A) | 2026-10-25 proposed |
-| `FOREST_V` | 20 | the speed cap in the forest edge, `v`/2 | 2026-10-25 the maintainer's word |
-| `ACCEL` | 4 | acceleration, FP units a tick each tick: the trot from a stop in 10 ticks | 2026-10-25 the maintainer's word |
-| `BRAKE` | 8 | braking: a stop from the trot in 5 ticks; a wolf stops faster than it starts | 2026-10-25 the maintainer's word |
+| `TROT_V` | 46 | the trot, `v`: 5.39 cells/s; "only 15 % faster" than 40 | 2026-10-25 the maintainer's word |
+| `SPRINT_V` | 83 | the sprint, rounded 1.8 `v`: "only 15 % faster" than 72 | 2026-10-25 the maintainer's word |
+| `RETURN_V` | 83 | the return, matching the sprint: "only 15 % faster" than 72 | 2026-10-25 the maintainer's word |
+| `FOREST_V` | 23 | the forest cap, `v`/2: "only 15 % faster" than 20 | 2026-10-25 the maintainer's word |
+| `ACCEL` | 5 | integer acceleration preserving ten ticks from rest to trot at 46 (4 would take twelve) | 2026-10-25 the maintainer's word |
+| `BRAKE` | 10 | integer braking preserving five ticks from trot to rest (8 would take six) | 2026-10-25 the maintainer's word |
 | `HEADING_MAX` | 64 | the heading's reference: 45 degrees; the small-angle split is written against it | 2026-10-25 pk00 |
 | `STEER_HEADING` | 48 | the heading a held steer key turns toward, 34 degrees: enough to follow the path's steepest bend at the trot | 2026-10-25 proposed |
 | `TURN_RATE` | 12 | the maximum turn rate, heading units a tick: full steer in 4 ticks, straight again in 4 (133 ms) on release; the whole of the residual motion after a release | 2026-10-25 the maintainer's word |
@@ -97,10 +97,10 @@ next landed attack ends the run.
 
 | constant | value | meaning | set |
 |---|---|---|---|
-| `DEER_WALK_V` | 16 | the walk, 0.4 `v`: a deer grazes and wanders across the path and the verge, slower than anything else on the path | 2026-10-25 proposed |
-| `FLEE_V` | 60 | the flight, 1.5 `v` (the campaign's bar): faster than the trot, slower than the sprint, so a trot cannot close on a fresh deer and a sprint can | 2026-10-25 proposed |
-| `DEER_TIRED_V` | 32 | a tired deer's flight, below the trot: the pack runs it down | 2026-10-25 proposed |
-| `DEER_ACCEL`, `DEER_BRAKE` | 6, 8 | a deer bolts (the wolves accelerate at 4) and brakes as they do | 2026-10-25 proposed |
+| `DEER_WALK_V` | 18 | the walk, rounded 0.4 `v`: "adjust the deer flee speed to match" | 2026-10-25 the maintainer's word |
+| `FLEE_V` | 69 | flight, exactly 1.5 `v`, above trot and below sprint; "keep the wear-down mechanic" | 2026-10-25 the maintainer's word |
+| `DEER_TIRED_V` | 37 | tired flight, still below trot; "keep the wear-down mechanic" | 2026-10-25 the maintainer's word |
+| `DEER_ACCEL`, `DEER_BRAKE` | 6, 8 | a deer bolts (the wolves accelerate at 5) and brakes as they do | 2026-10-25 proposed |
 | `DEER_TURN_RATE` | 16 | a deer's maximum turn rate, heading units a tick: a lighter animal turns quicker than a wolf's 12 | 2026-10-25 proposed |
 | `DEER_PERCEIVE` | 10 | a running wolf this close (cells, the larger of sideways and along) puts a deer to flight | 2026-10-25 proposed |
 | `DEER_CALM` | 6 | a fleeing deer calms once the nearest wolf is this far beyond `DEER_PERCEIVE` (so it does not stutter at the edge) | 2026-10-25 proposed |
@@ -124,14 +124,14 @@ once it is spent; beyond `DEER_PERCEIVE` plus `DEER_CALM` it calms and walks, re
 through the same channel the bites take from, so a fainted wolf may return, and the deer is gone. Deer are
 bodies for the separation rule (nothing overlaps) and are the seed's, never a replay event. Measured on the
 probe bot (the note's section 3): a deer first seen at the trot is run down in about ten seconds with one
-or two sprints once it tires; a fresh deer cannot be caught by a sprint alone (the sprint closes 12 FP units
+or two sprints once it tires; a fresh deer cannot be caught by a sprint alone (the sprint closes 14 FP units
 a tick for 24 ticks: a cell a burst).
 
 ## The shadows (`src/sim/sim.lu`; pk02)
 
 | constant | value | meaning | set |
 |---|---|---|---|
-| `CHASE_V` | 52 | a shadow's chase speed, 1.3 `v` (the campaign's bar: faster than the trot, slower than the sprint, so a sprint shakes a chaser and a trot does not) | 2026-10-25 proposed |
+| `CHASE_V` | 52 | a shadow's chase speed, unchanged after the pack's increase: 52 > 46 and 52 < 83, so a sprint shakes a chaser and a trot does not | 2026-10-25 proposed |
 | `STALK_V` | 20 | the speed a shadow stalks down the path toward the oncoming pack, `v`/2: its turn happens on the screen, not below it | 2026-10-25 proposed |
 | `SHADOW_ACCEL`, `SHADOW_BRAKE` | 4, 8 | a shadow's acceleration and braking, the wolves' | 2026-10-25 proposed |
 | `SHADOW_TURN_RATE` | 12 | a shadow's maximum turn rate, the wolves' `TURN_RATE` (R-pk02-1 A) | 2026-10-25 proposed |
@@ -228,3 +228,8 @@ step at the midpoints. The red eyes are the same at every phase, so shadows come
 | `TICK_HZ` | 30 | the simulation's tick (R-pk00-2 A) | 2026-10-25 pk00 |
 | `MIN_COLS` x `MIN_ROWS` | 80 x 24 | the smallest terminal (R-pk00-1 A, campaign R-PK-6); the field scales up, never down | 2026-10-25 pk00 |
 | `ESC_TIMEOUT_MS` | 50 | a lone ESC is Esc after this long with nothing after it | 2026-10-25 pk00 |
+
+The speed change on 2026-10-25 leaves all deer wear-down timers and all shadow speeds unchanged.
+Dusk distances stay 600/1200/1800 rows: at a flat full-health trot the times are
+111.3/222.6/333.9 seconds, formerly 128/256/384. A 15% faster trot arrives
+13.04% sooner in seconds (the informal "15% sooner" is not the reciprocal).
