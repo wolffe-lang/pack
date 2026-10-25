@@ -1544,9 +1544,9 @@ pub fn spawn_facing(seed: int, tick: int, row: int, side: int, band: int) -> (in
 /// field is wide (pk07): the field grows with the terminal and a
 /// forest-edge lurker must still see across to the centre of the path.
 pub fn perceive_range(s: Sim, sh: Shadow) -> int {
-    let (_, half) = trail.path(s.seed, s.cols, sh.y / world.FP)
-    let across = half + PERCEIVE_ACROSS * world.FP
-    if across > PERCEIVE * world.FP then across else PERCEIVE * world.FP
+    // PLANT (pk07-plant-range): the range no longer grows with the field.
+    let _ = trail.path(s.seed, s.cols, sh.y / world.FP)
+    PERCEIVE * world.FP
 }
 
 /// A wolf within `range` (FP units; `perceive_range`) and in the forward
