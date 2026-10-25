@@ -1411,8 +1411,10 @@ fn shadows_step(mut s: Sim) -> int {
                     0
                 }
                 sh.heading = toward(sh.heading, aim, SHADOW_TURN_RATE)
-                let lateral = if sh.speed > scaled(s, STALK_V) then sh.speed else scaled(s, STALK_V)
-                let (vx, _) = split(lateral, sh.heading)
+                // Sideways it runs: a shadow cuts across to the pack at the
+                // chase speed's split even while it stalks slowly along the
+                // path, or it would hang in the verge for seconds.
+                let (vx, _) = split(scaled(s, CHASE_V), sh.heading)
                 let (_, vy) = split(sh.speed, sh.heading)
                 var nx = sh.x + vx
                 // Cohesion toward the other chasing shadows within
