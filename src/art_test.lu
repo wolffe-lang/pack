@@ -1,13 +1,16 @@
 //! member: false
 //!
 //! The renderer's shape: a frame is deterministic, the wolf is where the
-//! alpha's eye puts it, the plain tier's frame keeps its promise, and the
-//! sheet draws every sprite without trapping.
+//! alpha's eye puts it, the plain tier's frame keeps its promise, the
+//! sheet draws every sprite without trapping; the shadows are drawn where
+//! the simulation has them and the card's cells are Latin-1 text and the
+//! wolf's blocks, with no digit in the field before it (pk02).
 
 use art
 use grid
 use sim
 use tier
+use world
 
 fn frames_equal(a: grid.Grid, b: grid.Grid) -> bool {
     var i = 0
@@ -135,4 +138,199 @@ fn test_sheet_draws_both_tiers() {
     assert(r.rows == 24 && p.cols == 60, "sheet size")
     assert(grid.plain_ok(p), "the plain sheet keeps the promise")
     assert(!grid.plain_ok(r), "the rich sheet uses the blocks")
+}
+
+// The shadows and the card (pk02).
+
+fn has_digit(g: grid.Grid) -> bool {
+    var i = 0
+    while i < g.cells.len {
+        let cp = g.cells[i].cp
+        if cp >= 48 && cp <= 57 {
+            return true
+        }
+        i += 1
+    }
+    false
+}
+
+fn chaser(s: sim.Sim, dx_cells: int, dy_rows: int) -> sim.Shadow {
+    let a = sim.alpha(s)
+    sim.Shadow {
+        x: a.x + dx_cells * world.FP,
+        y: a.y + dy_rows * world.FP,
+        heading: 0,
+        speed: sim.TROT_V,
+        dir: 1,
+        state: sim.CHASING,
+        target: sim.ALPHA,
+        windup: 0,
+        cooldown: 0,
+        recoil: 0,
+        fade: 0,
+    }
+}
+
+fn test_a_shadow_is_drawn_where_the_simulation_has_it_eyes_toward_the_pack() {
+    var s = sim.new(5, 80, 24)
+    (mut s.shadows).push(chaser(s, 0 - 8, -2))
+    var g = grid.new(24, 80)
+    art.render(s, tier.RICH, mut g)
+    let row = sim.shadow_screen_row(s, 0)
+    let col = sim.shadow_screen_col(s, 0)
+    let body = tier.glyph(tier.RICH, tier.SP_SHADOW_BODY, 0)
+    assert(grid.same(grid.at(g, row, col), body), "the body row at {row},{col}")
+    // Facing up the path (chasing from behind): the eyes are on the row above.
+    let eye = grid.at(g, row - 1, col - 1)
+    assert(eye.cp == tier.glyph(tier.RICH, tier.SP_SHADOW_EYE, 0).cp, "an eye above the body")
+    assert(
+        eye.fg == tier.palette(tier.RICH, tier.C_EYE) ||
+            eye.fg == tier.palette(tier.RICH, tier.C_EYE_DIM),
+        "red",
+    )
+    // Facing down (lurking ahead): the eyes are on the row below.
+    var l = sim.new(5, 80, 24)
+    var lurk = chaser(l, 0, 10)
+    lurk.dir = -1
+    lurk.state = sim.LURKING
+    lurk.speed = 0
+    (mut l.shadows).push(lurk)
+    var h = grid.new(24, 80)
+    art.render(l, tier.RICH, mut h)
+    let lr = sim.shadow_screen_row(l, 0)
+    let lc = sim.shadow_screen_col(l, 0)
+    assert(
+        grid.at(h, lr, lc - 1).cp == tier.glyph(tier.RICH, tier.SP_SHADOW_EYE, 1).cp,
+        "eyes below the body, dim",
+    )
+    assert(grid.same(grid.at(h, lr - 1, lc), body), "the body above")
+}
+
+fn test_a_vanquished_shadow_fades_then_is_not_drawn() {
+    var s = sim.new(5, 80, 24)
+    var v = chaser(s, 0 - 8, -2)
+    v.state = sim.VANQUISHED
+    v.fade = 1
+    (mut s.shadows).push(v)
+    var g = grid.new(24, 80)
+    art.render(s, tier.RICH, mut g)
+    let row = sim.shadow_screen_row(s, 0)
+    let col = sim.shadow_screen_col(s, 0)
+    let shade = grid.at(g, row, col)
+    assert(
+        shade.cp == tier.glyph(tier.RICH, tier.SP_SHADOW_BODY, 1).cp,
+        "the dark shade early in the fade",
+    )
+    assert(
+        grid.at(g, row - 1, col - 1).cp != tier.glyph(tier.RICH, tier.SP_SHADOW_EYE, 0).cp,
+        "the eyes are out",
+    )
+    s.shadows[0].fade = sim.FADE_TICKS - 2
+    var h = grid.new(24, 80)
+    art.render(s, tier.RICH, mut h)
+    assert(
+        grid.at(h, row, col).cp == tier.glyph(tier.RICH, tier.SP_SHADOW_BODY, 2).cp,
+        "the light shade late",
+    )
+}
+
+fn test_no_digit_in_the_field_before_the_card_and_the_card_has_them() {
+    var s = sim.new(16, 80, 24)
+    var g = grid.new(24, 80)
+    var i = 0
+    while i < 120 {
+        sim.step(mut s, List[int](), if i == 10 then -45 else 0)
+        if i % 20 == 0 {
+            art.render(s, tier.RICH, mut g)
+            assert(!has_digit(g), "a digit in the field at tick {i}")
+            art.render(s, tier.PLAIN, mut g)
+            assert(!has_digit(g), "a digit in the plain field at tick {i}")
+        }
+        i += 1
+    }
+    s.dead = true
+    s.died_tick = s.tick
+    art.render(s, tier.RICH, mut g)
+    assert(has_digit(g), "the card carries the numbers")
+    let top = (24 - art.CARD_ROWS) / 2
+    let left = (80 - art.CARD_COLS) / 2
+    assert(grid.at(g, top, left).cp == 9600, "the frame's top edge is the upper half block")
+    assert(grid.at(g, top + 1, left).cp == 9608, "a side is the full block")
+    assert(
+        grid.at(g, top + CARD_ROWS_PROBE(), left + 1).cp == 9604,
+        "the bottom edge is the lower half block",
+    )
+}
+
+fn CARD_ROWS_PROBE() -> int {
+    art.CARD_ROWS - 1
+}
+
+fn test_the_card_is_latin1_text_on_both_tiers_and_the_same_numbers() {
+    var s = sim.new(16, 80, 24)
+    var i = 0
+    while i < 90 {
+        sim.step(mut s, List[int](), 0)
+        i += 1
+    }
+    s.dead = true
+    s.died_tick = 75
+    s.vanquished = 3
+    var r = grid.new(24, 80)
+    art.render(s, tier.RICH, mut r)
+    var p = grid.new(24, 80)
+    art.render(s, tier.PLAIN, mut p)
+    assert(grid.plain_ok(p), "the plain card keeps the promise")
+    let top = (24 - art.CARD_ROWS) / 2
+    let left = (80 - art.CARD_COLS) / 2
+    var row = 1
+    while row < art.CARD_ROWS - 1 {
+        var col = 1
+        while col < art.CARD_COLS - 1 {
+            let a = grid.at(r, top + row, left + col)
+            let b = grid.at(p, top + row, left + col)
+            assert(a.cp == b.cp, "the same text on both tiers at {row},{col}: {a.cp} vs {b.cp}")
+            assert(a.cp >= 32 && a.cp <= 126, "ASCII inside the card: {a.cp}")
+            col += 1
+        }
+        row += 1
+    }
+    // The score line reads the formula: 3 x 100 + 2 x 2 + distance.
+    let want = sim.score(s)
+    assert(want == 300 + 4 + sim.distance_cells(s), "score {want}")
+    var text = List[byte]()
+    grid.dump_text(r, mut text)
+    let t = str_from_utf8(text) else ""
+    assert(t.contains("score") && t.contains("{want}"), "the card shows the score {want}")
+    assert(
+        t.contains("the pack is gone") && t.contains("s saves the replay, q leaves"),
+        "the title and the offer",
+    )
+    var saved = grid.new(24, 80)
+    art.render(s, tier.RICH, mut saved)
+    art.card_with(s, tier.RICH, mut saved, "pack-16-{want}.pk")
+    var text2 = List[byte]()
+    grid.dump_text(saved, mut text2)
+    assert(
+        (str_from_utf8(text2) else "").contains("saved pack-16-{want}.pk; q leaves"),
+        "the saved name on the card",
+    )
+}
+
+fn test_render_with_shadows_is_deterministic_and_plain_keeps_the_promise() {
+    var s = sim.new(16, 80, 24)
+    var i = 0
+    while i < 200 {
+        sim.step(mut s, List[int](), 0)
+        i += 1
+    }
+    assert(s.shadows.len > 0, "seed 16 has shadows by tick 200: {s.shadows.len}")
+    var a = grid.new(24, 80)
+    var b = grid.new(24, 80)
+    art.render(s, tier.RICH, mut a)
+    art.render(s, tier.RICH, mut b)
+    assert(frames_equal(a, b), "two renders agree with shadows on the field")
+    var p = grid.new(24, 80)
+    art.render(s, tier.PLAIN, mut p)
+    assert(grid.plain_ok(p), "the plain frame with shadows keeps the promise")
 }

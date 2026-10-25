@@ -101,6 +101,8 @@ fn test_plain_keys() {
     check("_", one(KEY_HEALTH_DOWN), "_")
     check("=", one(KEY_HEALTH_UP), "= (debug: health up)")
     check("+", one(KEY_HEALTH_UP), "+")
+    check("s", one(KEY_SAVE), "s (the card: save the replay)")
+    check("S", one(KEY_SAVE), "S")
 }
 
 fn test_lone_esc_waits_for_the_timeout() {

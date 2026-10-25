@@ -98,3 +98,52 @@ fn test_dialects() {
         "rich",
     )
 }
+
+fn test_shadow_variants_eyes_and_fade() {
+    let bright = tier.glyph(tier.RICH, tier.SP_SHADOW_EYE, 0)
+    let dim = tier.glyph(tier.RICH, tier.SP_SHADOW_EYE, 1)
+    assert(bright.cp == dim.cp && bright.fg != dim.fg, "the eyes pulse by colour, one glyph")
+    assert(bright.fg == 196 && dim.fg == 124, "red, and a darker red (PALETTE.md)")
+    assert(
+        tier.glyph(tier.PLAIN, tier.SP_SHADOW_EYE, 0).fg == 9 &&
+            tier.glyph(tier.PLAIN, tier.SP_SHADOW_EYE, 1).fg == 1,
+        "plain: bright red and red, the one colour both tiers share",
+    )
+    let solid = tier.glyph(tier.RICH, tier.SP_SHADOW_BODY, 0).cp
+    let dark = tier.glyph(tier.RICH, tier.SP_SHADOW_BODY, 1).cp
+    let light = tier.glyph(tier.RICH, tier.SP_SHADOW_BODY, 2).cp
+    assert(
+        solid == 9608 && dark == 9619 && light == 9617,
+        "the fade: full block, dark shade, light shade",
+    )
+    assert(
+        tier.glyph(tier.PLAIN, tier.SP_SHADOW_BODY, 0).cp !=
+            tier.glyph(tier.PLAIN, tier.SP_SHADOW_BODY, 2).cp,
+        "the plain fade changes the glyph too",
+    )
+}
+
+fn test_card_cells_need_no_font_row() {
+    var cp = 32
+    while cp <= 126 {
+        let c = tier.card_text(tier.RICH, cp, false)
+        assert(c.cp == cp && c.cp <= 255, "text is Latin-1")
+        let p = tier.card_text(tier.PLAIN, cp, true)
+        assert(p.fg <= 15 && p.bg <= 15, "plain text in the sixteen")
+        cp += 1
+    }
+    let listed = tier.rich_code_points()
+    var which = 0
+    while which < 3 {
+        let f = tier.card_frame(tier.RICH, which).cp
+        var found = false
+        for k in listed {
+            if k == f {
+                found = true
+            }
+        }
+        assert(found, "the frame's glyph {f} is in GLYPHS.md's list already")
+        assert(tier.card_frame(tier.PLAIN, which).cp <= 126, "the plain frame is ASCII")
+        which += 1
+    }
+}
