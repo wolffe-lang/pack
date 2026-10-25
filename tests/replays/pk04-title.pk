@@ -2,7 +2,7 @@ pk 1
 seed 16
 tier rich
 size 80x24
-# score 56
+# score 185
 t 30 health -10
 t 33 health -10
 t 36 health -10
@@ -13,4 +13,4 @@ t 48 health -10
 t 52 health -10
 t 55 health -10
 t 59 health -10
-t 299 quit
+t 966 quit

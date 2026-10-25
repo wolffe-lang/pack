@@ -1,0 +1,16 @@
+pk 1
+seed 16
+tier rich
+size 80x24
+# score 185
+t 30 health -10
+t 33 health -10
+t 36 health -10
+t 39 health -10
+t 42 health -10
+t 45 health -10
+t 48 health -10
+t 51 health -10
+t 53 health -10
+t 57 health -10
+t 966 quit
