@@ -1,0 +1,170 @@
+trace tick 1 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 96 wall_us 34683
+trace tick 2 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 192 wall_us 68036
+trace tick 3 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 288 wall_us 100880
+trace tick 4 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 384 wall_us 135191
+trace tick 5 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 480 wall_us 168296
+trace tick 6 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 576 wall_us 201372
+trace tick 7 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 672 wall_us 234701
+trace tick 8 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 768 wall_us 267805
+trace tick 9 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 864 wall_us 301102
+trace tick 10 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 960 wall_us 335170
+trace tick 11 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 1056 wall_us 368287
+trace tick 12 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 1152 wall_us 401517
+trace tick 13 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 1248 wall_us 434634
+trace tick 14 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 1344 wall_us 467747
+trace tick 15 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 1440 wall_us 501147
+trace tick 16 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 1536 wall_us 535225
+trace tick 17 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 1632 wall_us 568548
+trace tick 18 in 0 keys 0 queue 0 steer 0 heading 0 x 11020 y 1728 wall_us 601607
+trace tick 19 in 3 keys 1 queue 1 steer -23 heading -6 x 11011 y 1824 wall_us 635279
+trace frame 19 tick 19 carries_key inner_us 12411 wall_us 635649
+trace tick 20 in 3 keys 1 queue 1 steer -46 heading -12 x 10993 y 1919 wall_us 668264
+trace frame 20 tick 20 carries_key inner_us 7981 wall_us 668336
+trace tick 21 in 3 keys 1 queue 1 steer -63 heading -18 x 10966 y 2012 wall_us 701306
+trace frame 21 tick 21 carries_key inner_us 7941 wall_us 701349
+trace tick 22 in 0 keys 0 queue 0 steer -62 heading -24 x 10930 y 2102 wall_us 734369
+trace tick 23 in 3 keys 1 queue 1 steer -63 heading -30 x 10885 y 2188 wall_us 767698
+trace frame 23 tick 23 carries_key inner_us 33085 wall_us 767751
+trace tick 24 in 3 keys 1 queue 1 steer -63 heading -36 x 10831 y 2269 wall_us 801787
+trace frame 24 tick 24 carries_key inner_us 34067 wall_us 801831
+trace tick 25 in 3 keys 1 queue 1 steer -63 heading -42 x 10768 y 2345 wall_us 834862
+trace frame 25 tick 25 carries_key inner_us 33319 wall_us 835160
+trace tick 26 in 3 keys 1 queue 1 steer -63 heading -48 x 10696 y 2414 wall_us 868220
+trace frame 26 tick 26 carries_key inner_us 33123 wall_us 868297
+trace tick 27 in 3 keys 1 queue 1 steer -63 heading -54 x 10615 y 2476 wall_us 901340
+trace frame 27 tick 27 carries_key inner_us 33070 wall_us 901381
+trace tick 28 in 3 keys 1 queue 1 steer -63 heading -60 x 10525 y 2530 wall_us 934412
+trace frame 28 tick 28 carries_key inner_us 33061 wall_us 934450
+trace tick 29 in 3 keys 1 queue 1 steer -63 heading -63 x 10431 y 2580 wall_us 968495
+trace frame 29 tick 29 carries_key inner_us 34387 wall_us 968848
+trace tick 30 in 3 keys 1 queue 1 steer -63 heading -63 x 10337 y 2630 wall_us 1001624
+trace frame 30 tick 30 carries_key inner_us 32835 wall_us 1001694
+trace tick 31 in 3 keys 1 queue 1 steer -63 heading -63 x 10243 y 2680 wall_us 1034742
+trace frame 31 tick 31 carries_key inner_us 33107 wall_us 1034812
+trace tick 32 in 3 keys 1 queue 1 steer -63 heading -63 x 10149 y 2730 wall_us 1067848
+trace frame 32 tick 32 carries_key inner_us 33068 wall_us 1067890
+trace tick 33 in 3 keys 1 queue 1 steer -63 heading -63 x 10055 y 2780 wall_us 1101625
+trace frame 33 tick 33 carries_key inner_us 33769 wall_us 1101669
+trace tick 34 in 3 keys 1 queue 1 steer -63 heading -63 x 9961 y 2830 wall_us 1134721
+trace frame 34 tick 34 carries_key inner_us 33545 wall_us 1135224
+trace tick 35 in 3 keys 1 queue 1 steer -63 heading -63 x 9867 y 2880 wall_us 1168276
+trace frame 35 tick 35 carries_key inner_us 33103 wall_us 1168342
+trace tick 36 in 3 keys 1 queue 1 steer -63 heading -63 x 9773 y 2930 wall_us 1200944
+trace frame 36 tick 36 carries_key inner_us 32626 wall_us 1200980
+trace tick 37 in 3 keys 1 queue 1 steer -63 heading -63 x 9679 y 2980 wall_us 1234895
+trace frame 37 tick 37 carries_key inner_us 9136 wall_us 1234969
+trace tick 38 in 0 keys 0 queue 0 steer -62 heading -62 x 9586 y 3031 wall_us 1268021
+trace tick 39 in 3 keys 1 queue 1 steer -63 heading -63 x 9492 y 3081 wall_us 1301135
+trace frame 39 tick 39 carries_key inner_us 33526 wall_us 1301622
+trace tick 40 in 3 keys 1 queue 1 steer -63 heading -63 x 9398 y 3131 wall_us 1334661
+trace frame 40 tick 40 carries_key inner_us 33068 wall_us 1334705
+trace tick 41 in 3 keys 1 queue 1 steer -63 heading -63 x 9320 y 3173 wall_us 1367514
+trace frame 41 tick 41 carries_key inner_us 32837 wall_us 1367553
+trace tick 42 in 3 keys 1 queue 1 steer -63 heading -63 x 9257 y 3206 wall_us 1401630
+trace frame 42 tick 42 carries_key inner_us 9114 wall_us 1401706
+trace tick 43 in 3 keys 1 queue 1 steer -63 heading -63 x 9210 y 3231 wall_us 1434679
+trace frame 43 tick 43 carries_key inner_us 7986 wall_us 1434756
+trace tick 44 in 0 keys 0 queue 0 steer -62 heading -62 x 9164 y 3257 wall_us 1467445
+trace tick 45 in 3 keys 1 queue 1 steer -63 heading -63 x 9117 y 3282 wall_us 1501556
+trace frame 45 tick 45 carries_key inner_us 34108 wall_us 1501624
+trace tick 46 in 3 keys 1 queue 1 steer -63 heading -63 x 9070 y 3307 wall_us 1534680
+trace frame 46 tick 46 carries_key inner_us 33112 wall_us 1534748
+trace tick 47 in 3 keys 1 queue 1 steer -63 heading -63 x 9023 y 3332 wall_us 1567479
+trace frame 47 tick 47 carries_key inner_us 33241 wall_us 1567999
+trace tick 48 in 3 keys 1 queue 1 steer -63 heading -63 x 8976 y 3357 wall_us 1600787
+trace frame 48 tick 48 carries_key inner_us 32829 wall_us 1600851
+trace tick 49 in 3 keys 1 queue 1 steer -63 heading -63 x 8929 y 3382 wall_us 1634909
+trace frame 49 tick 49 carries_key inner_us 34119 wall_us 1634985
+trace tick 50 in 0 keys 0 queue 0 steer -62 heading -62 x 8883 y 3408 wall_us 1668027
+trace tick 51 in 0 keys 0 queue 0 steer -61 heading -61 x 8838 y 3435 wall_us 1700851
+trace tick 52 in 0 keys 0 queue 0 steer -60 heading -60 x 8793 y 3462 wall_us 1734947
+trace tick 53 in 0 keys 0 queue 0 steer -59 heading -59 x 8749 y 3490 wall_us 1768035
+trace tick 54 in 0 keys 0 queue 0 steer -58 heading -58 x 8706 y 3519 wall_us 1801115
+trace tick 55 in 0 keys 0 queue 0 steer -57 heading -57 x 8664 y 3548 wall_us 1835212
+trace tick 56 in 0 keys 0 queue 0 steer -56 heading -56 x 8622 y 3578 wall_us 1868291
+trace tick 57 in 0 keys 0 queue 0 steer -55 heading -55 x 8581 y 3609 wall_us 1901400
+trace tick 58 in 0 keys 0 queue 0 steer -54 heading -54 x 8541 y 3640 wall_us 1934860
+trace tick 59 in 0 keys 0 queue 0 steer -53 heading -53 x 8502 y 3672 wall_us 1967965
+trace tick 60 in 0 keys 0 queue 0 steer -52 heading -52 x 8463 y 3705 wall_us 2001056
+trace tick 61 in 0 keys 0 queue 0 steer -51 heading -51 x 8425 y 3738 wall_us 2035128
+trace tick 62 in 0 keys 0 queue 0 steer -50 heading -50 x 8388 y 3772 wall_us 2068243
+trace tick 63 in 0 keys 0 queue 0 steer -49 heading -49 x 8352 y 3806 wall_us 2100775
+trace tick 64 in 0 keys 0 queue 0 steer -48 heading -48 x 8316 y 3841 wall_us 2134093
+trace tick 65 in 0 keys 0 queue 0 steer -47 heading -47 x 8281 y 3877 wall_us 2168431
+trace tick 66 in 0 keys 0 queue 0 steer -46 heading -46 x 8247 y 3913 wall_us 2201534
+trace tick 67 in 0 keys 0 queue 0 steer -45 heading -45 x 8214 y 3950 wall_us 2234622
+trace tick 68 in 0 keys 0 queue 0 steer -44 heading -44 x 8181 y 3987 wall_us 2268685
+trace tick 69 in 0 keys 0 queue 0 steer -43 heading -43 x 8149 y 4025 wall_us 2301754
+trace tick 70 in 0 keys 0 queue 0 steer -42 heading -42 x 8118 y 4063 wall_us 2334834
+trace tick 71 in 0 keys 0 queue 0 steer -41 heading -41 x 8088 y 4102 wall_us 2367925
+trace tick 72 in 0 keys 0 queue 0 steer -40 heading -40 x 8058 y 4141 wall_us 2401384
+trace tick 73 in 0 keys 0 queue 0 steer -39 heading -39 x 8029 y 4181 wall_us 2434480
+trace tick 74 in 0 keys 0 queue 0 steer -38 heading -38 x 8001 y 4221 wall_us 2468539
+trace tick 75 in 0 keys 0 queue 0 steer -37 heading -37 x 7974 y 4261 wall_us 2501621
+trace tick 76 in 0 keys 0 queue 0 steer -36 heading -36 x 7947 y 4302 wall_us 2534732
+trace tick 77 in 0 keys 0 queue 0 steer -35 heading -35 x 7921 y 4343 wall_us 2567516
+trace tick 78 in 0 keys 0 queue 0 steer -34 heading -34 x 7896 y 4385 wall_us 2601625
+trace tick 79 in 0 keys 0 queue 0 steer -33 heading -33 x 7872 y 4427 wall_us 2634782
+trace tick 80 in 0 keys 0 queue 0 steer -32 heading -32 x 7848 y 4469 wall_us 2667890
+trace tick 81 in 0 keys 0 queue 0 steer -31 heading -31 x 7825 y 4512 wall_us 2701958
+trace tick 82 in 0 keys 0 queue 0 steer -30 heading -30 x 7803 y 4555 wall_us 2734092
+trace tick 83 in 0 keys 0 queue 0 steer -29 heading -29 x 7782 y 4599 wall_us 2768168
+trace tick 84 in 0 keys 0 queue 0 steer -28 heading -28 x 7761 y 4643 wall_us 2801260
+trace tick 85 in 0 keys 0 queue 0 steer -27 heading -27 x 7741 y 4687 wall_us 2834666
+trace tick 86 in 0 keys 0 queue 0 steer -26 heading -26 x 7722 y 4732 wall_us 2866923
+trace tick 87 in 0 keys 0 queue 0 steer -25 heading -25 x 7704 y 4777 wall_us 2901930
+trace tick 88 in 0 keys 0 queue 0 steer -24 heading -24 x 7686 y 4822 wall_us 2934117
+trace tick 89 in 0 keys 0 queue 0 steer -23 heading -23 x 7669 y 4867 wall_us 2968182
+trace tick 90 in 0 keys 0 queue 0 steer -22 heading -22 x 7653 y 4913 wall_us 3001632
+trace tick 91 in 0 keys 0 queue 0 steer -21 heading -21 x 7638 y 4959 wall_us 3034736
+trace tick 92 in 0 keys 0 queue 0 steer -20 heading -20 x 7623 y 5005 wall_us 3066986
+trace tick 93 in 0 keys 0 queue 0 steer -19 heading -19 x 7609 y 5051 wall_us 3101065
+trace tick 94 in 0 keys 0 queue 0 steer -18 heading -18 x 7596 y 5098 wall_us 3135139
+trace tick 95 in 0 keys 0 queue 0 steer -17 heading -17 x 7584 y 5145 wall_us 3168243
+trace tick 96 in 0 keys 0 queue 0 steer -16 heading -16 x 7572 y 5192 wall_us 3201619
+trace tick 97 in 0 keys 0 queue 0 steer -15 heading -15 x 7561 y 5239 wall_us 3234716
+trace tick 98 in 0 keys 0 queue 0 steer -14 heading -14 x 7551 y 5286 wall_us 3266996
+trace tick 99 in 0 keys 0 queue 0 steer -13 heading -13 x 7542 y 5334 wall_us 3301063
+trace tick 100 in 0 keys 0 queue 0 steer -12 heading -12 x 7533 y 5382 wall_us 3335126
+trace tick 101 in 0 keys 0 queue 0 steer -11 heading -11 x 7525 y 5430 wall_us 3368636
+trace tick 102 in 0 keys 0 queue 0 steer -10 heading -10 x 7518 y 5478 wall_us 3400768
+trace tick 103 in 0 keys 0 queue 0 steer -9 heading -9 x 7512 y 5526 wall_us 3434882
+trace tick 104 in 0 keys 0 queue 0 steer -8 heading -8 x 7506 y 5574 wall_us 3467643
+trace tick 105 in 0 keys 0 queue 0 steer -7 heading -7 x 7501 y 5622 wall_us 3501707
+trace tick 106 in 0 keys 0 queue 0 steer -6 heading -6 x 7497 y 5670 wall_us 3534769
+trace tick 107 in 0 keys 0 queue 0 steer -5 heading -5 x 7494 y 5718 wall_us 3568329
+trace tick 108 in 0 keys 0 queue 0 steer -4 heading -4 x 7491 y 5766 wall_us 3601436
+trace tick 109 in 0 keys 0 queue 0 steer -3 heading -3 x 7489 y 5814 wall_us 3633821
+trace tick 110 in 0 keys 0 queue 0 steer -2 heading -2 x 7488 y 5862 wall_us 3667410
+trace tick 111 in 0 keys 0 queue 0 steer -1 heading -1 x 7488 y 5910 wall_us 3701486
+trace tick 112 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 5958 wall_us 3734331
+trace tick 113 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6006 wall_us 3768390
+trace tick 114 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6054 wall_us 3801458
+trace tick 115 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6102 wall_us 3834577
+trace tick 116 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6150 wall_us 3868667
+trace tick 117 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6198 wall_us 3902014
+trace tick 118 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6246 wall_us 3934135
+trace tick 119 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6294 wall_us 3968216
+trace tick 120 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6342 wall_us 4001342
+trace tick 121 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6390 wall_us 4033651
+trace tick 122 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6438 wall_us 4067410
+trace tick 123 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6486 wall_us 4101658
+trace tick 124 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6534 wall_us 4134100
+trace tick 125 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6582 wall_us 4168174
+trace tick 126 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6630 wall_us 4201233
+trace tick 127 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6678 wall_us 4235320
+trace tick 128 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6726 wall_us 4267513
+trace tick 129 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6774 wall_us 4301600
+trace tick 130 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6822 wall_us 4334712
+trace tick 131 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6870 wall_us 4367179
+trace tick 132 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6918 wall_us 4401234
+trace tick 133 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 6966 wall_us 4433646
+trace tick 134 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 7014 wall_us 4467746
+trace tick 135 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 7062 wall_us 4501809
+trace tick 136 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 7110 wall_us 4534870
+trace tick 137 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 7158 wall_us 4567932
+trace tick 138 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 7206 wall_us 4601994
+trace tick 139 in 0 keys 0 queue 0 steer 0 heading 0 x 7488 y 7254 wall_us 4634441
+trace tick 140 in 1 keys 0 queue 1 steer 0 heading 0 x 7488 y 7302 wall_us 4668160
+trace frame 140 tick 140 carries_key inner_us 9089 wall_us 4668219
+pack: ended by the quit key; 140 ticks, 140 frames, 0 dropped, 169 waits, 28 cells; render avg 49 us max 126 us; wait late avg 1345 us max 2016 us over 140; seed 7 tier rich 80x24

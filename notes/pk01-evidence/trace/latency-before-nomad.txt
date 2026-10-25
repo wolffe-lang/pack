@@ -1,0 +1,5 @@
+perf-idle: idle SKIP (no /proc on this host; measure on Linux)
+perf-idle: latency samples ms (key write to the carrying frame's trace line): 12 33 33 9 33 12 9 33 8 33 9 33 8 9 9 11 9 9 9 9
+perf-idle: latency inner ms (the key's read to the frame's write): 12.1 33.1 33.1 8.9 33.1 12.1 9.1 33.1 8.0 33.1 9.1 33.1 8.4 8.8 9.1 11.1 9.1 9.1 8.8 8.7
+perf-idle: latency run's closing line: pack: ended by the quit key; 225 ticks, 225 frames, 0 dropped, 246 waits, 40 cells; render avg 36 us max 77 us; wait late avg 1404 us max 2028 us over 225; seed 7 tier rich 80x24
+perf-idle: latency median 9.2 ms p90 33.1 ms max 33.4 ms over 20 keys (bars median 40, p90 70 ms) ok

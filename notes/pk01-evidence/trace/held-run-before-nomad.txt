@@ -1,0 +1,4 @@
+pty: held-run FAILED (darwin arm64):
+  evidence: 28 sequences typed, last key at tick 49, peak |heading| 63, straight at 112, column at rest at 110
+  - the heading was not straight within 10 ticks of the last byte (tick 49): straight at 112; headings [-62, -61, -60, -59, -58, -57, -56, -55, -54, -53, -52, -51, -50, -49, -48, -47, -46, -45, -44, -43, -42, -41, -40, -39, -38, -37, -36, -35, -34, -33, -32, -31, -30, -29, -28, -27, -26, -25, -24, -23]
+  - the column still moved after tick 49 + 10: x [7488, 7489, 7491, 7494, 7497, 7501]

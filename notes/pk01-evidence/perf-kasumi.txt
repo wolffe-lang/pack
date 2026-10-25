@@ -1,0 +1,16 @@
+head 88ee4a5 start 2026-10-25T06:54:33Z
+perf: host Linux x86_64, slack x1
+bench 80x24 rich frames 300 avg_us 38 p99_us 69 max_us 88 bytes_avg 2739
+perf: 80x24 rich avg 38 us < 1000 us ok
+bench 80x24 plain frames 300 avg_us 37 p99_us 65 max_us 75 bytes_avg 1505
+perf: 80x24 plain avg 37 us < 1000 us ok
+bench 200x60 rich frames 300 avg_us 235 p99_us 422 max_us 477 bytes_avg 18681
+perf: 200x60 rich avg 235 us < 4000 us ok
+bench 200x60 plain frames 300 avg_us 231 p99_us 377 max_us 414 bytes_avg 10639
+perf: 200x60 plain avg 231 us < 4000 us ok
+perf-idle: idle 300 voluntary context switches in 10 s at a standstill (bar 240..360) ok
+perf-idle: latency samples ms (key write to the carrying frame's trace line): 13 13 33 33 13 33 33 33 13 33 13 34 13 33 14 34 14 13 33 13
+perf-idle: latency inner ms (the key's read to the frame's write): 13.1 13.1 33.1 33.1 13.2 33.1 33.2 33.1 13.2 33.1 13.1 33.5 13.1 33.1 13.2 33.3 13.2 13.1 33.1 13.2
+perf-idle: latency run's closing line: pack: ended by the quit key; 225 ticks, 225 frames, 0 dropped, 246 waits, 25 cells, health 100 (0 down), stamina 300; render avg 50 us max 146 us; wait late avg 589 us max 1112 us over 225; seed 7 tier rich 80x24
+perf-idle: latency median 23.4 ms p90 33.4 ms max 33.8 ms over 20 keys (bars median 40, p90 70 ms) ok
+end 2026-10-25T06:54:53Z exit 0

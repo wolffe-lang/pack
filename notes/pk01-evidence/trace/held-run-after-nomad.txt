@@ -1,0 +1,1 @@
+pty: held-run ok (darwin arm64, exit 0, 432874 bytes captured; 26 sequences typed, last key at tick 50, peak |heading| 48, straight at 56, column at rest at 55)
