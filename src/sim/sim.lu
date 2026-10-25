@@ -71,7 +71,7 @@ use world
 /// Trot speed `v`: 46 FP/tick, 5.39 cells/s. The maintainer's word
 /// (2026-10-25): "only 15 % faster" than pk01's migrating trot of 40.
 /// ACCEL 5 and BRAKE 10 preserve ten ticks to trot and five to stop.
-pub const TROT_V: int = 46
+pub const TROT_V: int = 40
 
 /// Sprint speed, 1.8 v (the campaign's bar): a bounded burst, clearly
 /// faster than the trot.
