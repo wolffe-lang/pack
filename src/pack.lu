@@ -348,7 +348,6 @@ fn run_probe(o: Options) -> int {
     }
     let cps = tier.rich_code_points()
     var widths = List[int]()
-    var buf = List[byte]()
     for cp in cps {
         var probe = List[byte]()
         grid.push_str(mut probe, "\x1b[2;1H\x1b[2K")
@@ -365,10 +364,10 @@ fn run_probe(o: Options) -> int {
                 break
             }
             if w.input_ready {
-                term.read_keys(mut buf, 64) else |_| {
+                let got = term.read_keys(64) else |_| {
                     break
                 }
-                for b in buf {
+                for b in got {
                     (mut reply).push(b)
                 }
                 col = cpr_col(reply)
@@ -535,7 +534,6 @@ fn run_live(o: Options, args: List[str]) -> int {
     var back = grid.new(rows, cols)
     var pen = grid.pen_new()
     var out = List[byte]()
-    var buf = List[byte]()
     var keys = List[int]()
     var tick_keys = List[int]()
     var d = input.new()
@@ -583,14 +581,14 @@ fn run_live(o: Options, args: List[str]) -> int {
             }
         }
         if w.input_ready {
-            term.read_keys(mut buf, 64) else |e| {
+            let got = term.read_keys(64) else |e| {
                 // A hang-up (eof) or a failed read ends the game; say which.
                 eprint("pack: standard input: {e}")
                 ended = "standard input ({e})"
                 quit = true
-                (mut buf).reset()
+                List[byte]()
             }
-            input.feed_all(mut d, buf, now_ms, mut keys)
+            input.feed_all(mut d, got, now_ms, mut keys)
         }
         input.flush(mut d, now_ms, mut keys)
         let due = clock.advance(mut c, now)
