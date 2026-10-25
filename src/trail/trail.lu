@@ -63,9 +63,13 @@ pub fn spawn_rate_fine(seed: int, row: int) -> int {
     var rate = SPAWN_BASE * 1000 +
         ahead * 1000 / SPAWN_DISTANCE +
         world.density(seed, row) * SPAWN_DENSITY * 1000 / world.FP
-    let ramp = SPAWN_RAMP_BASE * 1000 + ahead * 1000 / SPAWN_RAMP_ROWS
+    // Centre each previously floored term on its quantisation band.
+    // Filling only above every old step would raise the target event rate.
+    rate -= 1000
+    let ramp = SPAWN_RAMP_BASE * 1000 + ahead * 1000 / SPAWN_RAMP_ROWS - 500
     if rate > ramp { rate = ramp }
     if rate > SPAWN_CEILING * 1000 { rate = SPAWN_CEILING * 1000 }
+    if rate < SPAWN_BASE * 1000 { rate = SPAWN_BASE * 1000 }
     rate
 }
 
