@@ -320,7 +320,7 @@ pub fn leap_hits(aim: Aim, dx: int, dy: int) -> bool {
     if distance > LEAP_REACH_AIM * world.FP { return false }
     let dot = aim.x * dx + aim.y * dy
     let cross = aim.x * dy - aim.y * dx
-    dot > 0 && dot >= abs(cross)
+    aim.x != 0 || dot > 0 && dot >= abs(cross)
 }
 
 /// The current inferred chord, including only arrow presses already seen.
