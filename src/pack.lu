@@ -43,6 +43,7 @@ struct Options {
     probe_glyphs: bool,
     bench: bool,
     selftest: bool,
+    trace: bool,
     help: bool,
     version: bool,
 }
@@ -61,7 +62,9 @@ fn usage_text() -> str {
         "  keys: arrows steer, Up sprints, Down stops, Space leaps,\n" +
         "        Shift+Down or z parries, q or Esc quits\n" +
         "  --truecolor / --no-truecolor      override COLORTERM\n" +
-        "  --ticks N                         quit after N ticks\n"
+        "  --ticks N                         quit after N ticks\n" +
+        "  --trace                           one line a tick on standard error: the bytes read, the keys\n" +
+        "                                    applied, the steer and heading; a line per frame that carries a key\n"
 }
 
 fn options_default() -> Options {
@@ -85,6 +88,7 @@ fn options_default() -> Options {
         probe_glyphs: false,
         bench: false,
         selftest: false,
+        trace: false,
         help: false,
         version: false,
     }
@@ -110,6 +114,8 @@ fn parse_args(args: List[str]) -> Options ! {usage, parse} {
             o.bench = true
         } else if a == "--selftest" {
             o.selftest = true
+        } else if a == "--trace" {
+            o.trace = true
         } else if a == "--truecolor" {
             o.truecolor = 1
         } else if a == "--no-truecolor" {
@@ -686,6 +692,12 @@ fn run_live(o: Options, args: List[str]) -> int {
     var late_ns = 0
     var late_max_ns = 0
     var late_n = 0
+    // The trace (`--trace`): the bytes read since the last tick, the wall
+    // time the first of this tick's keys arrived (0 for none), and the keys
+    // the tick applied, so the frame that carries a key can be named.
+    let t0_ns = clock.now_ns()
+    var trace_bytes = 0
+    var trace_first_key_ns = 0
     loop {
         var deadline = clock.next_due_ns(c)
         if input.esc_pending(d) {
@@ -736,7 +748,12 @@ fn run_live(o: Options, args: List[str]) -> int {
                 quit = true
                 List[byte]()
             }
+            let before = keys.len
             input.feed_all(mut d, got, now_ms, mut keys)
+            trace_bytes += got.len
+            if keys.len > before && trace_first_key_ns == 0 {
+                trace_first_key_ns = now
+            }
         }
         input.flush(mut d, now_ms, mut keys)
         let due = clock.advance(mut c, now)
@@ -768,6 +785,12 @@ fn run_live(o: Options, args: List[str]) -> int {
                 }
             }
             sim.step(mut s, tick_keys)
+            if o.trace {
+                eprint(
+                    "trace tick {s.tick} in {trace_bytes} keys {tick_keys.len} queue {keys.len} steer {sim.steer_target(s)} heading {sim.steer_heading(s)} x {sim.steer_x(s)} y {sim.steer_y(s)} wall_us {(clock.now_ns() - t0_ns) / 1000}",
+                )
+                trace_bytes = 0
+            }
             if o.trap_at > 0 && s.tick == o.trap_at {
                 // The planted trap: a broken contract, as any trap would be.
                 // The runtime restores the terminal (`[os.term.restore]`).
@@ -803,6 +826,16 @@ fn run_live(o: Options, args: List[str]) -> int {
             back = tmp
             full = false
             frames += 1
+            if o.trace && trace_first_key_ns != 0 {
+                // The frame that carries a key: written, so the runner can
+                // time from its write to this line (the sound latency,
+                // R-pk00-6's shape); `inner_us` is the loop's own share, from
+                // the key's read to the frame's write.
+                eprint(
+                    "trace frame {frames} tick {s.tick} carries_key inner_us {(clock.now_ns() - trace_first_key_ns) / 1000} wall_us {(clock.now_ns() - t0_ns) / 1000}",
+                )
+                trace_first_key_ns = 0
+            }
         }
         if quit {
             break

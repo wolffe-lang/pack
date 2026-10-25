@@ -303,6 +303,26 @@ pub fn trot_frame(s: Sim) -> int {
     s.wolf.y / (world.FP / 2) % 4
 }
 
+/// The steer: the heading target the keys set (the trace reads it).
+pub fn steer_target(s: Sim) -> int {
+    s.wolf.heading_target
+}
+
+/// The steered heading now.
+pub fn steer_heading(s: Sim) -> int {
+    s.wolf.heading
+}
+
+/// The steered wolf's lateral position, FP units.
+pub fn steer_x(s: Sim) -> int {
+    s.wolf.x
+}
+
+/// The steered wolf's world row position, FP units.
+pub fn steer_y(s: Sim) -> int {
+    s.wolf.y
+}
+
 /// Distance travelled, in cells.
 pub fn distance_cells(s: Sim) -> int {
     s.wolf.y / world.FP
