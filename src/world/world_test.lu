@@ -7,7 +7,8 @@ fn test_deterministic() {
         let (c1, h1) = path(42, 80, r)
         let (c2, h2) = path(42, 80, r)
         assert(c1 == c2 && h1 == h2, "row {r}")
-        assert(forest_kind(42, r, 7, 4) == forest_kind(42, r, 7, 4), "kind {r}")
+        assert(forest_kind(42, r, 7, 4, 128) == forest_kind(42, r, 7, 4, 128), "kind {r}")
+        assert(density(42, r) == density(42, r), "density {r}")
         r += 1
     }
 }
@@ -18,7 +19,7 @@ fn test_path_in_range_and_continuous() {
     while r < 2000 {
         let (c, h) = path(7, 80, r)
         assert(c >= 25 * FP && c <= 55 * FP, "centre {c} at {r}")
-        assert(h >= 3 * FP && h <= 10 * FP + 1, "half {h} at {r}")
+        assert(h >= 3 * FP && h <= 25 * FP / 2 + 2, "half {h} at {r}")
         if prev >= 0 {
             let d = if c > prev then c - prev else prev - c
             assert(d <= FP, "the path bends at most a cell a row ({d} at {r})")
@@ -56,16 +57,67 @@ fn test_forest_density_rises() {
     var far = 0
     var i = 0
     while i < 1000 {
-        if forest_kind(5, i, 3, 1) == 3 {
+        if forest_kind(5, i, 3, 1, 128) == 3 {
             near += 1
         }
-        if forest_kind(5, i, 3, 9) == 3 {
+        if forest_kind(5, i, 3, 9, 128) == 3 {
             far += 1
         }
         i += 1
     }
     assert(near == 0 && far > 300, "deep forest near {near}, far {far}")
-    assert(forest_kind(5, 1, 1, 0) == 0, "the verge is grass")
+    assert(forest_kind(5, 1, 1, 0, 128) == 0, "the verge is grass")
+}
+
+fn test_clearing_stand_and_woods_read_differently() {
+    // Over a thousand cells two cells into the forest: a clearing is
+    // mostly grass, a dense stand mostly canopy, thin woods between.
+    var grass_clear = 0
+    var canopy_stand = 0
+    var canopy_woods = 0
+    var i = 0
+    while i < 1000 {
+        if forest_kind(5, i, 3, 2, 0) == 0 {
+            grass_clear += 1
+        }
+        if forest_kind(5, i, 3, 2, FP) == 2 {
+            canopy_stand += 1
+        }
+        if forest_kind(5, i, 3, 2, 128) == 2 {
+            canopy_woods += 1
+        }
+        i += 1
+    }
+    assert(grass_clear > 850, "a clearing is grass: {grass_clear}")
+    assert(canopy_stand > 650, "a stand is canopy: {canopy_stand}")
+    assert(canopy_woods > 300 && canopy_woods < canopy_stand, "woods between: {canopy_woods}")
+    // Deep forest never within two cells of the path, even in a stand.
+    assert(forest_kind(5, 1, 1, 2, FP) != 3, "no deep forest at the verge")
+}
+
+fn test_density_widens_the_path_in_a_clearing() {
+    // The same channels, the density forced by seed search: find a clearing
+    // row and a stand row and compare the width's density term directly.
+    var clearing = -1
+    var stand = -1
+    var r = 0
+    while r < 5000 && (clearing < 0 || stand < 0) {
+        let b = density_band(7, r)
+        if b == 0 && clearing < 0 {
+            clearing = r
+        }
+        if b == 2 && stand < 0 {
+            stand = r
+        }
+        r += LATTICE
+    }
+    assert(clearing >= 0 && stand >= 0, "seed 7 has a clearing ({clearing}) and a stand ({stand})")
+    assert(density(7, clearing) < density(7, stand), "density ordered")
+    assert(
+        spawn_rate(7, stand) > spawn_rate(7, 0) || stand == 0,
+        "the spawn rate rises with density and distance",
+    )
+    assert(spawn_rate(7, 4000) > spawn_rate(7, 0), "the spawn rate rises with distance")
 }
 
 fn test_hash_range() {

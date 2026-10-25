@@ -9,6 +9,13 @@
 //! width, both from 1-D value noise: lattice points every `LATTICE` rows
 //! take a hashed value, and rows between take a smoothstep blend. The
 //! texture of the forest and the path at a cell is a hash of the cell.
+//!
+//! The forest's **density** is a third channel of the same noise (pk01):
+//! under `DENSITY_CLEARING` a clearing (grass to the verge, the odd
+//! trunk), under `DENSITY_STAND` thin woods, above it a dense stand; the
+//! path widens in a clearing and narrows in a stand, and the spawn rate
+//! pk02 reads rises with distance and with density, so the forest feels
+//! like one place (innovation 3).
 
 /// Fixed-point units a cell.
 pub const FP: int = 256
@@ -54,16 +61,46 @@ pub fn noise(seed: int, ch: int, row: int) -> int {
     a + (b - a) * s / FP
 }
 
+/// The noise channel the density reads.
+pub const DENSITY_CHANNEL: int = 3
+
+/// Density below this is a clearing.
+pub const DENSITY_CLEARING: int = 72
+
+/// Density at or above this is a dense stand; between is thin woods.
+pub const DENSITY_STAND: int = 168
+
+/// The forest's density at `row`, in `[0, FP]`: the third channel of the
+/// path's noise, so a clearing and the bend it sits in come from one seed.
+pub fn density(seed: int, row: int) -> int {
+    noise(seed, DENSITY_CHANNEL, row)
+}
+
+/// A clearing, thin woods or a dense stand at `row`: 0, 1 or 2.
+pub fn density_band(seed: int, row: int) -> int {
+    let d = density(seed, row)
+    if d < DENSITY_CLEARING {
+        return 0
+    }
+    if d < DENSITY_STAND {
+        return 1
+    }
+    2
+}
+
 /// The path at `row` in a world `cols` cells wide: its centre and half
 /// width, both in FP units. The centre wanders over the middle three
 /// eighths of the width (so its steepest bend, smoothstep's 1.5 times the
 /// swing over a lattice, stays under a cell a row even with the noise's
 /// rounding: a wolf at 45 degrees can follow it); the half width is
-/// between a sixteenth and an eighth of the width, never under 3 cells.
+/// between a sixteenth and an eighth of the width from its own channel,
+/// plus up to a thirty-second of the width where the forest is thin (the
+/// density's complement), never under 3 cells.
 pub fn path(seed: int, cols: int, row: int) -> (int, int) {
     let width = cols * FP
     let centre = width * 5 / 16 + noise(seed, 1, row) * (width * 3 / 8) / FP
     var half = width / 16 + noise(seed, 2, row / 2) * (width / 16) / FP
+    half += (FP - density(seed, row)) * (width / 32) / FP
     if half < 3 * FP {
         half = 3 * FP
     }
@@ -71,21 +108,53 @@ pub fn path(seed: int, cols: int, row: int) -> (int, int) {
 }
 
 /// The sprite kind at a cell outside the path: 0 grass (the verge, within
-/// a cell of the edge), 1 trunk, 2 canopy, 3 deep forest. Density rises
-/// with distance from the path.
-pub fn forest_kind(seed: int, row: int, col: int, dist_cells: int) -> int {
+/// a cell of the edge), 1 trunk, 2 canopy, 3 deep forest. The cover rises
+/// with distance from the path and with `density` (`[0, FP]`, the row's):
+/// a clearing is grass with the odd trunk, thin woods canopy that opens
+/// near the path, a dense stand canopy from the verge and deep forest
+/// three cells in.
+pub fn forest_kind(seed: int, row: int, col: int, dist_cells: int, density: int) -> int {
     if dist_cells <= 0 {
         return 0
     }
     let h = hash(seed, row, col, 100)
+    if density < DENSITY_CLEARING {
+        return if h < 3 then 1 else if h < 8 then 2 else 0
+    }
+    if density < DENSITY_STAND {
+        if dist_cells <= 2 {
+            return if h < 12 then 1 else if h < 55 then 2 else 0
+        }
+        if dist_cells <= 6 {
+            return if h < 10 then 1 else if h < 80 then 2 else 3
+        }
+        return if h < 6 then 1 else if h < 60 then 2 else 3
+    }
     if dist_cells <= 2 {
-        return if h < 12 then 1 else if h < 55 then 2 else 0
+        return if h < 14 then 1 else if h < 86 then 2 else 0
     }
-    if dist_cells <= 6 {
-        return if h < 10 then 1 else if h < 80 then 2 else 3
-    }
-    if h < 6 then 1 else if h < 60 then 2 else 3
+    if h < 8 then 1 else if h < 45 then 2 else 3
 }
+
+/// The spawn-rate input pk02 reads, in thousandths of a shadow a tick: a
+/// base that rises with the distance travelled (one more thousandth every
+/// `SPAWN_DISTANCE` rows) and with the forest's density at the row (up to
+/// `SPAWN_DENSITY` more in a dense stand). Computed and logged under
+/// `--trace`; nothing spawns yet.
+pub fn spawn_rate(seed: int, row: int) -> int {
+    SPAWN_BASE +
+        (if row > 0 then row / SPAWN_DISTANCE else 0) +
+        density(seed, row) * SPAWN_DENSITY / FP
+}
+
+/// The spawn rate at the start, thousandths a tick.
+pub const SPAWN_BASE: int = 2
+
+/// Rows per added thousandth.
+pub const SPAWN_DISTANCE: int = 200
+
+/// The density's whole contribution, thousandths a tick.
+pub const SPAWN_DENSITY: int = 6
 
 /// A variant for a cell's texture, in `[0, n)`.
 pub fn variant(seed: int, row: int, col: int, n: int) -> int {
