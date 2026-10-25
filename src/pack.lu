@@ -683,6 +683,9 @@ fn run_live(o: Options, args: List[str]) -> int {
     var render_ns = 0
     var render_max_ns = 0
     var ended = "the loop"
+    var late_ns = 0
+    var late_max_ns = 0
+    var late_n = 0
     loop {
         var deadline = clock.next_due_ns(c)
         if input.esc_pending(d) {
@@ -698,6 +701,16 @@ fn run_live(o: Options, args: List[str]) -> int {
         }
         let now = clock.now_ns()
         let now_ms = now / 1000000
+        if w.timed_out {
+            // How late the tick's wake was against its deadline: the wait's
+            // own cost, which the latency bar pays once a key.
+            let late = if now > deadline then now - deadline else 0
+            late_ns += late
+            late_n += 1
+            if late > late_max_ns {
+                late_max_ns = late
+            }
+        }
         if w.meaning != 0 {
             if w.meaning == 16384 {
                 if term.resize(mut t) && !replaying {
@@ -804,8 +817,9 @@ fn run_live(o: Options, args: List[str]) -> int {
         }
     }
     let avg_us = if frames > 0 then render_ns / frames / 1000 else 0
+    let late_avg_us = if late_n > 0 then late_ns / late_n / 1000 else 0
     eprint(
-        "pack: ended by {ended}; {s.tick} ticks, {frames} frames, {c.dropped} dropped, {c.waits} waits, {sim.distance_cells(s)} cells; render avg {avg_us} us max {render_max_ns / 1000} us; seed {rp.seed} tier {tier.name(rp.tier)} {cols}x{rows}",
+        "pack: ended by {ended}; {s.tick} ticks, {frames} frames, {c.dropped} dropped, {c.waits} waits, {sim.distance_cells(s)} cells; render avg {avg_us} us max {render_max_ns / 1000} us; wait late avg {late_avg_us} us max {late_max_ns / 1000} us over {late_n}; seed {rp.seed} tier {tier.name(rp.tier)} {cols}x{rows}",
     )
     0
 }
