@@ -1,12 +1,8 @@
 # frames 430 every 10 from 40
-# A deer fleeing and caught (pk03): seed 4 has a deer on the path at tick
-# 39, grazing toward the oncoming pack at the walk; one wolf is down from
-# tick 5 (health 75). At 57 a leader comes within DEER_PERCEIVE and the
-# deer bolts up the path at FLEE_V (1.5 v), pulling away from the trot;
-# by 146 its stamina is spent and it tires to DEER_TIRED_V, below the
-# trot, and the pack closes. Up at 374 and 398 is the sprint that runs it
-# down: at 421 a leader is within CATCH_REACH, the deer is gone, health is
-# up by FEED to 100, and the fainted wolf sprints back to its slot.
+# Seed 4, health reduced at tick 5. A deer grazes, bolts above the
+# trot, tires below it and feeds the pack when run down. Sprint presses
+# remain at 374 and 398; pk04 item 1 scales the speeds, not the wear-down
+# timers. The old tick-421 catch is not claimed after the speed change.
 pk 1
 seed 4
 tier rich

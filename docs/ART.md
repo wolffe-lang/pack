@@ -105,12 +105,10 @@ the three bands top to bottom (rows 0-7 a clearing, 8-15 woods, 16-23 a stand); 
 
 ## The deer in the game
 
-The golden `deer-flee` (seed 4, one wolf down from tick 5): a deer grazes down the path at the walk from
-tick 39, bolts at 57 when a leader comes within `DEER_PERCEIVE`, pulls away at `FLEE_V` until its stamina
-is spent at 146 and it slows to `DEER_TIRED_V`, below the trot; the pack closes, two sprints (374, 398)
-run it down, and at 421 a leader within `CATCH_REACH` brings it down: the deer is gone, health is up by
-`FEED`, and the fainted wolf sprints back to its slot. Deer are bodies for the separation rule, so a wolf
-and a deer bump and never overlap, and a shadow may cross one (the deer are drawn under the live shadows).
+The golden `deer-flee` (seed 4, one wolf down from tick 5) shows a deer
+grazing, bolting, tiring and feeding the pack when run down. The speed increase
+changes the catch's tick, not the wear-down timers; the case's input sequence
+is kept. Deer are bodies for separation and never overlap the wolves.
 
 ## Dusk
 
@@ -162,14 +160,13 @@ two returns on both tiers.
 
 ## The shadows in the game
 
-The goldens `spawn-chase`, `group-attack`, `leap-lands` and `parry-turns` (all seed 16, which starts in a
-dense stand where the spawn rate is above `GROUP_RATE`) show a group of three appearing at the forest edge
-above the top of the screen, lurking with dim eyes, one turning onto the path as a leader comes within
-`PERCEIVE` and stalking down it with pulsing eyes, biting the leader as it passes (eyes steady through the
-windup), braking to rest and turning up the path after the pack (the direction change is what the eye
-catches, as pk01's bump was), the three riding the pack's left flank and landing together, a leap taking two
-of them (the pack's lunge, the fade), and a parry turning a landing attack (the shadow knocked back half a
-cell a tick, eyes dim, then chasing again).
+The goldens `spawn-chase`, `group-attack`, `leap-lands` and `parry-turns`
+(seed 16, row 600) show the seeded outward facings and the spread across edge,
+verge and shoulder, perception and pursuit, a bounded turn after the pack,
+group bites, alternating pack leaps, fading targets and a parried recoil.
+The dedicated `shadow-lunge` captures every tick of the crouch and lunge;
+`alternating-leap` captures both groups. Old event ticks are not reused as
+claims after tuning the gait and perception.
 
 ## What the maintainer may want to change first
 

@@ -132,7 +132,7 @@ a tick for 24 ticks: a cell a burst).
 | constant | value | meaning | set |
 |---|---|---|---|
 | `CHASE_V` | 52 | a shadow's chase speed, unchanged after the pack's increase: 52 > 46 and 52 < 83, so a sprint shakes a chaser and a trot does not | 2026-10-25 proposed |
-| `STALK_V` | 20 | the speed a shadow stalks down the path toward the oncoming pack, `v`/2: its turn happens on the screen, not below it | 2026-10-25 proposed |
+| `STALK_V` | 20 | the original stalk speed, unchanged when the pack became faster: its turn happens on the screen, not below it | 2026-10-25 proposed |
 | `SHADOW_ACCEL`, `SHADOW_BRAKE` | 4, 8 | a shadow's acceleration and braking, the wolves' | 2026-10-25 proposed |
 | `SHADOW_TURN_RATE` | 12 | a shadow's maximum turn rate, the wolves' `TURN_RATE` (R-pk02-1 A) | 2026-10-25 proposed |
 | `PERCEIVE` | 8 | the outer Chebyshev range, with a 60-degree forward half-cone; any visible wolf wakes it | 2026-10-25 proposed |
@@ -190,9 +190,9 @@ target is still in reach.
 
 | constant | value | meaning | set |
 |---|---|---|---|
-| `DUSK_START` | 600 | rows of afternoon (about two minutes at the trot) before the palette begins to turn | 2026-10-25 proposed |
-| `DUSK_FULL` | 1200 | rows at which the palette is dusk's keyframe (about four minutes) | 2026-10-25 proposed |
-| `NIGHT_FULL` | 1800 | rows at which it is night's, and holds (about six and a half minutes) | 2026-10-25 proposed |
+| `DUSK_START` | 600 | rows of afternoon (111.3 seconds at a flat full-health trot) before the palette begins to turn | 2026-10-25 proposed |
+| `DUSK_FULL` | 1200 | rows at which the palette is dusk's keyframe (222.6 seconds at a flat trot) | 2026-10-25 proposed |
+| `NIGHT_FULL` | 1800 | rows at which it is night's, and holds (333.9 seconds at a flat trot) | 2026-10-25 proposed |
 | `tier.PHASE_DUSK`, `tier.PHASE_NIGHT` | 256, 512 | the phase's units: `sim.phase` climbs from 0 at `DUSK_START` to 256 at `DUSK_FULL` and 512 at `NIGHT_FULL`, never by more than two a row | 2026-10-25 pk03 |
 
 The palette's keyframes are `docs/PALETTE.md`'s; the rich tier blends them in RGB by the phase and quantizes

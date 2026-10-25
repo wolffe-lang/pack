@@ -1,0 +1,49 @@
+use sim
+use world
+fn main() {
+    var offset = 6
+    while offset <= 12 {
+        var turned = 0
+        var landed = 0
+        var seed = 1
+        while seed <= 20 {
+            var s = sim.new(seed, 80, 24)
+            s.stopping = true
+            s.speed = 0
+            var i = 0
+            while i < sim.PACK_SIZE {
+                var w = copy s.wolves[i]
+                w.speed = 0
+                if i != sim.ALPHA { w.state = sim.FAINTED }
+                s.wolves[i] = w
+                i += 1
+            }
+            s.down = 4
+            // Keep recovery from waking the four fixture wolves.
+            s.health = 0
+            var t = 0
+            while t <= 13 {
+                if t == 12 - sim.ATTACK_WINDUP + 1 {
+                    let a = sim.alpha(s)
+                    (mut s.shadows).push(sim.Shadow {
+                        face_x: 0, face_y: -2, attack_age: 0,
+                        attack_dx: 0, attack_dy: -768, pose_x: 0, pose_y: 0,
+                        x: a.x, y: a.y + 3 * world.FP, heading: 0,
+                        speed: 0, dir: -1, state: sim.ATTACKING,
+                        target: sim.ALPHA, windup: sim.ATTACK_WINDUP,
+                        cooldown: 0, recoil: 0, fade: 0,
+                    })
+                }
+                var keys = List[int]()
+                if t == 12 - offset { (mut keys).push(sim.KEY_PARRY) }
+                sim.step(mut s, keys, 0)
+                t += 1
+            }
+            turned += s.turned
+            landed += s.landed
+            seed += 1
+        }
+        print("PARRY offset {offset}: turned {turned} landed {landed} of 20")
+        offset += 2
+    }
+}

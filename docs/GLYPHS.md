@@ -1,7 +1,7 @@
 # The rich tier's glyphs
 
 Every code point the rich tier can draw, each once. This list is the specification for PAX's console font
-row (pk04): once PAX's font draws each of these at one cell, PAX runs the rich tier unchanged. The plain
+row (pk05): once PAX's font draws each of these at one cell, PAX runs the rich tier unchanged. The plain
 tier uses nothing above U+00FF, so it needs no row.
 
 The list is held to the code by a test: `src/glyphs_test.lu` reads this file and compares the `U+` entries
@@ -19,7 +19,7 @@ different fact.
 
 | | Terminal.app | iTerm2 | Linux VT (kasumi's kernel) | PAX's console |
 |---|---|---|---|---|
-| measured | owed: run `pack --probe-glyphs` here and record the date | owed, the same way | owed; the VT draws from its own font and substitutes what it lacks | draws `?` for every code point at or above U+0100 today (`kernel/screen/screen.lu`'s header); pk04's row |
+| measured | owed: run `pack --probe-glyphs` here and record the date | owed, the same way | owed; the VT draws from its own font and substitutes what it lacks | draws `?` for every code point at or above U+0100 today (`kernel/screen/screen.lu`'s header); pk05's row |
 
 ## The glyphs
 

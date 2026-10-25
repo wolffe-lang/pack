@@ -1,0 +1,1 @@
+linux x86-64 (fmt, tests, builds, goldens, pty rows in the container)	the Linux leg, in the container	2026-10-25T11:05:54.0707445Z test src/sim_test.lu::test_pk04_detection_cone_contact_and_outward_spawn_bands ... FAILED (trap(assert))

@@ -1,0 +1,5 @@
+pk04 memory gate: 23.75 GiB (floor 8)
+PARRY offset 6: turned 20 landed 0 of 20
+PARRY offset 8: turned 20 landed 0 of 20
+PARRY offset 10: turned 20 landed 0 of 20
+PARRY offset 12: turned 0 landed 20 of 20

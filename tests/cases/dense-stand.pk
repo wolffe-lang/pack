@@ -1,7 +1,7 @@
 # frames 60 every 30
-# A dense stand (pk01): seed 16's forest is at its thickest for the first
-# lattice of rows (density 252 of 256): canopy from the verge, deep forest
-# three cells in, the path at its narrowest.
+# Seed 16 starts in a dense stand: the same varied foliage as thin
+# woods, more trunks and a narrower path. The retired striped texture is
+# not used. pk04 item 1 changes the distance reached at these frame ticks.
 pk 1
 seed 16
 tier rich

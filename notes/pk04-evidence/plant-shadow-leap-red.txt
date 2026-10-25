@@ -1,0 +1,1 @@
+linux x86-64 (fmt, tests, builds, goldens, pty rows in the container)	the Linux leg, in the container	2026-10-25T11:06:08.2154821Z test src/sim_test.lu::test_pk04_shadow_lunge_has_six_crouch_ticks_and_six_travelling_ticks ... FAILED (trap(assert))

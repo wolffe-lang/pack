@@ -1,9 +1,7 @@
 # frames 90 every 5
-# A formation turn (pk01): Right held (the autorepeat, one press every two
-# ticks) from tick 10 to 40, then Left from 50 to 80. The leaders turn
-# first, the flankers three ticks later, the alpha six: the ripple. On
-# seed 3 the leaders' wander meets in the turn and they bump at tick 16
-# (frame 15 shows them touching, frame 20 nudged apart, never overlapping).
+# Right then Left autorepeat, a turn rippling through the five slots.
+# Seeded wander and separation prevent overlap. pk04 item 1 changes the
+# gait; the old tick-16 bump is not claimed after the speed change.
 pk 1
 seed 3
 tier rich

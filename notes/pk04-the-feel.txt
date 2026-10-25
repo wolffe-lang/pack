@@ -1,5 +1,44 @@
 # pk04 — the feel
 
+## Detection measurement (before leads)
+Before centre 5197/5229 (99.39%); after 4488/4522 (99.25%). The guess of
+35% was wrong: centre-following already met nearly all shadows. This
+fixture does not establish why play on a fixed screen column felt quiet.
+No claim of improved centre detection. The after bar (at least half) holds.
+
+Sensor-only traversal of seeds 1–20 to row 1800, 80x24, with 35 extra rows
+and no new spawns to flush the last sample through the pack. A detected
+shadow is retired after its first perception to prevent twelve permanent
+chasers filling SHADOW_MAX and censoring later spawns. An initial live
+census saturated at 12 per seed and was discarded. The centre/shoulder
+controller sends autorepeat every two ticks from the seeded path four rows
+ahead. Health is full. No leaps, sprints or parries. This is not a combat
+survival measurement. The earlier 98.62/98.25% count left the last spawns
+above the pack; the completed flush is the table below.
+
+Eligible means spawn column within PERCEIVE+4 of the path centre:
+5121/5150 (99.44%) -> 4477/4502 (99.44%). The denominator is stated, not
+all shadows on an arbitrarily wide screen. Far shoulder (right, half-width
+minus two cells): 3626/5215 (69.53%) -> 3502/4580 (76.46%); eligible
+3586/5147 (69.67%) -> 3493/4566 (76.50%).
+
+Band                 centre before      centre after       shoulder before     shoulder after
+forest edge          5197/5229 99.39%    865/886 97.63%      3626/5215 69.53%     613/968 63.33%
+inner verge          n/a                1368/1381 99.06%    n/a                 945/1319 71.65%
+path shoulder        n/a                2255/2255 100.00%   n/a                 1944/2293 84.78%
+Facing               centre before      centre after       shoulder before     shoulder after
+down path            5197/5229 99.39%    862/863 99.88%      3626/5215 69.53%     739/922 80.15%
+diagonal down        n/a                883/884 99.89%      n/a                 731/910 80.33%
+across to path       n/a                981/984 99.70%      n/a                 732/922 79.39%
+diagonal up          n/a                870/875 99.43%      n/a                 680/924 73.59%
+up path              n/a                892/916 97.38%      n/a                 620/902 68.74%
+
+The speed commit moved all 38 case directories, including standstill
+(the braking distance changed despite the five-tick stop), not the art.
+Detection moved only the ten shadow-case directories; art sheets held.
+R-pk04-1 A remains recommended: directional perception is legible, contact
+prevents a back-side blind spot, and the shoulder result improves.
+
 ## Prediction (2026-10-25, before implementation)
 Twenty seeds (1–20), 80x24, centre-following trot to row 1800: I predict
 35% of spawned shadows perceive a wolf before, 65% after. Centre following
@@ -32,40 +71,6 @@ R-pk04-3: keep an unchanged hit envelope: attacks resolve as before, with
 bounded presentation offsets and collision checks, so no sprite passes
 through another body. The offset is not a new hitbox or camera anchor.
 
-## Detection measurement (before leads)
-Sensor-only traversal of seeds 1–20 to row 1800, 80x24. A detected shadow
-is retired after its first perception to prevent twelve permanent chasers
-filling SHADOW_MAX and censoring later spawns. An initial uncapped live
-census saturated at 12 per seed and was discarded. The centre/shoulder
-controller sends autorepeat every two ticks from the seeded path four rows
-ahead. Health is full. No leaps, sprints or parries.
-
-Before centre 5157/5229 (98.62%); after 4443/4522 (98.25%). The guess of
-35% was wrong: centre-following already met nearly all shadows. The
-complaint about rare fights is consistent with an unsteered screen column,
-not this path-following fixture. No claim of improved centre detection.
-Eligible means spawn column within PERCEIVE+4 of the path centre:
-5081/5150 (98.66%) -> 4432/4502 (98.45%); comfortably above half.
-Far shoulder (right, half-width minus two cells): 3594/5215 (68.92%) ->
-3483/4580 (76.05%); eligible 69.05% -> 76.08%.
-
-Band                 centre before      centre after       shoulder after
-forest edge          5157/5229 98.62%    854/886 96.39%      611/968 63.12%
-inner verge          n/a                1350/1381 97.76%    943/1319 71.49%
-path shoulder        n/a                2239/2255 99.29%    1929/2293 84.13%
-Facing               centre before      centre after       shoulder after
-down path            5157/5229 98.62%    856/863 99.19%      736/922 79.83%
-diagonal down        n/a                877/884 99.21%      726/910 79.78%
-across to path       n/a                969/984 98.48%      729/922 79.07%
-diagonal up          n/a                859/875 98.17%      675/924 73.05%
-up path              n/a                882/916 96.29%      617/902 68.40%
-
-The speed commit moved all 38 case directories, including standstill
-(the braking distance changed despite the five-tick stop), not the art.
-Detection moves only the ten shadow-case directories; art sheets hold.
-R-pk04-1 A remains recommended: directional perception is legible, contact
-prevents a back-side blind spot, and the shoulder result improves.
-
 ## Parry, leap cadence and dusk
 Fixed landing at tick 12, seeds 1–20, one shadow three cells ahead of
 a stationary alpha (the other four are fixture-fainted). Press offsets
@@ -91,3 +96,76 @@ all deer wear-down/perception/recovery timers are unchanged. Dusk onset
 128.0 -> 111.3 s; full dusk 256.0 -> 222.6; night 384.0 -> 333.9. These
 are ideal flat-trot times; steering, trees, health and stops change them.
 Fifteen percent more speed is 13.04% less time, not 15%.
+
+Measured centre-controller times (twenty seeds, seconds; mean and range):
+                 before                         after
+onset row 600    135.77 [132.70,139.67]           118.20 [114.93,121.03]
+full dusk 1200   272.36 [269.57,276.13]           237.24 [234.10,240.10]
+night 1800       407.92 [404.50,412.27]           355.21 [352.00,358.53]
+
+## Inputs verified
+Base 91d93ac38b1e99933ed15818bedc79d37eb98738. Engine modules untouched.
+Pinned wolf 0.2.35 (cf0c13d), lupin 0.1.56, bundled std
+2386522eb059cca5a84108562c2c0a0e72345d34. The PATH wolf is 0.2.34 and
+was never used for a build: tools/fetch-toolchain staged the repository's
+pin. Mac and Linux archive digests read twice from the release API;
+notes/pk04-evidence/digests-twice.txt records both identical passes.
+No external game sources, assets or dependencies were read or added.
+
+## Evidence and corrections
+142 checked unit tests, zero SKIPs. Actual simulation rows prove five ticks
+to stop and ten to restart, fresh deer faster than trot/slower than sprint,
+tired deer below trot, chaser above trot/below sprint. The new rows prove
+cone/contact boundaries, all outward facings and bands, every visible wolf
+considered (a hidden nearest one cannot mask another), alternating groups
+and refusals, both distinct leap poses, six crouch/six lunge ticks, fixed
+parry offset, physical and presented bodies separate through a fight and
+resize, and death freezing every style. The existing native/LLVM builds,
+selftest, both-tier goldens and eight real terminal rows remain the gates.
+
+The first macOS tools/check went red in pty card: glyphs and replay agreed,
+but styles differed. The settling shadow override read the live tick for
+its eyes under death instead of died_tick. Commit 6ec746d fixes that clock
+and adds test_pk04_death_freezes_attack_tail_eyes_and_every_style. Only the
+death-card goldens moved for this correction; card and title then passed.
+
+Re-recorded real macOS terminal fixtures tests/replays/pk04-card.pk and
+pk04-title.pk both verify score 51. Their press ticks differ because they
+were different real sessions; each reproduces itself exactly. A unit row
+re-runs both to the recorded score. No historical score is silently reused.
+
+Golden provenance: 882bbfc speed (all 38 original case directories);
+58a873c sensing (ten shadow directories); b227165 pack leap (leap-lands,
+art sheets, new alternating-leap pair, every animation tick); 4a79a51
+shadow leap (ten shadow directories, art sheets, new shadow-lunge pair,
+every windup tick); 6ec746d frozen eyes (death-card only). The title sheets
+hold. There are now 21 cases on both tiers plus art (43 directories).
+Case comments were refreshed where the old event ticks were no longer true.
+
+Reproduce sensing or parry using notes/pk04-evidence/stage.py --kind
+census|parry --out target/pk04-PROBE [--revision 91d93ac]. Build the staged
+main.lu with the pinned wolf and bundled WOLF_STD behind the host's memory
+gate, then run it. It adds IDs/traces only to a scratch sim, not gameplay.
+Census B/D/M rows are births/detections/dusk milestones. Summaries, fixture
+inputs and exact named plant reds are under notes/pk04-evidence/.
+
+## Plants (left open, intentionally red)
+speed       PR 21 run 40187356155 test_pk04_speed_preserves_the_maintainers_ticks_and_wear_down
+detection   PR 22 run 40187361026 test_pk04_detection_cone_contact_and_outward_spawn_bands
+pack leap   PR 23 run 40187364545 test_pk04_pack_leap_alternates_moves_and_holds_formation
+shadow leap PR 24 run 40187368954 test_pk04_shadow_lunge_has_six_crouch_ticks_and_six_travelling_ticks
+Each row was read directly from its own failed linux unit-test step.
+
+## Follow-ons and open questions
+R-pk04-1 A (cone plus contact), R-pk04-2 A (leaders+flanker then alpha),
+and R-pk04-3 (presentation offsets retaining the old hit envelopes) are
+recommendations implemented, not rulings decided. Human readability and
+the stamina economy still need play. No new compiler issue was found.
+The earlier macOS font-width/key reports and idle counter remain owed.
+The PAX pass is pk05. Coordinate rebasing with cb00's engine extraction.
+README read and refreshed in its own commit. No merge, label, tag, release
+or issue action. The four plant PRs remain open for the orchestrator.
+
+This session cannot write a Markdown report file. The full note is included
+under Note in the PR body; this .txt copy preserves the committed prediction
+and evidence in the codebase without editing the private planning repo.

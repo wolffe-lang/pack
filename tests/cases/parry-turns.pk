@@ -1,10 +1,8 @@
 # frames 230 every 3 from 198
-# A parry that turns an attack (pk02; re-timed by pk03's curve): seed 16
-# from row 600 as spawn-chase; a shadow on the flank winds up at tick 199
-# (eyes steady) to land at 208. The parry is pressed at 203, inside
-# PARRY_WINDOW of the landing: no damage from it, the shadow loses its
-# speed and recoils PARRY_PUSH cells over PARRY_RECOIL ticks, eyes dim,
-# then takes up the chase again.
+# Seed 16 from row 600, parry at tick 203. The twelve-tick press window
+# turns a landing in range; the shadow recoils with dim eyes. pk04 items
+# 1, 2 and 4 changed the timeline. The dedicated unit fixture measures a
+# fixed press offset independently of this seeded fight.
 pk 1
 seed 16
 tier rich

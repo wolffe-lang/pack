@@ -1,14 +1,7 @@
 # frames 200 every 10 from 80
-# A spawn and a chase (pk02; re-timed by pk03's curve): seed 16 from row
-# 600 (the replay header's `start`: the second minute, where the curve is
-# at 8 thousandths, above GROUP_RATE) in a dense stand. A group of three
-# shadows appears at the right forest edge above the top of the screen at
-# tick 87 (eyes dim: lurking). At 126 the first sees a leader within
-# PERCEIVE and turns onto the path, stalking down it at STALK_V with its
-# eyes pulsing; at 143 it winds up on the leader passing it (eyes steady)
-# and lands at 152 (health 95, alone: DAMAGE_LONE). Passed, it brakes to
-# rest and its direction flips (tick 173), then it chases up the path at
-# CHASE_V: the turn is visible on the screen, no pivot.
+# Seed 16 from row 600: seeded outward facings and edge/verge/shoulder
+# columns. A detected shadow stalks, brakes to turn after the pack, chases
+# and winds up. pk04 item 2 changed sensing; item 4 changed the attack.
 pk 1
 seed 16
 tier rich

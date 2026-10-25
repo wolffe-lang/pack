@@ -1,10 +1,8 @@
 # frames 220 every 4 from 196
-# A leap that lands (pk02; re-timed by pk03's curve): seed 16 from row
-# 600 as spawn-chase, Space at tick 200 with two shadows on the flank
-# within LEAP_REACH of a wolf. The pack lunges together (the leap posture,
-# LEAP_TICKS), both shadows are vanquished — eyes out, the body thinning
-# from solid to the dark shade to the light one over FADE_TICKS — and are
-# gone by 215; stamina is down LEAP_STAMINA.
+# Seed 16 from row 600, Space at tick 200. The first group (leaders and
+# left flanker) leaps toward the nearest in-range shadows; the other group
+# holds formation. The hit rule is unchanged, the targets fade and a mark
+# flashes at their landing. pk04 item 3, with the new speed and sensing.
 pk 1
 seed 16
 tier rich
