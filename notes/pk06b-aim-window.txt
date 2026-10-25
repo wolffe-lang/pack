@@ -1,0 +1,24 @@
+# pk06b — aim window
+
+## Prediction (before the reproduction or implementation)
+The proposed last-key-only autorepeat stream should reproduce the failure:
+Up repeats every two ticks, then Right alone repeats for 200–400 ms before
+Space. Up should no longer be held at Space, so the current build aims E
+instead of NE; reversed order should aim N instead of NE. Other diagonals
+should likewise collapse to the last arrow. This is a hypothesis, not yet
+a measured keyboard or terminal property. A real pty will drive those byte
+streams, with the accepted Space tick's raw Hold set logged explicitly.
+
+A 15-tick (500 ms) aim window should retain both recently pressed arrows
+and restore every diagonal in both orders while single-arrow aims and the
+no-arrow default stay unchanged. Contradictory arrows should choose the
+later press, including event order inside one tick. Steering retains its
+existing short Hold release; only leap aim gets the longer window.
+Existing goldens may change when an earlier arrow now survives to a later
+Space; new realistic timing goldens will be needed. Verified scores should
+stay 51/51. Planting AIM_WINDOW_TICKS=0 should fail the realistic rows.
+
+## Recommendation
+Implement the proposed 15 ticks, inclusive of a press exactly 15 ticks
+before Space, plus still-held arrows. It is an aim grace window, not a
+claim of true hardware key-up or simultaneous physical key detection.
