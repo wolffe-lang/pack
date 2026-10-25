@@ -9,11 +9,17 @@ tools/pty's Session.
            such counter without root). The bar: one wake a tick, 300 in
            10 s, with a fifth of slack either way (240 to 360): fewer means
            the tick is not running, more means the loop wakes for nothing.
-  latency  Left typed 20 times, a third of a second apart; the time from
-           the write to the first byte of the next frame. The bar: the
+  latency  Left typed 20 times, a third of a second apart, the game under
+           `--trace`; the time from the write to the trace line the game
+           prints right after writing the frame that CARRIES the key
+           (`trace frame ... carries_key`), so a frame that happened to be
+           in flight is never counted (pk00's measurement did, and read
+           four-tick outliers that were its own). The bar (R-pk00-6): the
            median under one tick plus a render (40 ms) and the 90th
            percentile under two ticks (70 ms); the maximum is recorded, not
-           gated, since one stall of a shared host is that host's.
+           gated, since one stall of a shared host is that host's. The
+           game's own share (`inner_us`, from the key's read to the frame's
+           write) is printed beside each sample.
 
 PACK_PERF_SLACK multiplies the latency bars.
 """
@@ -59,18 +65,19 @@ def row_idle(bin):
 
 
 def row_latency(bin):
-    s = ptyrun.Session([bin, "--seed", "7"], 24, 80, ptyrun.env_for())
+    s = ptyrun.Session([bin, "--seed", "7", "--trace"], 24, 80, ptyrun.env_for())
     s.pump(0.5)
     samples = []
+    inner = []
     for i in range(20):
         s.pump(0.3)
-        before = len(s.out)
+        seen = s.err.count(b"carries_key")
         t0 = time.monotonic()
         os.write(s.master, b"\x1b[D")
         deadline = t0 + 1.0
         while time.monotonic() < deadline:
-            r, _, _ = select.select([s.master], [], [], 0.001)
-            if r:
+            r, _, _ = select.select([s.master, s.r_err], [], [], 0.001)
+            if s.master in r:
                 try:
                     chunk = os.read(s.master, 65536)
                 except OSError:
@@ -80,16 +87,25 @@ def row_latency(bin):
                     print("perf-idle: latency FAILED: the game ended after %d keys (exit %d, stderr %r)" % (i, s.status, s.err[-300:]))
                     return False
                 s.out += chunk
-                if len(s.out) > before:
+            if s.r_err in r:
+                chunk = os.read(s.r_err, 65536)
+                if chunk:
+                    s.err += chunk
+                if s.err.count(b"carries_key") > seen:
                     samples.append((time.monotonic() - t0) * 1000)
+                    line = [l for l in s.err.decode(errors="replace").splitlines() if "carries_key" in l][-1]
+                    w = line.split()
+                    inner.append(int(w[w.index("inner_us") + 1]) / 1000.0)
                     break
     s.type(b"q")
     s.finish()
     if len(samples) < 20:
-        print("perf-idle: latency only %d of 20 keys drew a frame FAILED" % len(samples))
+        print("perf-idle: latency only %d of 20 keys drew a frame that carries them FAILED" % len(samples))
         return False
-    print("perf-idle: latency samples ms: %s" % " ".join("%.0f" % x for x in samples))
-    print("perf-idle: latency run's closing line: %s" % s.err.decode(errors="replace").strip())
+    print("perf-idle: latency samples ms (key write to the carrying frame's trace line): %s" % " ".join("%.0f" % x for x in samples))
+    print("perf-idle: latency inner ms (the key's read to the frame's write): %s" % " ".join("%.1f" % x for x in inner))
+    closing = [l for l in s.err.decode(errors="replace").splitlines() if l.startswith("pack:")]
+    print("perf-idle: latency run's closing line: %s" % (closing[-1] if closing else "(none)"))
     ordered = sorted(samples)
     med, p90, mx = statistics.median(samples), ordered[int(len(ordered) * 0.9) - 1], max(samples)
     ok = med < 40 * SLACK and p90 < 70 * SLACK

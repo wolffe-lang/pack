@@ -2,7 +2,7 @@
 """tools/pty — drive the real binary in a pseudo-terminal and measure what
 the terminal layer promises (campaign rule 4: restored on every exit path).
 
-    python3 -I tools/pty [--bin target/release/pack] [--rows quit,ctrl-c,trap,agree-rich,agree-plain]
+    python3 -I tools/pty [--bin target/release/pack] [--rows quit,ctrl-c,trap,agree-rich,agree-plain,held-run]
                          [--keep]
 
 A holder process is the pty's session leader so the terminal outlives the
@@ -26,6 +26,15 @@ does, and records the terminal's settings before and after. The rows:
               in an 80x24 pty: the captured bytes replayed through the
               terminal model (`pack --apply`) equal the headless run's final
               frame of the same case and tier, cell for cell, styles too.
+  held-run    the input drift the maintainer felt (pk01): Left typed as a
+              held key, one `ESC [ D` every 33 ms for a second (a terminal's
+              autorepeat; there is no key-up), then nothing. Under `--trace`
+              the game prints one line a tick; the row reads the tick of the
+              last byte and asserts that the heading stops turning further
+              within HELD_STOP_TICKS of it and is straight again, the wolf's
+              column at rest, within HELD_STRAIGHT_TICKS: the hold ends when
+              the repeats end, and the heading returns at the turn rate, not
+              by a slow relaxation.
 
 Exit 0 when every row passes; each row prints one line. Captures are kept
 under target/pty/ with --keep (and always for a failed row).
@@ -259,6 +268,82 @@ def row_agree(bin, tier):
     return s, problems
 
 
+# The held-run row's bars, in ticks after the last byte's tick: the heading
+# stops turning further (the hold ended: one repeat interval plus the margin)
+# and the heading is straight with the column at rest (the turn rate's
+# return, no slow relaxation). The old model relaxed one unit a tick and
+# left the heading off-axis for two seconds after the last byte.
+HELD_STOP_TICKS = 2
+HELD_STRAIGHT_TICKS = 10
+
+
+def trace_ticks(err):
+    """The per-tick trace lines as dicts (tick, in, keys, steer, heading, x, y)."""
+    rows = []
+    for line in err.decode(errors="replace").splitlines():
+        if not line.startswith("trace tick "):
+            continue
+        w = line.split()
+        d = {}
+        for i in range(1, len(w) - 1, 2):
+            try:
+                d[w[i]] = int(w[i + 1])
+            except ValueError:
+                pass
+        rows.append(d)
+    return rows
+
+
+def row_held_run(bin):
+    s = Session([bin, "--seed", "7", "--trace"], 24, 80, env_for())
+    s.pump(0.5)
+    # A held Left: the autorepeat stream a terminal sends, one sequence a
+    # tick for a second (30 bytes groups), then release.
+    t_end = time.monotonic() + 1.0
+    n = 0
+    while time.monotonic() < t_end:
+        os.write(s.master, b"\x1b[D")
+        n += 1
+        s.pump(0.033)
+    s.pump(3.0)
+    s.type(b"q")
+    s.finish()
+    problems = []
+    common_checks(s, 0, problems)
+    rows = trace_ticks(s.err)
+    if len(rows) < 60:
+        problems.append("only %d trace lines; is --trace printing?" % len(rows))
+        return s, problems
+    fed = [r for r in rows if r.get("keys", 0) > 0]
+    if not fed:
+        problems.append("no tick applied a key: %r" % s.err[-300:])
+        return s, problems
+    last = fed[-1]["tick"]
+    after = [r for r in rows if r["tick"] > last]
+    # 1. The heading stops turning further within HELD_STOP_TICKS.
+    peak = max(abs(r["heading"]) for r in rows if r["tick"] <= last + HELD_STOP_TICKS)
+    turned_more = [r["tick"] for r in after if r["tick"] > last + HELD_STOP_TICKS and abs(r["heading"]) > peak]
+    if turned_more:
+        problems.append("the heading kept turning after tick %d + %d (first at %d, |heading| %d over %d)" % (
+            last, HELD_STOP_TICKS, turned_more[0], max(abs(r["heading"]) for r in after), peak))
+    # 2. Straight, and the column at rest, within HELD_STRAIGHT_TICKS.
+    straight_at = next((r["tick"] for r in after if r["heading"] == 0), None)
+    if straight_at is None or straight_at > last + HELD_STRAIGHT_TICKS:
+        problems.append("the heading was not straight within %d ticks of the last byte (tick %d): straight at %s; headings %s" % (
+            HELD_STRAIGHT_TICKS, last, straight_at, [r["heading"] for r in after[:40]]))
+    xs = [r["x"] for r in after if r["tick"] >= last + HELD_STRAIGHT_TICKS]
+    rest_at = None
+    for i in range(1, len(after)):
+        if all(r["x"] == after[i]["x"] for r in after[i:]):
+            rest_at = after[i]["tick"]
+            break
+    if xs and len(set(xs)) != 1:
+        problems.append("the column still moved after tick %d + %d: x %s" % (last, HELD_STRAIGHT_TICKS, sorted(set(xs))[:6]))
+    s.evidence = "%d sequences typed, last key at tick %d, peak |heading| %d, straight at %s, column at rest at %s" % (
+        n, last, peak, straight_at, rest_at)
+    return s, problems
+
+
 def mac_memory_ok():
     """RULES section 4's gate, nomad's alone: tools/memgate.py decides."""
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -269,7 +354,7 @@ def mac_memory_ok():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--bin", default=os.path.join(ROOT, "target", "release", "pack"))
-    ap.add_argument("--rows", default="quit,ctrl-c,trap,agree-rich,agree-plain")
+    ap.add_argument("--rows", default="quit,ctrl-c,trap,agree-rich,agree-plain,held-run")
     ap.add_argument("--keep", action="store_true")
     a = ap.parse_args()
     if not mac_memory_ok():
@@ -287,6 +372,8 @@ def main():
                 s, problems = row_trap(bin)
             elif name.startswith("agree-"):
                 s, problems = row_agree(bin, name.split("-", 1)[1])
+            elif name == "held-run":
+                s, problems = row_held_run(bin)
             else:
                 print("pty: %s: no such row" % name)
                 failed += 1
@@ -300,10 +387,13 @@ def main():
         if problems:
             failed += 1
             print("pty: %s FAILED (%s %s):" % (name, sys.platform, os.uname().machine))
+            if getattr(s, "evidence", None):
+                print("  evidence: " + s.evidence)
             for p in problems:
                 print("  - " + p)
         else:
-            print("pty: %s ok (%s %s, exit %d, %d bytes captured)" % (name, sys.platform, os.uname().machine, s.status, len(s.out)))
+            extra = ("; " + s.evidence) if getattr(s, "evidence", None) else ""
+            print("pty: %s ok (%s %s, exit %d, %d bytes captured%s)" % (name, sys.platform, os.uname().machine, s.status, len(s.out), extra))
     return 1 if failed else 0
 
 
