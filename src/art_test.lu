@@ -338,35 +338,51 @@ fn test_render_with_shadows_is_deterministic_and_plain_keeps_the_promise() {
 // Dusk (pk03).
 
 fn test_night_changes_the_colours_and_not_the_glyphs() {
-    let day = sim.new(5, 80, 24)
-    let night = sim.new_at(5, 80, 24, sim.NIGHT_FULL)
+    // The same place on the path, by day and by night: the night sim is
+    // started at NIGHT_FULL and the day one placed on the same rows with
+    // its distance read as zero (the phase is the distance's), so every
+    // glyph agrees and only the colours move — to night's keyframes.
+    var night = sim.new_at(5, 80, 24, sim.NIGHT_FULL)
     var a = grid.new(24, 80)
-    var b = grid.new(24, 80)
-    art.render(day, tier.RICH, mut a)
-    art.render(night, tier.RICH, mut b)
-    var colours_differ = 0
+    art.render(night, tier.RICH, mut a)
+    let row = sim.wolf_row(night)
+    let col = sim.screen_col(night, sim.ALPHA)
+    let body = grid.at(a, row, col)
+    assert(body.fg == tier.rich_key(tier.C_FUR, 2), "the alpha's fur is night's: {body.fg}")
+    assert(body.bg == tier.rich_key(tier.C_PATH, 2), "on night's path: {body.bg}")
+    assert(body.cp == tier.glyph(tier.RICH, tier.SP_WOLF_BODY, 0).cp, "the glyph is the day's")
+    var floor_cells = 0
     var i = 0
     while i < a.cells.len {
-        if !grid.same(a.cells[i], b.cells[i]) {
-            colours_differ += 1
+        if a.cells[i].bg == tier.rich_key(tier.C_FLOOR, 2) {
+            floor_cells += 1
         }
         i += 1
     }
-    assert(colours_differ > a.cells.len / 2, "most cells recoloured at night: {colours_differ}")
+    assert(floor_cells > a.cells.len / 4, "the forest floor is night's: {floor_cells} cells")
     // The eyes of a shadow stay the same red.
-    var s = sim.new_at(5, 80, 24, sim.NIGHT_FULL)
-    (mut s.shadows).push(chaser(s, 0 - 8, -2))
+    (mut night.shadows).push(chaser(night, 0 - 8, -2))
     var g = grid.new(24, 80)
-    art.render(s, tier.RICH, mut g)
-    let row = sim.shadow_screen_row(s, 0)
-    let col = sim.shadow_screen_col(s, 0)
-    let eye = grid.at(g, row - 1, col - 1)
+    art.render(night, tier.RICH, mut g)
+    let srow = sim.shadow_screen_row(night, 0)
+    let scol = sim.shadow_screen_col(night, 0)
+    let eye = grid.at(g, srow - 1, scol - 1)
     assert(
         eye.fg == tier.palette(tier.RICH, tier.C_EYE) ||
             eye.fg == tier.palette(tier.RICH, tier.C_EYE_DIM),
         "red at night",
     )
+    // Dusk is neither: between the keyframes on the path.
+    let dusk = sim.new_at(5, 80, 24, (sim.DUSK_FULL + sim.NIGHT_FULL) / 2)
+    var d = grid.new(24, 80)
+    art.render(dusk, tier.RICH, mut d)
+    let dbody = grid.at(d, sim.wolf_row(dusk), sim.screen_col(dusk, sim.ALPHA))
+    assert(
+        dbody.bg != tier.rich_key(tier.C_PATH, 0) && dbody.bg != tier.rich_key(tier.C_PATH, 2),
+        "between dusk and night the path is neither day's nor night's: {dbody.bg}",
+    )
     var p = grid.new(24, 80)
     art.render(night, tier.PLAIN, mut p)
     assert(grid.plain_ok(p), "the plain tier keeps its promise at night")
+    assert(grid.at(p, row, col).bg == 8, "the plain path is bright black at night")
 }
