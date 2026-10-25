@@ -378,6 +378,9 @@ def row_aim_window(bin, ctx):
                     tag, r.get("leap_tick"), raw, *actual, r.get("up_at"), r.get("down_at"),
                     r.get("left_at"), r.get("right_at"))
                 evidence.append(row)
+                expected_held = {"up": 1, "down": 2, "left": 4, "right": 8, None: 0}[second]
+                if raw != expected_held:
+                    problems.append("%s: fixture Hold set is not the last key alone" % row)
                 if actual != (x, y):
                     problems.append("%s expected=%s,%s" % (row, x, y))
             s.type(b"q")

@@ -53,15 +53,135 @@ fn target(s: sim.Sim, dx: int, dy: int) -> sim.Shadow {
     }
 }
 
-fn test_pk06_aim_table_all_sixteen_subsets() {
-    // Indexed by U=1 D=2 L=4 R=8, including every contradiction.
-    let xs = [0, 0, 0, 0, -1, -1, -1, 0, 1, 1, 1, 0, 0, 0, 0, 0]
-    let ys = [1, 1, -1, 1, 0, 1, -1, 1, 0, 1, -1, 1, 1, 1, 1, 1]
-    var held = 0
-    while held < 16 {
-        let a = sim.leap_aim(held)
-        assert(a.x == xs[held] && a.y == ys[held], "held subset {held}")
-        held += 1
+fn timed(first: int, second: int, space: int) -> sim.Sim {
+    var s = sim.new(7, 80, 24)
+    var tick = 0
+    while tick <= space {
+        var keys = List[int]()
+        if first > 0 && (tick == 0 || tick == 8 || tick == 10 || tick == 12 || tick == 14) {
+            (mut keys).push(first)
+        }
+        if second > 0 && tick >= 16 && tick < space && tick % 2 == 0 {
+            (mut keys).push(second)
+        }
+        if tick == space { (mut keys).push(sim.KEY_LEAP) }
+        sim.step(mut s, keys, 0)
+        tick += 1
+    }
+    s
+}
+
+fn test_pk06b_timing_table_diagonals_in_both_orders_cardinals_and_default() {
+    let firsts = [
+        sim.KEY_UP,
+        sim.KEY_RIGHT,
+        sim.KEY_UP,
+        sim.KEY_LEFT,
+        sim.KEY_DOWN,
+        sim.KEY_RIGHT,
+        sim.KEY_DOWN,
+        sim.KEY_LEFT,
+        0,
+        0,
+        0,
+        0,
+        0,
+    ]
+    let seconds = [
+        sim.KEY_RIGHT,
+        sim.KEY_UP,
+        sim.KEY_LEFT,
+        sim.KEY_UP,
+        sim.KEY_RIGHT,
+        sim.KEY_DOWN,
+        sim.KEY_LEFT,
+        sim.KEY_DOWN,
+        sim.KEY_UP,
+        sim.KEY_DOWN,
+        sim.KEY_LEFT,
+        sim.KEY_RIGHT,
+        0,
+    ]
+    let xs = [1, 1, -1, -1, 1, 1, -1, -1, 0, 0, -1, 1, 0]
+    let ys = [1, 1, 1, 1, -1, -1, -1, -1, 1, -1, 0, 0, 1]
+    var row = 0
+    while row < firsts.len {
+        // Second arrow repeats ALONE, then Space 200, 300 or 400 ms
+        // after its first byte. The first arrow has really lapsed.
+        for space in [22, 25, 28] {
+            let s = timed(firsts[row], seconds[row], space)
+            assert(s.leap_tick == space, "Space was accepted")
+            assert(
+                s.leap_aim.x == xs[row] && s.leap_aim.y == ys[row],
+                "timing row {row}, Space {space}",
+            )
+            if firsts[row] > 0 {
+                let expected = if seconds[row] == sim.KEY_UP {
+                    sim.HELD_UP
+                } else if seconds[row] == sim.KEY_DOWN {
+                    sim.HELD_DOWN
+                } else if seconds[row] == sim.KEY_LEFT {
+                    sim.HELD_LEFT
+                } else {
+                    sim.HELD_RIGHT
+                }
+                assert(s.leap_held == expected, "only second arrow is actually held at Space")
+            }
+        }
+        row += 1
+    }
+}
+
+fn test_pk06b_opposites_choose_later_press_on_each_axis() {
+    for pair in [
+        [sim.KEY_UP, sim.KEY_DOWN],
+        [sim.KEY_DOWN, sim.KEY_UP],
+        [sim.KEY_LEFT, sim.KEY_RIGHT],
+        [sim.KEY_RIGHT, sim.KEY_LEFT],
+    ] {
+        let s = timed(pair[0], pair[1], 28)
+        let expected = if pair[1] == sim.KEY_UP {
+            sim.Aim { x: 0, y: 1 }
+        } else if pair[1] == sim.KEY_DOWN {
+            sim.Aim { x: 0, y: -1 }
+        } else if pair[1] == sim.KEY_LEFT {
+            sim.Aim { x: -1, y: 0 }
+        } else {
+            sim.Aim { x: 1, y: 0 }
+        }
+        assert(
+            s.leap_aim.x == expected.x && s.leap_aim.y == expected.y,
+            "later opposite wins across ticks",
+        )
+        var same_tick = sim.new(7, 80, 24)
+        sim.step(mut same_tick, [pair[0], pair[1], sim.KEY_LEAP], 0)
+        assert(
+            same_tick.leap_aim.x == expected.x && same_tick.leap_aim.y == expected.y,
+            "later byte wins in one tick",
+        )
+    }
+    var both_axes = sim.new(7, 80, 24)
+    sim.step(
+        mut both_axes,
+        [sim.KEY_UP, sim.KEY_DOWN, sim.KEY_LEFT, sim.KEY_RIGHT, sim.KEY_LEAP],
+        0,
+    )
+    assert(both_axes.leap_aim.x == 1 && both_axes.leap_aim.y == -1, "axes resolve independently")
+}
+
+fn test_pk06b_aim_window_exact_boundary_and_steering_still_releases() {
+    for space in [15, 16] {
+        var s = sim.new(7, 80, 24)
+        sim.step(mut s, [sim.KEY_LEFT], 0)
+        while s.tick < space { sim.step(mut s, List[int](), 0) }
+        assert(
+            !input.held(s.hold_left, s.tick) && sim.steer_target(s) == 0,
+            "window does not prolong steering",
+        )
+        sim.step(mut s, [sim.KEY_LEAP], 0)
+        let expected_x = if space == 15 then -1 else 0
+        assert(s.leap_aim.x == expected_x, "inclusive 15 ticks, expired at 16")
+        assert(s.leap_held == 0, "raw Hold was already released")
     }
 }
 

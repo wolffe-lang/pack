@@ -39,23 +39,40 @@ measures the release.
 
 ## Aimed leap (2026-10-25)
 
-The arrows held when Space arrives choose the aim. This is the existing
-inferred hold, not a key-up protocol: a recent tap can still be held for
-400 ms; repeat runs expire after their measured interval plus one tick.
-Only arrows already received at the Space press count. Release an old
-arrow's inferred hold before changing to a contradictory chord.
+Arrows held or pressed during the 500 ms before Space choose the aim.
+A terminal has no key-up, and a keyboard can autorepeat only the last key
+pressed: when Right follows Up, Up's repeats may stop even though the
+player still holds it. The short steering Hold then releases Up before
+Space. Reading only the currently held set loses the diagonal.
 
-| held arrows + Space | aim |
+The leap therefore has its own `AIM_WINDOW_TICKS` 15 (500 ms) grace
+window. An arrow pressed exactly 15 ticks before Space is included; at
+16 it expires unless still held. Up then Right then Space, and Right then
+Up then Space, both aim NE while the first arrow is inside that window.
+Right alone stays E; no arrow defaults forward. Opposing arrows resolve
+separately on each axis to the later press/repeat, including byte order
+within a tick. Only bytes received before Space count. Steering's hold,
+release and turn rate are unchanged; the window does not keep steering.
+
+| recent or held arrows + Space | aim |
 |---|---|
 | none, or Up | N (forward, the default) |
-| Up + Right | NE |
+| Up + Right, either order | NE |
 | Right | E |
-| Down + Right | SE |
+| Down + Right, either order | SE |
 | Down | S (backward, then forward travel resumes) |
-| Down + Left | SW |
+| Down + Left, either order | SW |
 | Left | W |
-| Up + Left | NW |
-| any Up+Down or Left+Right pair | N (the whole chord defaults) |
+| Up + Left, either order | NW |
+| Up+Down or Left+Right | later arrow wins on that axis |
+
+The real-pty `aim-window` row types initial delay/repeats for the first
+arrow, then only repeats the second and sends Space 200, 300 and 400 ms
+later. Both orders of every diagonal, every single-arrow cardinal and
+the default run on both tiers. `--trace` records the accepted Space tick,
+the raw Hold mask (Up=1, Down=2, Left=4, Right=8), each arrow's last press
+tick and the chosen aim. This reproduces a last-key-only byte stream;
+it does not claim that every keyboard/terminal has been physically probed.
 
 The top row says `Leap N`, `Leap NE`, etc. for one tick before the group
 travels. The alternating groups, stamina cost and cooldown are unchanged.

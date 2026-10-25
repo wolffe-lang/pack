@@ -1,0 +1,19 @@
+# frames 38 every 1 from 28
+# Last-key-only repeats: first arrow ends at 14, second starts at 16,
+# Space at 28 (400 ms later); tell then eight-tick directional arc.
+pk 1
+seed 7
+tier rich
+size 80x24
+t 0 left
+t 8 left
+t 10 left
+t 12 left
+t 14 left
+t 16 down
+t 18 down
+t 20 down
+t 22 down
+t 24 down
+t 26 down
+t 28 leap

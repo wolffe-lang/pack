@@ -50,7 +50,8 @@
 //! shadow in it, R-pk02-2 A), `DAMAGE_LONE` alone; then `ATTACK_COOLDOWN`.
 //! A shadow more than `GONE_ROWS` behind the alpha is gone.
 //!
-//! **The leap** (Space) aims the alternating group with the held arrows:
+//! **The leap** (Space) aims the alternating group with arrows held or
+//! recently pressed in its 500 ms aim window (latest opposite wins):
 //! `LEAP_STAMINA` paid, a one-tick compass tell, then an eight-tick arc.
 //! Targets within `LEAP_REACH_AIM` in its ±45-degree sector or within
 //! `LEAP_REACH` all round are vanquished (fading over `FADE_TICKS`). The
@@ -283,7 +284,7 @@ pub const LEAP_REACH_AIM: int = 6
 /// The pack arc's apex in grid cells, before collision clipping.
 pub const LEAP_RANGE: int = 6
 
-/// The held-arrow set's bits; a contradictory pair chooses forward.
+/// Up in the arrow set used by the aim and diagnostic Hold snapshot.
 pub const HELD_UP: int = 1
 
 /// Down in the held-arrow set.
@@ -298,8 +299,9 @@ pub const HELD_RIGHT: int = 8
 /// A compass aim in world coordinates: positive y is up the screen.
 pub struct Aim { x: int, y: int }
 
-/// The arrows held at the Space press. None and Up are identical;
-/// either contradictory pair defaults the entire chord to forward.
+/// A resolved arrow set to a compass aim. None and Up are identical.
+/// The input history resolves opposing arrows before calling this;
+/// an unresolved contradictory set is defensively the default.
 pub fn leap_aim(held: int) -> Aim {
     let up = held % 2 == 1
     let down = held / 2 % 2 == 1
@@ -331,6 +333,29 @@ pub fn held_arrows(s: Sim) -> int {
     if input.held(s.hold_left, s.tick) { held += HELD_LEFT }
     if input.held(s.hold_right, s.tick) { held += HELD_RIGHT }
     held
+}
+
+/// Recent arrow presses remain eligible for aim for 500 ms, inclusive.
+/// Steering still uses the engine's shorter autorepeat Hold lifetime.
+pub const AIM_WINDOW_TICKS: int = 15
+
+fn aim_recent(h: input.Hold, tick: int) -> bool {
+    input.held(h, tick) || AIM_WINDOW_TICKS > 0 && tick - h.last <= AIM_WINDOW_TICKS
+}
+
+/// Arrows held or pressed within the aim window before Space. Opposing
+/// arrows resolve per axis to the latest byte, including same-tick order.
+pub fn aim_arrows(s: Sim) -> int {
+    let up = aim_recent(s.hold_up, s.tick)
+    let down = aim_recent(s.hold_down, s.tick)
+    let left = aim_recent(s.hold_left, s.tick)
+    let right = aim_recent(s.hold_right, s.tick)
+    var arrows = 0
+    if up && (!down || s.aim_up_order > s.aim_down_order) { arrows += HELD_UP }
+    if down && (!up || s.aim_down_order > s.aim_up_order) { arrows += HELD_DOWN }
+    if left && (!right || s.aim_left_order > s.aim_right_order) { arrows += HELD_LEFT }
+    if right && (!left || s.aim_right_order > s.aim_left_order) { arrows += HELD_RIGHT }
+    arrows
 }
 
 /// The ticks between leaps.
@@ -579,6 +604,11 @@ pub struct Sim {
     hold_down: input.Hold,
     hold_left: input.Hold,
     hold_right: input.Hold,
+    aim_order: int,
+    aim_up_order: int,
+    aim_down_order: int,
+    aim_left_order: int,
+    aim_right_order: int,
     speed_scale: int,
     leaps: int,
     parries: int,
@@ -699,6 +729,11 @@ pub fn new_at(seed: int, cols: int, rows: int, start: int) -> Sim {
         hold_down: input.hold_new(),
         hold_left: input.hold_new(),
         hold_right: input.hold_new(),
+        aim_order: 0,
+        aim_up_order: 0,
+        aim_down_order: 0,
+        aim_left_order: 0,
+        aim_right_order: 0,
         speed_scale: 100,
         leaps: 0,
         parries: 0,
@@ -981,14 +1016,20 @@ pub fn step(mut s: Sim, keys: List[int], health_delta: int) {
     var down = false
     for k in keys {
         if k == KEY_LEFT {
+            s.aim_order += 1
+            s.aim_left_order = s.aim_order
             if !left { input.hold_press(mut s.hold_left, s.tick) }
             left = true
             s.stopping = false
         } else if k == KEY_RIGHT {
+            s.aim_order += 1
+            s.aim_right_order = s.aim_order
             if !right { input.hold_press(mut s.hold_right, s.tick) }
             right = true
             s.stopping = false
         } else if k == KEY_UP {
+            s.aim_order += 1
+            s.aim_up_order = s.aim_order
             if !up { input.hold_press(mut s.hold_up, s.tick) }
             up = true
             s.stopping = false
@@ -996,6 +1037,8 @@ pub fn step(mut s: Sim, keys: List[int], health_delta: int) {
                 s.sprint_left = SPRINT_BURST_TICKS
             }
         } else if k == KEY_DOWN {
+            s.aim_order += 1
+            s.aim_down_order = s.aim_order
             if !down { input.hold_press(mut s.hold_down, s.tick) }
             down = true
             s.stopping = true
@@ -1796,7 +1839,7 @@ fn leap(mut s: Sim) {
     s.leap_left = LEAP_TICKS
     s.leap_held = held_arrows(s)
     s.leap_tick = s.tick
-    s.leap_aim = leap_aim(s.leap_held)
+    s.leap_aim = leap_aim(aim_arrows(s))
     s.leap_tell = true
     s.leap_group = s.leap_next_group
     s.leap_next_group = 1 - s.leap_next_group
