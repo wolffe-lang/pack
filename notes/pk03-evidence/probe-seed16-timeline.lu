@@ -1,0 +1,52 @@
+use sim
+use world
+
+fn none() -> List[int] {
+    List[int]()
+}
+
+/// Seed 16 from `start` rows up the path: every shadow event in the first
+/// `ticks` ticks, for the goldens' timing.
+fn main() {
+    let start = 600
+    var s = sim.new_at(16, 80, 24, start)
+    var prev_states = List[int]()
+    var prev_dirs = List[int]()
+    var prev_landed = 0
+    var prev_spawned = 0
+    var prev_health = s.health
+    var i = 0
+    while i < 400 && !s.dead {
+        sim.step(mut s, none(), 0)
+        if s.spawned != prev_spawned {
+            let sh = copy s.shadows[s.shadows.len - 1]
+            print("t {i} spawn {s.spawned - prev_spawned} -> {s.spawned} total, side col {sh.x / world.FP} rows ahead {(sh.y - sim.alpha(s).y) / world.FP} rate {sim.spawn_rate(s)}")
+            prev_spawned = s.spawned
+        }
+        var k = 0
+        while k < s.shadows.len {
+            let sh = copy s.shadows[k]
+            if k < prev_states.len {
+                if sh.state != prev_states[k] {
+                    print("t {i} shadow {k} state {prev_states[k]} -> {sh.state} rows {(sh.y - sim.alpha(s).y) / world.FP} col {sh.x / world.FP} dir {sh.dir} speed {sh.speed} alpha_col {sim.alpha(s).x / world.FP}")
+                }
+                if sh.dir != prev_dirs[k] {
+                    print("t {i} shadow {k} FLIP dir {sh.dir} rows {(sh.y - sim.alpha(s).y) / world.FP}")
+                }
+            }
+            k += 1
+        }
+        if s.landed != prev_landed {
+            print("t {i} LANDED {s.landed} health {s.health} down {s.down}")
+            prev_landed = s.landed
+        }
+        (mut prev_states).reset()
+        (mut prev_dirs).reset()
+        for sh in s.shadows {
+            (mut prev_states).push(sh.state)
+            (mut prev_dirs).push(sh.dir)
+        }
+        i += 1
+    }
+    print("end t {s.tick} dead {s.dead} health {s.health} spawned {s.spawned} landed {s.landed} alive {sim.shadows_alive(s)} deer {s.deer_spawned}")
+}

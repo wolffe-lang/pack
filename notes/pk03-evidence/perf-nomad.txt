@@ -1,0 +1,14 @@
+perf: host Darwin arm64, slack x1
+bench 80x24 rich frames 300 avg_us 27 p99_us 55 max_us 341 bytes_avg 1236 shadows 12 alive_at_end 8 deer 3 deer_at_end 2
+perf: 80x24 rich avg 27 us < 1000 us ok
+bench 80x24 plain frames 300 avg_us 25 p99_us 42 max_us 46 bytes_avg 615 shadows 12 alive_at_end 8 deer 3 deer_at_end 2
+perf: 80x24 plain avg 25 us < 1000 us ok
+bench 200x60 rich frames 300 avg_us 146 p99_us 297 max_us 314 bytes_avg 14580 shadows 12 alive_at_end 12 deer 3 deer_at_end 3
+perf: 200x60 rich avg 146 us < 4000 us ok
+bench 200x60 plain frames 300 avg_us 143 p99_us 244 max_us 249 bytes_avg 8182 shadows 12 alive_at_end 12 deer 3 deer_at_end 3
+perf: 200x60 plain avg 143 us < 4000 us ok
+perf-idle: idle SKIP (no /proc on this host; measure on Linux)
+perf-idle: latency samples ms (key write to the carrying frame's trace line): 5 34 5 33 8 33 33 4 34 5 33 4 3 32 10 32 33 33 8 33
+perf-idle: latency inner ms (the key's read to the frame's write): 5.1 34.1 5.2 33.1 7.6 33.1 33.1 3.9 34.1 5.1 33.1 3.4 2.7 32.0 9.9 31.8 33.1 33.1 7.4 33.1
+perf-idle: latency run's closing line: pack: ended by the quit key; 225 ticks, 225 frames, 0 dropped, 246 waits, 25 cells, health 100 (0 down), stamina 300; shadows 0 spawned 0 vanquished 0 landed 0 turned; deer 0 seen 0 fed; alive, score 39; render avg 62 us max 199 us; wait late avg 2189 us max 3032 us over 225; seed 7 tier rich 80x24
+perf-idle: latency median 31.9 ms p90 33.4 ms max 34.3 ms over 20 keys (bars median 40, p90 70 ms) ok

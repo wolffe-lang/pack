@@ -1,0 +1,30 @@
+use sim
+use world
+
+fn main() {
+    let seeds = [4]
+    for seed in seeds {
+        var s = sim.new(seed, 80, 24)
+        var line = "seed {seed} sprints at:"
+        var i = 0
+        while i < 500 && s.fed == 0 {
+            var keys = List[int]()
+            let a = sim.alpha(s)
+            for d in s.deer {
+                if d.tired && d.y > a.y && d.y - a.y < 14 * world.FP && s.sprint_left == 0 && s.stamina >= sim.SPRINT_MIN {
+                    (mut keys).push(sim.KEY_UP)
+                    line = "{line} {i}"
+                }
+            }
+            sim.step(mut s, keys, if i == 5 then -25 else 0)
+            if s.deer.len > 0 {
+                let d = copy s.deer[0]
+                if i % 20 == 0 || s.fed > 0 {
+                    print("seed {seed} t {i} deer state {d.state} speed {d.speed} tired {d.tired} rows_ahead {(d.y - sim.alpha(s).y) / world.FP} col {d.x / world.FP} alpha_col {sim.alpha(s).x / world.FP} health {s.health} fed {s.fed}")
+                }
+            }
+            i += 1
+        }
+        print("{line}; fed at {s.tick - 1} health {s.health}")
+    }
+}
