@@ -109,11 +109,13 @@ next landed attack ends the run.
 | `DEER_RECOVER` | 60 | a tired deer flees at `FLEE_V` again once its stamina is back to this | 2026-10-25 proposed |
 | `CATCH_REACH` | 3 | a running wolf this close (cells) brings a deer down: from behind, since the separation rule keeps bodies three cells apart sideways | 2026-10-25 proposed |
 | `FEED` | 25 | health a deer feeds the pack (R-pk03-3 A: a fixed feed, one floor and a bit): the first thing that raises health in play | 2026-10-25 proposed |
-| `DEER_MAX` | 3 | deer alive at once, at most; the spawn waits | 2026-10-25 proposed |
+| `DEER_MAX` | 3 | healthy or half-health spawn capacity; existing deer are not removed on recovery | 2026-10-25 proposed |
+| `DEER_HURT_MAX` | 4 | spawn capacity strictly below half health; one more catchable deer, never free healing | 2026-10-25 pk08 proposed |
+| `DEER_BONUS_MAX` | 100 | health bonus percent, zero at full, +50 at half, +100 at quarter or less; integer thousandths round down | 2026-10-25 pk08 proposed |
 | `DEER_GONE_MARGIN` | 20 | a deer this many rows beyond the top of the screen has got away and is gone; behind the alpha the shadows' `GONE_ROWS` holds for it | 2026-10-25 proposed |
 
 How a deer works, in one paragraph: each tick the world's hash of the tick (salted apart from the shadows'
-roll) is rolled against `world.deer_rate`, and a deer appears on the path one row above the top of the
+roll) is rolled against `sim.deer_rate`: the legacy `trail.deer_rate` plus the bounded health bonus, and a deer appears on the path one row above the top of the
 screen, at a column the seed picks across the path's width, facing down the path at a walk. It wanders: its
 lateral heading follows slow seeded noise (turned back toward the path once it is a cell past the verge), its
 direction along the path the sign of a slower channel, and a direction change is a brake to rest and a flip,
@@ -146,19 +148,26 @@ a tick for 24 ticks: a cell a burst).
 | `ATTACK_COOLDOWN` | 30 | the ticks between one shadow's attacks (one landing a second) | 2026-10-25 proposed |
 | `DAMAGE` | 10 | health a landed attack costs when another shadow is in reach too (a group attack lands once per shadow in it: two landed cost one wolf; R-pk02-2 A) | 2026-10-25 proposed |
 | `DAMAGE_LONE` | 5 | health a lone shadow's landed attack costs | 2026-10-25 proposed |
-| `GROUP_RATE` | 5 | above this spawn rate (thousandths a tick) shadows come in groups of two or three, three rows apart on one side | 2026-10-25 proposed |
+| `SPAWN_FIRST_MIN`, `SPAWN_FIRST_MAX` | 600, 900 | first lone birth at a seeded deadline in 20–30 seconds, independent of distance, even when stopped | 2026-10-25 pk08 proposed |
+| `SPAWN_GAP_TICKS` | 60 | minimum ticks between successful birth events; rejected rolls spend no gap | 2026-10-25 pk08 proposed |
+| `SPAWN_GROUP_TICKS` | 1800 | groups only after one minute, even with `--start` | 2026-10-25 pk08 proposed |
+| `CLUMP_MAX`, `CLUMP_CELLS`, `CLUMP_ROWS` | 5, 6, 4 | connected same-bank lurker components; try the other bank before deferring a member; include offscreen lurkers in admission | 2026-10-25 pk08 proposed |
+| `GROUP_RATE` | 5 | above this continuous rate (thousandths a tick), and only after `SPAWN_GROUP_TICKS`, groups of two or three, three rows apart | 2026-10-25 proposed |
 | `GONE_ROWS` | 12 | a shadow this many rows behind the alpha is gone (a sprint can shake a chase; a lurker never woken scrolls away) | 2026-10-25 proposed |
 | `SHADOW_MAX` | 12 | shadows alive at once, at most; the spawn waits | 2026-10-25 proposed |
 | `FLOCK_CELLS`, `COHESION`, `COHESION_MAX` | 8, 32, 8 | cohesion: a chasing shadow closes a thirty-second of its offset to the centre of the other chasers within eight cells, at most 8 FP units a tick | 2026-10-25 proposed |
 | `FADE_TICKS` | 15 | a vanquished shadow's body fades (full block, dark shade, light shade) over half a second, then is gone | 2026-10-25 proposed |
 | `EYE_PULSE` | 4 | the eyes alternate bright and dim every four ticks while a shadow chases (dim while it lurks or recoils, steady bright through a windup) | 2026-10-25 proposed |
 
-How a shadow works, in one paragraph: each tick the world's hash of the tick is rolled against
-`world.spawn_rate` (thousandths), so a run's spawns are the seed's and never a replay event. A shadow
-spawns across the forest edge, inner verge and path shoulder (20/30/50 percent),
-with one of five evenly spaced facings in the outward half-circle, never into the woods.
-A lurking shadow sees inside an eight-cell range and a 60-degree forward half-cone, or hears
-contact within three cells all round (R-pk04-1 A, proposed). When any living wolf is visible,
+How a shadow works, in one paragraph: after the first scheduled lone birth, roll the seeded hash
+against the continuous millionth rate (`trail.spawn_rate_fine`), only outside the minimum gap.
+The roll compensates for unavailable gap ticks: `p / (1 - (gap - 1) * p)`, so the target curve's
+late event frequency is preserved. Before sixty seconds all births are lone. The first bank follows
+the bend; a birth that joins a component larger than five tries the opposite bank, otherwise waits.
+Spawns use forest edge / verge / shoulder / middle shares 15/20/35/30 and the weighted outward
+facings in the table. A lurker sees at least twelve cells, or its row's half path width plus four
+on a wide field, within the 60-degree forward half-cone; three-cell contact is all-round.
+When any living wolf is visible,
 it turns toward the nearest one: it steers to the wolf's
 column at the chase speed's split (the lateral heading turning at `SHADOW_TURN_RATE`, bounded by
 `STEER_HEADING`) and moves along the path toward the pack at `STALK_V`. Once its target is past it, it
@@ -226,8 +235,8 @@ step at the midpoints. The red eyes are the same at every phase, so shadows come
 | `DENSITY_CHANNEL` | 3 | the noise channel the density reads (1 is the centre, 2 the width) | 2026-10-25 proposed |
 | `DENSITY_CLEARING` | 72 | density below this (of 256) is a clearing: grass to the verge, the odd trunk | 2026-10-25 proposed |
 | `DENSITY_STAND` | 168 | density at or above this is a dense stand; between is thin woods. A stand draws the woods' foliage texture with more trunks (the trunk share up 4 points of 100): its own texture (canopy from the verge, deep forest three cells in) read as striped bands in play and was retired | 2026-10-25 the maintainer's word (the texture); the threshold proposed |
-| `SPAWN_BASE`, `SPAWN_DISTANCE`, `SPAWN_DENSITY` | 1, 120, 6 | the difficulty curve's body (pk03): the shadows' spawn rate in thousandths a tick, 1 at the start, one more every 120 rows, up to 6 more in a dense stand | 2026-10-25 proposed |
-| `SPAWN_RAMP_BASE`, `SPAWN_RAMP_ROWS` | 1, 50 | the ramp the rate is held under from the start: 1 at row 0 however dense the forest, one more every 50 rows (eleven seconds at the trot), so groups (above `sim.GROUP_RATE` 5) come no sooner than row 250, about fifty seconds, and a clearing's later | 2026-10-25 proposed |
+| `SPAWN_BASE`, `SPAWN_DISTANCE`, `SPAWN_DENSITY` | 1, 120, 6 | the difficulty curve's body (pk03): legacy thousandth bases/slopes; shadows interpolate in millionths and centre each formerly floored body term by subtracting 500 millionths (1000 total), keeping the 1000-millionth floor; healthy deer keep the legacy stepped curve | 2026-10-25 proposed |
+| `SPAWN_RAMP_BASE`, `SPAWN_RAMP_ROWS` | 1, 50 | continuous ramp in millionths: 1000 + rows × 1000/50 − 500, with the 1000 floor; centred on the old 50-row bands, not filled above them; groups additionally wait sixty seconds | 2026-10-25 proposed |
 | `SPAWN_CEILING` | 12 | the curve's ceiling: a shadow every 2.8 s on average, in groups of two or three; reached in a stand at about row 850 (three minutes) and in a clearing at about 1,300 | 2026-10-25 proposed |
 | `DEER_BASE`, `DEER_PER_SHADOW`, `DEER_CLEARING` | 2, 4, 3 | the deer's rate, thousandths a tick: a base, a quarter of the shadows' rate (so a long run is survivable with deer and not without), and up to 3 more in a clearing, where deer graze: 2 to 5 at the start, 5 to 8 at the ceiling | 2026-10-25 proposed |
 | the spawn side | the outside of the bend | a group lurks on the verge an unsteered pack drifts to: the side the path's centre moves away from between the alpha's row and the spawn row (over a cell of bend); a straight takes the seed's coin (pk03, from pk02's issue) | 2026-10-25 proposed |
