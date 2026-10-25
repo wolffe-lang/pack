@@ -1,0 +1,75 @@
+//! member: false
+//!
+//! The tiers' promises: the plain tier inside Latin-1 and the sixteen
+//! colours for every sprite and variant; the rich tier's glyphs all above
+//! the ASCII range where they are meant to be; detection.
+
+use grid
+use tier
+
+fn test_plain_tier_keeps_its_promise() {
+    var s = 0
+    while s < tier.SPRITE_COUNT {
+        var v = 0
+        while v < 8 {
+            let c = tier.glyph(tier.PLAIN, s, v)
+            assert(c.cp >= 32 && c.cp <= 255, "sprite {s} variant {v}: cp {c.cp}")
+            assert(c.fg <= 15 || c.fg == grid.COLOR_DEFAULT, "sprite {s}: fg {c.fg}")
+            assert(c.bg <= 15 || c.bg == grid.COLOR_DEFAULT, "sprite {s}: bg {c.bg}")
+            v += 1
+        }
+        s += 1
+    }
+}
+
+fn test_rich_tier_colours_are_indices() {
+    var s = 0
+    while s < tier.SPRITE_COUNT {
+        let c = tier.glyph(tier.RICH, s, 0)
+        assert(c.fg >= 0 && c.fg <= 255 && c.bg >= 0 && c.bg <= 255, "sprite {s}")
+        s += 1
+    }
+}
+
+fn test_wolf_sprites_sit_on_the_path() {
+    let p = tier.glyph(tier.RICH, tier.SP_PATH, 0)
+    assert(
+        tier.glyph(tier.RICH, tier.SP_WOLF_BODY, 0).bg == p.bg,
+        "the wolf's background is the path's",
+    )
+    assert(
+        tier.glyph(tier.PLAIN, tier.SP_WOLF_HEAD, 0).bg ==
+            tier.glyph(tier.PLAIN, tier.SP_PATH, 0).bg,
+        "plain too",
+    )
+}
+
+fn test_detect() {
+    assert(tier.detect("xterm-256color", "en_US.UTF-8") == tier.RICH, "a UTF-8 xterm is rich")
+    assert(tier.detect("linux", "en_US.UTF-8") == tier.PLAIN, "the Linux VT is plain")
+    assert(tier.detect("dumb", "en_US.UTF-8") == tier.PLAIN, "dumb is plain")
+    assert(tier.detect("xterm", "C") == tier.PLAIN, "no UTF-8 is plain")
+    assert(tier.detect("xterm", "C.utf8") == tier.RICH, "utf8 spelled so")
+    assert(
+        tier.truecolor_of("truecolor") && tier.truecolor_of("24bit") && !tier.truecolor_of(""),
+        "COLORTERM",
+    )
+}
+
+fn test_names_round_trip() {
+    assert(
+        (tier.of_name(tier.name(tier.RICH)) else -1) == tier.RICH &&
+            (tier.of_name(tier.name(tier.PLAIN)) else -1) == tier.PLAIN,
+        "names",
+    )
+    assert((tier.of_name("vivid") else -1) == -1, "an unknown tier is parse")
+}
+
+fn test_dialects() {
+    assert(tier.dialect(tier.PLAIN, true) == grid.COLORS_16, "plain is sixteen even with COLORTERM")
+    assert(
+        tier.dialect(tier.RICH, false) == grid.COLORS_256 &&
+            tier.dialect(tier.RICH, true) == grid.COLORS_RGB,
+        "rich",
+    )
+}

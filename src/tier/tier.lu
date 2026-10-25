@@ -1,0 +1,350 @@
+//! tier — semantic sprites to cells. The game draws sprites (a path cell,
+//! a trunk, a wolf's head); a tier says which code point and colours each
+//! is. Two tiers (campaign R-PK-4):
+//!
+//! - **rich**: block elements and half-blocks (the wolf, doubled vertical
+//!   resolution, R-pk00-4 B: only the wolves), braille for foliage, heavy
+//!   box drawing for trunks, the 256-colour cube; `docs/GLYPHS.md` names
+//!   every code point here and is PAX's font specification;
+//! - **plain**: code points 0-255 (what PAX's Spleen 8x16 console draws
+//!   today) and the sixteen colours only — `grid.plain_ok` holds it to
+//!   that, and `test_plain_tier_keeps_its_promise` checks every sprite.
+//!
+//! Colours are named once in `docs/PALETTE.md`; the numbers here are that
+//! document's. The dusk shift (pk03) will take a phase argument through
+//! `palette`; today there is one phase, afternoon.
+
+use grid
+
+/// The plain tier.
+pub const PLAIN: int = 0
+
+/// The rich tier.
+pub const RICH: int = 1
+
+// Sprites.
+
+/// Bare path.
+pub const SP_PATH: int = 0
+
+/// Path texture, a pebble or a print (variant 0-3).
+pub const SP_PATH_MARK: int = 1
+
+/// The verge: grass at the path's edge.
+pub const SP_GRASS: int = 2
+
+/// A trunk.
+pub const SP_TRUNK: int = 3
+
+/// Canopy (variant 0-3, lighter to darker).
+pub const SP_CANOPY: int = 4
+
+/// Deep forest, where nothing is seen.
+pub const SP_FOREST_DARK: int = 5
+
+/// The wolf's body cell (variant: the trot frame 0-3 for the side cells).
+pub const SP_WOLF_BODY: int = 6
+
+/// The wolf's head cell (variant 0 normal, 1 panting).
+pub const SP_WOLF_HEAD: int = 7
+
+/// The wolf's tail cell (variant: the trot frame).
+pub const SP_WOLF_TAIL: int = 8
+
+/// A fainted wolf's cell (variant 0 head, 1 body).
+pub const SP_FAINTED: int = 9
+
+/// A shadow wolf's body cell.
+pub const SP_SHADOW_BODY: int = 10
+
+/// A shadow wolf's red eye.
+pub const SP_SHADOW_EYE: int = 11
+
+/// A deer's cell (variant 0 head, 1 body).
+pub const SP_DEER: int = 12
+
+/// The wolf in the forest edge (scratched: dim body).
+pub const SP_WOLF_BODY_DIM: int = 13
+
+/// The wolf's ear cell (rich: variant 0 left, 1 right; plain unused).
+pub const SP_WOLF_EAR: int = 14
+
+/// The number of sprites (every id below this).
+pub const SPRITE_COUNT: int = 15
+
+// The palette, by role (docs/PALETTE.md).
+
+/// Path (bg).
+pub const C_PATH: int = 0
+
+/// Path mark (fg).
+pub const C_PATH_MARK: int = 1
+
+/// Grass (fg).
+pub const C_GRASS: int = 2
+
+/// Trunk (fg).
+pub const C_TRUNK: int = 3
+
+/// Canopy light (fg).
+pub const C_CANOPY: int = 4
+
+/// Canopy dark (fg).
+pub const C_CANOPY_DARK: int = 5
+
+/// Forest floor (bg).
+pub const C_FLOOR: int = 6
+
+/// Wolf fur (fg).
+pub const C_FUR: int = 7
+
+/// Wolf fur, dim (fg).
+pub const C_FUR_DIM: int = 8
+
+/// A shadow (fg).
+pub const C_SHADOW: int = 9
+
+/// A red eye (fg).
+pub const C_EYE: int = 10
+
+/// Deer (fg).
+pub const C_DEER: int = 11
+
+/// The fainted (fg).
+pub const C_FAINT: int = 12
+
+/// The colour index a palette role has on a tier.
+pub fn palette(tier: int, role: int) -> int {
+    if tier == RICH {
+        return match role {
+            0 => 137,  // C_PATH
+            1 => 180,  // C_PATH_MARK
+            2 => 64,  // C_GRASS
+            3 => 94,  // C_TRUNK
+            4 => 28,  // C_CANOPY
+            5 => 22,  // C_CANOPY_DARK
+            6 => 234,  // C_FLOOR
+            7 => 250,  // C_FUR
+            8 => 245,  // C_FUR_DIM
+            9 => 236,  // C_SHADOW
+            10 => 196,  // C_EYE
+            11 => 173,  // C_DEER
+            12 => 243,  // C_FAINT
+            _ => grid.COLOR_DEFAULT,
+        }
+    }
+    match role {
+        0 => 3,  // C_PATH
+        1 => 11,  // C_PATH_MARK
+        2 => 2,  // C_GRASS
+        3 => 3,  // C_TRUNK
+        4 => 2,  // C_CANOPY
+        5 => 0,  // C_CANOPY_DARK
+        6 => 0,  // C_FLOOR
+        7 => 15,  // C_FUR
+        8 => 7,  // C_FUR_DIM
+        9 => 8,  // C_SHADOW
+        10 => 9,  // C_EYE
+        11 => 11,  // C_DEER
+        12 => 8,  // C_FAINT
+        _ => grid.COLOR_DEFAULT,
+    }
+}
+
+fn c(tier: int, cp: int, fg: int, bg: int, attrs: int) -> grid.Cell {
+    grid.cell(cp, palette(tier, fg), palette(tier, bg), attrs)
+}
+
+/// The cell a sprite is on a tier, with its variant (a trot frame, a
+/// texture index; a variant a sprite has no use for is ignored).
+pub fn glyph(tier: int, sprite: int, variant: int) -> grid.Cell {
+    if tier == RICH {
+        return rich(sprite, variant)
+    }
+    plain(sprite, variant)
+}
+
+fn rich(sprite: int, v: int) -> grid.Cell {
+    let t = RICH
+    match sprite {
+        0 => c(t, 32, C_PATH_MARK, C_PATH, 0),  // SP_PATH
+        1 =>
+            c(
+                t,
+                if v % 4 == 0 {
+                    183
+                } else if v % 4 == 1 {
+                    9617
+                } else if v % 4 == 2 {
+                    8228
+                } else {
+                    96
+                },
+                C_PATH_MARK,
+                C_PATH,
+                0,
+            ),  // SP_PATH_MARK
+        2 => c(t, if v % 2 == 0 then 10294 else 10262, C_GRASS, C_FLOOR, 0),  // SP_GRASS
+        3 => c(t, 9475, C_TRUNK, C_FLOOR, 0),  // SP_TRUNK
+        4 =>
+            c(
+                t,
+                if v % 4 == 0 {
+                    10495
+                } else if v % 4 == 1 {
+                    10486
+                } else if v % 4 == 2 {
+                    10478
+                } else {
+                    10294
+                },
+                if v % 4 < 2 then C_CANOPY else C_CANOPY_DARK,
+                C_FLOOR,
+                0,
+            ),  // SP_CANOPY
+        5 => c(t, 32, C_CANOPY_DARK, C_FLOOR, 0),  // SP_FOREST_DARK
+        6 => c(t, 9608, C_FUR, C_PATH, 0),  // SP_WOLF_BODY
+        13 => c(t, 9608, C_FUR_DIM, C_PATH, 0),  // SP_WOLF_BODY_DIM
+        7 => c(t, if v == 1 then 9619 else 9608, C_FUR, C_PATH, 0),  // SP_WOLF_HEAD
+        8 =>
+            c(
+                t,
+                if v % 4 == 0 {
+                    9600
+                } else if v % 4 == 1 {
+                    9624
+                } else if v % 4 == 2 {
+                    9604
+                } else {
+                    9623
+                },
+                C_FUR,
+                C_PATH,
+                0,
+            ),  // SP_WOLF_TAIL
+        9 => c(t, if v == 0 then 9617 else 9604, C_FAINT, C_PATH, 0),  // SP_FAINTED
+        10 => c(t, 9608, C_SHADOW, C_PATH, 0),  // SP_SHADOW_BODY
+        11 => c(t, 9642, C_EYE, C_SHADOW, 0),  // SP_SHADOW_EYE
+        12 => c(t, if v == 0 then 9600 else 9608, C_DEER, C_PATH, 0),  // SP_DEER
+        14 => c(t, if v == 0 then 9629 else 9624, C_FUR, C_PATH, 0),  // SP_WOLF_EAR
+        _ => grid.blank(),
+    }
+}
+
+fn plain(sprite: int, v: int) -> grid.Cell {
+    let t = PLAIN
+    match sprite {
+        0 => c(t, 32, C_PATH_MARK, C_PATH, 0),  // SP_PATH
+        1 =>
+            c(
+                t,
+                if v % 4 == 0 then 46 else if v % 4 == 1 then 44 else if v % 4 == 2 then 39 else 96,
+                C_PATH_MARK,
+                C_PATH,
+                0,
+            ),  // SP_PATH_MARK
+        2 => c(t, if v % 2 == 0 then 34 else 39, C_GRASS, C_FLOOR, 0),  // SP_GRASS
+        3 => c(t, 124, C_TRUNK, C_FLOOR, 0),  // SP_TRUNK
+        4 =>
+            c(
+                t,
+                if v % 4 == 0 then 38 else if v % 4 == 1 then 37 else if v % 4 == 2 then 42 else 59,
+                if v % 4 < 2 then C_CANOPY else C_CANOPY_DARK,
+                C_FLOOR,
+                if v % 4 < 2 then grid.ATTR_BOLD else 0,
+            ),  // SP_CANOPY
+        5 => c(t, 32, C_CANOPY_DARK, C_FLOOR, 0),  // SP_FOREST_DARK
+        6 => c(t, 87, C_FUR, C_PATH, grid.ATTR_BOLD),  // SP_WOLF_BODY
+        13 => c(t, 87, C_FUR_DIM, C_PATH, 0),  // SP_WOLF_BODY_DIM
+        7 => c(t, if v == 1 then 126 else 94, C_FUR, C_PATH, grid.ATTR_BOLD),  // SP_WOLF_HEAD
+        8 => c(t, if v % 2 == 0 then 44 else 46, C_FUR, C_PATH, grid.ATTR_BOLD),  // SP_WOLF_TAIL
+        9 => c(t, if v == 0 then 120 else 95, C_FAINT, C_PATH, 0),  // SP_FAINTED
+        10 => c(t, 87, C_SHADOW, C_PATH, grid.ATTR_BOLD),  // SP_SHADOW_BODY
+        11 => c(t, 58, C_EYE, C_PATH, grid.ATTR_BOLD),  // SP_SHADOW_EYE
+        12 => c(t, if v == 0 then 89 else 124, C_DEER, C_PATH, grid.ATTR_BOLD),  // SP_DEER
+        14 => c(t, if v == 0 then 39 else 96, C_FUR, C_PATH, 0),  // SP_WOLF_EAR
+        _ => grid.blank(),
+    }
+}
+
+/// The colour dialect a tier renders in: the plain tier the sixteen, the
+/// rich tier the 256 cube, or RGB when `truecolor`.
+pub fn dialect(tier: int, truecolor: bool) -> int {
+    if tier == PLAIN {
+        return grid.COLORS_16
+    }
+    if truecolor then grid.COLORS_RGB else grid.COLORS_256
+}
+
+/// The tier's name in a replay file and on the command line.
+pub fn name(tier: int) -> str {
+    if tier == RICH then "rich" else "plain"
+}
+
+/// The tier a name means; `parse` for another word.
+pub fn of_name(s: str) -> int ! {parse} {
+    if s == "rich" {
+        return RICH
+    }
+    if s == "plain" {
+        return PLAIN
+    }
+    parse
+}
+
+/// The tier `TERM`, `COLORTERM` and `LANG`/`LC_ALL` pick when no flag does
+/// (R-pk00-3 A): rich when the locale says UTF-8 and `TERM` is neither
+/// `linux` nor `dumb`, else plain. Pure: the caller reads the environment.
+pub fn detect(term: str, lang: str) -> int {
+    if term == "linux" || term == "dumb" || term == "" {
+        return PLAIN
+    }
+    let l = lang.lower()
+    if l.contains("utf-8") || l.contains("utf8") {
+        return RICH
+    }
+    PLAIN
+}
+
+/// Whether `COLORTERM` names a true-colour terminal.
+pub fn truecolor_of(colorterm: str) -> bool {
+    colorterm == "truecolor" || colorterm == "24bit"
+}
+
+/// Every code point the rich tier can draw, each once, ascending: the
+/// list `docs/GLYPHS.md` must name (a test holds the two together), and
+/// PAX's font row's specification.
+pub fn rich_code_points() -> List[int] {
+    var cps = List[int]()
+    var s = 0
+    while s < SPRITE_COUNT {
+        var v = 0
+        while v < 8 {
+            let cp = glyph(RICH, s, v).cp
+            var seen = false
+            for k in cps {
+                if k == cp {
+                    seen = true
+                }
+            }
+            if !seen && cp != 32 {
+                (mut cps).push(cp)
+            }
+            v += 1
+        }
+        s += 1
+    }
+    // Insertion sort: the list is short.
+    var i = 1
+    while i < cps.len {
+        var j = i
+        while j > 0 && cps[j - 1] > cps[j] {
+            let t = cps[j]
+            cps[j] = cps[j - 1]
+            cps[j - 1] = t
+            j -= 1
+        }
+        i += 1
+    }
+    cps
+}
