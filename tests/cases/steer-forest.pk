@@ -1,6 +1,7 @@
 # frames 120 every 30
-# A steer into the forest edge: left, held by taps, until the wolf is in
-# the trees, slowed and scratched (the body dims), then straight.
+# A steer into the forest edge: Left held (one press every four ticks, an
+# autorepeat the hold reads) until the pack is in the trees, slowed and
+# scratched (the bodies dim), then straight.
 pk 1
 seed 7
 tier rich

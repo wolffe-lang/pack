@@ -1,0 +1,8 @@
+# frames 60 every 30
+# A clearing (pk01): seed 11's forest is open for the first lattice of
+# rows (density 10 of 256): grass to the verge, the odd trunk, the path
+# at its widest.
+pk 1
+seed 11
+tier rich
+size 80x24

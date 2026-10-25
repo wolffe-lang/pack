@@ -1,0 +1,14 @@
+# frames 480 every 40
+# A faint and a return (pk01): health falls through two floors (one wolf
+# faints at 75, a second at 55; each lies where it fell and the world
+# scrolls past it), then recovers: at 85 one wolf sprints back from the
+# bottom edge to its slot, at 95 the other. Health moves only by these
+# events until pk02's shadows.
+pk 1
+seed 7
+tier rich
+size 80x24
+t 30 health -25
+t 60 health -20
+t 200 health 30
+t 330 health 10

@@ -1,6 +1,7 @@
 # frames 240 every 40
 # A sprint to exhaustion: Up every burst until stamina is gone and the
-# wolf pants, then the recovery.
+# pack of five pants (ears flat, tails low, the heads alternating), then
+# the recovery.
 pk 1
 seed 7
 tier rich

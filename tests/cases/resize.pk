@@ -1,5 +1,5 @@
 # frames 60 every 20
-# A resize mid-run: the field grows to 100x30 at tick 30; the wolf keeps
+# A resize mid-run: the field grows to 100x30 at tick 30; the pack keeps
 # its part of the path.
 pk 1
 seed 7

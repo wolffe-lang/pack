@@ -1,5 +1,5 @@
 # frames 60 every 20
-# A standstill: Down at the first tick, then nothing. The wolf brakes to a
+# A standstill: Down at the first tick, then nothing. The pack brakes to a
 # stop and stands; stamina regenerates; the path does not scroll.
 pk 1
 seed 7

@@ -1,0 +1,42 @@
+# frames 90 every 5
+# A formation turn (pk01): Right held (the autorepeat, one press every two
+# ticks) from tick 10 to 40, then Left from 50 to 80. The leaders turn
+# first, the flankers three ticks later, the alpha six: the ripple. On
+# seed 3 the leaders' wander meets in the turn and they bump at tick 16
+# (frame 15 shows them touching, frame 20 nudged apart, never overlapping).
+pk 1
+seed 3
+tier rich
+size 80x24
+t 10 right
+t 12 right
+t 14 right
+t 16 right
+t 18 right
+t 20 right
+t 22 right
+t 24 right
+t 26 right
+t 28 right
+t 30 right
+t 32 right
+t 34 right
+t 36 right
+t 38 right
+t 40 right
+t 50 left
+t 52 left
+t 54 left
+t 56 left
+t 58 left
+t 60 left
+t 62 left
+t 64 left
+t 66 left
+t 68 left
+t 70 left
+t 72 left
+t 74 left
+t 76 left
+t 78 left
+t 80 left
