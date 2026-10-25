@@ -1294,7 +1294,7 @@ fn run_live(o: Options, args: List[str]) -> int {
         if leave || action == 0 {
             continue
         }
-        if action == 2 {
+        if action == 2 || action == 1 {
             seed += 1
         }
         info.seed = seed
