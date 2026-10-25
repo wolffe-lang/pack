@@ -169,3 +169,29 @@ or issue action. The four plant PRs remain open for the orchestrator.
 This session cannot write a Markdown report file. The full note is included
 under Note in the PR body; this .txt copy preserves the committed prediction
 and evidence in the codebase without editing the private planning repo.
+
+## Host gauntlets and performance
+The complete code at bc136a3 passed tools/check on macOS and
+PACK_CPUS=4-7 tools/in-container tools/check-linux on kasumi under
+flock ~/lanes/kasumi-cores-4-7.lock. Both built native and LLVM release,
+ran 142 checked tests (0 SKIP), selftest, all 43 golden directories and
+all eight pty rows including the typed 0x03 interrupt witness. No engine
+module or terminal restoration code changed. Final-head check logs are
+kept outside the tracked tree at ~/lanes/pk04/ on both hosts.
+
+Perf at that code, slack 1, average/p99/max microseconds:
+                 macOS                 Linux container CPUs 4-7
+80x24 rich       26/55/61              42/85/176
+80x24 plain      24/45/48              37/68/98
+200x60 rich      150/302/321           217/392/427
+200x60 plain     149/253/262           218/351/369
+Linux idle: 304 voluntary switches/10s, bar 240–360. macOS idle counter:
+one loud SKIP (no /proc), not hidden or treated as measured. Input latency
+median/p90/max: macOS 32.1/33.3/33.9 ms; Linux 13.5/33.5/33.7 ms.
+Portable staged census and parry probes were rebuilt and rerun for both
+baseline and current sim; all B/D/M and PARRY rows matched the raw original
+runs exactly. The release binary is target/pack in the pk04 Mac worktree.
+
+The contract's phrase "dusk 15% sooner" is arithmetically approximate:
+15% more speed means 13.04% less time; the note and DESIGN state that
+rather than changing the dusk row constants. No planning file was edited.
