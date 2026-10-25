@@ -566,8 +566,6 @@ fn health_step(mut s: Sim) {
     let target = floors_below(s.health)
     if s.down < target {
         faint_one(mut s)
-    } else if s.down > 0 && s.health >= HEALTH_MAX - s.down * HEALTH_FLOOR + HEALTH_HYST {
-        return_one(mut s)
     }
 }
 
