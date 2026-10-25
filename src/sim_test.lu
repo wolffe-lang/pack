@@ -519,14 +519,15 @@ fn test_spawn_roll_is_the_seeds_and_groups_above_the_rate() {
 }
 
 fn test_shadows_spawn_at_the_edge_ahead_from_the_seed() {
-    // Seed 16 starts in a dense stand (the rate near its highest); within
-    // 300 ticks at least one shadow has appeared at the forest edge above
-    // the top of the screen, and two runs agree on every one of them.
+    // Skip the guaranteed quiet twenty seconds; then two runs agree on
+    // the first birth, above the viewport, by thirty seconds.
     var a = sim.new(16, 80, 24)
     var b = sim.new(16, 80, 24)
     var first_tick = -1
-    var i = 0
-    while i < 300 {
+    a.tick = sim.SPAWN_FIRST_MIN
+    b.tick = sim.SPAWN_FIRST_MIN
+    var i = sim.SPAWN_FIRST_MIN
+    while i <= sim.SPAWN_FIRST_MAX {
         sim.step(mut a, none(), 0)
         sim.step(mut b, none(), 0)
         if first_tick < 0 && a.spawned > 0 {
@@ -534,10 +535,7 @@ fn test_shadows_spawn_at_the_edge_ahead_from_the_seed() {
             let sh = copy a.shadows[0]
             let (centre, half) = trail.path(16, 80, sh.y / world.FP)
             let d = if sh.x > centre then sh.x - centre else centre - sh.x
-            assert(
-                d >= half - 3 * world.FP && d <= half + world.FP / 2,
-                "spawn in edge/verge/shoulder band",
-            )
+            assert(d >= 0 && d <= half + world.FP / 2, "spawn in edge/verge/shoulder/middle band")
             assert(sh.state == sim.LURKING && sh.speed == 0, "a lurker stands still")
             assert(
                 sim.shadow_screen_row(a, 0) <= 0,
@@ -547,7 +545,7 @@ fn test_shadows_spawn_at_the_edge_ahead_from_the_seed() {
         assert(a.shadows.len == b.shadows.len, "two runs spawn alike at {i}")
         i += 1
     }
-    assert(first_tick >= 0, "seed 16 spawns within 300 ticks")
+    assert(first_tick >= 0, "seed 16 spawns within thirty seconds")
 }
 
 fn test_a_lurker_perceives_within_the_radius_and_not_beyond() {
@@ -1425,9 +1423,9 @@ fn test_pk04_re_recorded_terminal_replays_verify_their_scores() {
             replay.new(16, 1, 80, 24)
         }
         let expected = replay.score_of(text) else -1
-        // pk07 re-recorded both through a pty (notes/pk07-evidence/record.py):
+        // pk08 re-recorded both through a pty (notes/pk07-evidence/record.py):
         // the shadows moved under pk04's recordings.
-        assert(expected == 56, "newly recorded score, not an old accepted score")
+        assert(expected == 185, "newly recorded score, not an old accepted score")
         var s = sim.new_at(rp.seed, rp.cols, rp.rows, rp.start)
         var keys = none()
         var tick = 0
@@ -1444,3 +1442,129 @@ fn test_pk04_re_recorded_terminal_replays_verify_their_scores() {
         )
     }
 }
+
+fn test_pk08_first_lone_spawn_is_bounded_for_every_seed() {
+    var seed = 1
+    while seed <= 100 {
+        var s = sim.new(seed, 80, 24)
+        s.tick = sim.SPAWN_FIRST_MIN - 1
+        assert(sim.paced_spawn_roll(s) == 0, "no first birth before twenty seconds")
+        var first = -1
+        while s.tick <= sim.SPAWN_FIRST_MAX && first < 0 {
+            let n = sim.paced_spawn_roll(s)
+            if n > 0 { assert(n == 1, "first is lone"); first = s.tick }
+            s.tick += 1
+        }
+        assert(first >= sim.SPAWN_FIRST_MIN && first <= sim.SPAWN_FIRST_MAX, "bounded first spawn")
+        seed += 1
+    }
+}
+
+fn test_pk08_spawn_gap_and_no_groups_in_first_minute() {
+    var s = sim.new(16, 80, 24)
+    s.spawned = 1
+    var tick = 600
+    var events = 0
+    while tick < 5400 {
+        s.tick = tick
+        // High-distance curve exercises the ceiling even in the first minute.
+        var a = copy s.wolves[sim.ALPHA]
+        a.y = 2000 * world.FP
+        s.wolves[sim.ALPHA] = a
+        let n = sim.paced_spawn_roll(s)
+        if n > 0 {
+            assert(s.tick - s.last_spawn_tick >= sim.SPAWN_GAP_TICKS, "spawn gap")
+            if tick < sim.SPAWN_GROUP_TICKS { assert(n == 1, "no early group") }
+            s.last_spawn_tick = tick
+            s.spawned += n
+            events += 1
+        }
+        tick += 1
+    }
+    assert(events > 20, "gap test must observe late events")
+}
+
+fn clump_cap_seeds(start: int, end: int) {
+    var seed = start
+    while seed <= end {
+        for cols in [80, 200] {
+            var s = sim.new(seed, cols, if cols == 80 then 24 else 60)
+            s.tick = sim.SPAWN_FIRST_MAX
+            let row = sim.world_row(s, 0) + 1
+            let side = sim.spawn_side(s, row)
+            let candidate = sim.lurker(s, row, side)
+            var k = 0
+            while k < 5 { (mut s.shadows).push(copy candidate); k += 1 }
+            assert(sim.prospective_clump(s, candidate) == 6, "sixth must be refused")
+            sim.spawn_shadows(mut s)
+            // A centre candidate can be the same point on both banks: defer.
+            if s.spawned > 0 {
+                let born = copy s.shadows[5]
+                assert(
+                    sim.prospective_clump(s, born) <= 6,
+                    "new component contains at most five plus the queried copy",
+                )
+            }
+            var blocked = sim.new(seed, cols, s.rows)
+            blocked.tick = s.tick
+            let opposite = sim.lurker(blocked, row, 0 - side)
+            k = 0
+            while k < 5 {
+                (mut blocked.shadows).push(copy candidate)
+                (mut blocked.shadows).push(copy opposite)
+                k += 1
+            }
+            sim.spawn_shadows(mut blocked)
+            assert(blocked.spawned == 0, "both banks full: defer")
+        }
+        seed += 1
+    }
+}
+
+fn test_pk08_deer_bonus_zero_at_full_and_capped() {
+    assert(sim.deer_bonus(sim.HEALTH_MAX) == 0, "no full-health bonus")
+    assert(sim.deer_bonus(200) == 0, "no overfull bonus")
+    assert(sim.deer_bonus(50) == 50, "half health plus fifty percent")
+    assert(sim.deer_bonus(25) == 100, "quarter health doubled")
+    assert(sim.deer_bonus(-50) == 100, "capped bonus")
+    assert(sim.deer_limit(50) == 3, "half health is not under half")
+    assert(sim.deer_limit(49) == 4 && sim.deer_limit(0) == 4, "one additional deer, never more")
+}
+
+fn test_pk08_full_health_deer_birth_timeline_matches_legacy() {
+    // Same seed, positions and tick, independent of shadow pacing. Exercise
+    // legacy capacity and exact birth ticks rather than merely mean rates.
+    var s = sim.new(11, 80, 24)
+    var expected = 0
+    var tick = 0
+    while tick < 5400 {
+        s.tick = tick
+        if tick % 300 == 0 { s.deer = List[sim.Deer](); expected = 0 }
+        let rate = trail.deer_rate(s.seed, sim.alpha(s).y / world.FP)
+        assert(sim.deer_rate(s) == rate, "full-health legacy rate")
+        if expected < 3 && sim.deer_roll(s.seed, tick, rate) { expected += 1 }
+        sim.spawn_deer(mut s)
+        assert(sim.deer_alive(s) == expected, "byte-identical full-health birth timeline")
+        tick += 1
+    }
+}
+
+fn test_pk08_clump_cap_seeds_1_10() { clump_cap_seeds(1, 10) }
+
+fn test_pk08_clump_cap_seeds_11_20() { clump_cap_seeds(11, 20) }
+
+fn test_pk08_clump_cap_seeds_21_30() { clump_cap_seeds(21, 30) }
+
+fn test_pk08_clump_cap_seeds_31_40() { clump_cap_seeds(31, 40) }
+
+fn test_pk08_clump_cap_seeds_41_50() { clump_cap_seeds(41, 50) }
+
+fn test_pk08_clump_cap_seeds_51_60() { clump_cap_seeds(51, 60) }
+
+fn test_pk08_clump_cap_seeds_61_70() { clump_cap_seeds(61, 70) }
+
+fn test_pk08_clump_cap_seeds_71_80() { clump_cap_seeds(71, 80) }
+
+fn test_pk08_clump_cap_seeds_81_90() { clump_cap_seeds(81, 90) }
+
+fn test_pk08_clump_cap_seeds_91_100() { clump_cap_seeds(91, 100) }

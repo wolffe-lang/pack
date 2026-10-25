@@ -328,11 +328,11 @@ fn test_the_card_is_latin1_text_on_both_tiers_and_the_same_numbers() {
 fn test_render_with_shadows_is_deterministic_and_plain_keeps_the_promise() {
     var s = sim.new(16, 80, 24)
     var i = 0
-    while i < 200 {
+    while i < sim.SPAWN_FIRST_MAX + 100 {
         sim.step(mut s, List[int](), 0)
         i += 1
     }
-    assert(s.shadows.len > 0, "seed 16 has shadows by tick 200: {s.shadows.len}")
+    assert(s.shadows.len > 0, "seed 16 has shadows after the first deadline: {s.shadows.len}")
     var a = grid.new(24, 80)
     var b = grid.new(24, 80)
     art.render(s, tier.RICH, mut a)
