@@ -1313,7 +1313,7 @@ fn leap(mut s: Sim) {
             var i = 0
             while i < PACK_SIZE {
                 let w = copy s.wolves[i]
-                if w.state != FAINTED && reach_dist(sh.x, sh.y, w.x, w.y) <= LEAP_REACH * world.FP {
+                if w.state != FAINTED && reach_dist(sh.x, sh.y, w.x, w.y) <= 0 {
                     hit = true
                 }
                 i += 1
