@@ -1,0 +1,12 @@
+# frames 230 every 3 from 198
+# A parry that turns an attack (pk02): seed 16 as spawn-chase; a shadow
+# on the flank winds up at tick 199 (eyes steady) to land at 208. The
+# parry is pressed at 203, inside PARRY_WINDOW of the landing: no damage
+# (health stays at 75, nobody faints), the shadow loses its speed and
+# recoils PARRY_PUSH cells over PARRY_RECOIL ticks, eyes dim, then takes
+# up the chase again.
+pk 1
+seed 16
+tier rich
+size 80x24
+t 203 parry

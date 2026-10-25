@@ -1,0 +1,12 @@
+# frames 220 every 4 from 196
+# A leap that lands (pk02): seed 16 as spawn-chase, Space at tick 200
+# with two shadows on the flank within LEAP_REACH of a wolf. The pack
+# lunges together (the leap posture, LEAP_TICKS), both shadows are
+# vanquished — eyes out, the body thinning from solid to the dark shade to
+# the light one over FADE_TICKS — and are gone by 215; stamina is down
+# LEAP_STAMINA.
+pk 1
+seed 16
+tier rich
+size 80x24
+t 200 leap

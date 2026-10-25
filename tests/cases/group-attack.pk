@@ -1,0 +1,10 @@
+# frames 260 every 10 from 180
+# A group attack (pk02): seed 16's three shadows ride the pack's left
+# flank from tick 180 on, two or more within REACH of a pack member, and
+# land together — DAMAGE each (189: health 75, a wolf faints; 208: 70;
+# 236: 60, a second wolf down; 247: 55). The fainted lie where they fell
+# and scroll off the bottom; the gait slows.
+pk 1
+seed 16
+tier rich
+size 80x24

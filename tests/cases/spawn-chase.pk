@@ -1,0 +1,14 @@
+# frames 200 every 10 from 80
+# A spawn and a chase (pk02): seed 16 starts in a dense stand, where the
+# spawn rate is above GROUP_RATE, and a group of three shadows appears at
+# the left forest edge above the top of the screen at tick 87 (eyes dim:
+# lurking). At 126 the first sees a leader within PERCEIVE and turns onto
+# the path, stalking down it at STALK_V with its eyes pulsing; at 143 it
+# winds up on the leader passing it (eyes steady) and lands at 152 (health
+# 95, alone: DAMAGE_LONE). Passed, it brakes to rest and its direction
+# flips (tick 182), then it chases up the path at CHASE_V: the turn is
+# visible on the screen, no pivot.
+pk 1
+seed 16
+tier rich
+size 80x24
