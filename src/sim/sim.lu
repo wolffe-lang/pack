@@ -1361,7 +1361,7 @@ fn shadows_step(mut s: Sim) -> int {
         let w = copy s.wolves[sh.target]
         let d = reach_dist(sh.x, sh.y, w.x, w.y)
         if sh.state == LURKING {
-            if d <= PERCEIVE * world.FP {
+            if d <= 0 {
                 sh.state = CHASING
             }
         }
