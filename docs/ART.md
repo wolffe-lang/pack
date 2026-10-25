@@ -72,14 +72,18 @@ Background 137 (dry earth). Marks on about one cell in nine: rich `·`, `░`, `
 
 The verge, within a cell of the path's edge, is grass: `⠶` and `⠖` (plain `"` and `'`) in 64 on the floor
 234. Beyond it trunks `┃` (plain `|`), canopy `⣿ ⣶ ⣮ ⠶` (plain `& % * ;`) in two greens, and deep forest
-where nothing is drawn; the cover rises with distance from the path and with the forest's **density**, a
-third channel of the same noise that bends the path (`world.density`, `world.forest_kind`): a **clearing**
-(density under 72 of 256) is grass to the verge with the odd trunk and the path at its widest; **thin
-woods** open near the path and close beyond it; a **dense stand** (168 and above) is canopy from the verge,
-deep forest three cells in, and the path at its narrowest. The forest is noise, not sprites: the same seed is
-the same forest, and a clearing sits in the bend it came with. The sheet shows the three bands top to bottom
-(rows 0-7 a clearing, 8-15 woods, 16-23 a stand); the goldens `clearing` (seed 11) and `dense-stand` (seed
-16) show each on both tiers.
+where nothing is drawn; the cover rises with distance from the path. The forest's **density**, a third
+channel of the same noise that bends the path (`world.density`, `world.forest_kind`), picks the band: a
+**clearing** (density under 72 of 256) is grass to the verge with the odd trunk and the path at its widest;
+**thin woods** open near the path and close beyond it; a **dense stand** (168 and above) draws the woods'
+foliage with more trunks and the path at its narrowest. The stand had its own texture in pk01 (canopy from
+the verge, deep forest three cells in); the maintainer, playing that build on 2026-10-25, saw it as dense
+horizontal bands of dots against the varied foliage the run starts with and ruled that the starting
+texture is kept for the duration of the run (R-PK-7, the maintainer's word), so one foliage texture serves
+both bands and density shows in the trunks, the path's width and the spawn rate. The forest is noise, not
+sprites: the same seed is the same forest, and a clearing sits in the bend it came with. The sheet shows
+the three bands top to bottom (rows 0-7 a clearing, 8-15 woods, 16-23 a stand); the goldens `clearing`
+(seed 11) and `dense-stand` (seed 16) show each on both tiers.
 
 ## The pack in formation
 

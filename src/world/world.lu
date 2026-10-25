@@ -109,10 +109,10 @@ pub fn path(seed: int, cols: int, row: int) -> (int, int) {
 
 /// The sprite kind at a cell outside the path: 0 grass (the verge, within
 /// a cell of the edge), 1 trunk, 2 canopy, 3 deep forest. The cover rises
-/// with distance from the path and with `density` (`[0, FP]`, the row's):
-/// a clearing is grass with the odd trunk, thin woods canopy that opens
-/// near the path, a dense stand canopy from the verge and deep forest
-/// three cells in.
+/// with distance from the path; `density` (`[0, FP]`, the row's) picks
+/// the band: a clearing is grass with the odd trunk, and both thin woods
+/// and a dense stand draw the woods' foliage (canopy that opens near the
+/// path), the stand with more trunks (the maintainer's word, 2026-10-25).
 pub fn forest_kind(seed: int, row: int, col: int, dist_cells: int, density: int) -> int {
     if dist_cells <= 0 {
         return 0
@@ -121,19 +121,22 @@ pub fn forest_kind(seed: int, row: int, col: int, dist_cells: int, density: int)
     if density < DENSITY_CLEARING {
         return if h < 3 then 1 else if h < 8 then 2 else 0
     }
-    if density < DENSITY_STAND {
-        if dist_cells <= 2 {
-            return if h < 12 then 1 else if h < 55 then 2 else 0
-        }
-        if dist_cells <= 6 {
-            return if h < 10 then 1 else if h < 80 then 2 else 3
-        }
-        return if h < 6 then 1 else if h < 60 then 2 else 3
-    }
+    // Thin woods and a dense stand draw ONE foliage texture, the woods':
+    // the maintainer's word from play (2026-10-25, a screenshot of pk01's
+    // build): the stand's own texture (canopy from the verge, deep forest
+    // three cells in) read as dense horizontal bands of dots, "less than
+    // optimal" against the varied foliage the run starts with, so the
+    // starting texture is kept for the duration of the run. Density keeps
+    // its other effects (the path's width, the spawn rate) and a stand
+    // still thickens by its trunks alone.
+    let trunk = if density < DENSITY_STAND then 0 else 4
     if dist_cells <= 2 {
-        return if h < 14 then 1 else if h < 86 then 2 else 0
+        return if h < 12 + trunk then 1 else if h < 55 then 2 else 0
     }
-    if h < 8 then 1 else if h < 45 then 2 else 3
+    if dist_cells <= 6 {
+        return if h < 10 + trunk then 1 else if h < 80 then 2 else 3
+    }
+    if h < 6 + trunk then 1 else if h < 60 then 2 else 3
 }
 
 /// The spawn-rate input pk02 reads, in thousandths of a shadow a tick: a

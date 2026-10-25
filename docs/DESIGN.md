@@ -99,7 +99,7 @@ pk03's deer feed the pack.
 | the half width | 1/16 to 1/8 of the width, plus (1 − density) × 1/32, never under 3 cells | the path is 10 to 20 cells wide on an 80-column field in a stand and up to 5 cells wider in a clearing | 2026-10-25 proposed |
 | `DENSITY_CHANNEL` | 3 | the noise channel the density reads (1 is the centre, 2 the width) | 2026-10-25 proposed |
 | `DENSITY_CLEARING` | 72 | density below this (of 256) is a clearing: grass to the verge, the odd trunk | 2026-10-25 proposed |
-| `DENSITY_STAND` | 168 | density at or above this is a dense stand: canopy from the verge, deep forest three cells in; between is thin woods | 2026-10-25 proposed |
+| `DENSITY_STAND` | 168 | density at or above this is a dense stand; between is thin woods. A stand draws the woods' foliage texture with more trunks (the trunk share up 4 points of 100): its own texture (canopy from the verge, deep forest three cells in) read as striped bands in play and was retired | 2026-10-25 the maintainer's word (the texture); the threshold proposed |
 | `SPAWN_BASE`, `SPAWN_DISTANCE`, `SPAWN_DENSITY` | 2, 200, 6 | the spawn-rate input pk02 reads, in thousandths of a shadow a tick: 2 at the start, one more every 200 rows, up to 6 more in a dense stand; logged under `--trace` as `spawn`, nothing spawns yet | 2026-10-25 proposed |
 
 ## The engine (`src/clock`, `src/term`, `src/input`)
