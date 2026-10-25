@@ -1,0 +1,51 @@
+//! The best record: parse, format, round trip, the best and the last.
+
+fn test_empty_round_trip_and_record() {
+    var b = empty()
+    assert(b.best_score == -1 && b.last_score == -1 && b.saved == "", "empty")
+    assert(format(b) == "pk-best 1\n", "an empty record is its version line")
+    record(mut b, 1240, 7, "2026-10-25T07:41:12Z", "-")
+    assert(b.best_score == 1240 && b.last_score == 1240, "the first run is the best and the last")
+    record(mut b, 900, 8, "2026-10-25T07:50:00Z", "-")
+    assert(
+        b.best_score == 1240 && b.best_seed == 7 && b.last_score == 900 && b.last_seed == 8,
+        "a lower run is the last alone",
+    )
+    saved_at(mut b, "/u/pack-8-900.pk", 900, 8)
+    assert(
+        b.saved == "/u/pack-8-900.pk" && b.last_name == "/u/pack-8-900.pk" && b.best_name == "-",
+        "the save names the last, not the best",
+    )
+    record(mut b, 1240, 9, "d", "-")
+    assert(b.best_seed == 7, "a tie keeps the older best")
+    let text = format(b)
+    let again = from_text(text) else {
+        assert(false, "parses: {text}")
+        return
+    }
+    assert(format(again) == text, "format is a fixed point:\n{text}")
+    assert(again.saved == b.saved && again.best_date == "2026-10-25T07:41:12Z", "fields")
+}
+
+fn test_refusals_by_name() {
+    let v = from_text("pk-best 2\n") else {
+        return
+    }
+    assert(false, "another version is a parse failure: {v.best_score}")
+}
+
+fn test_a_bad_line_is_refused_and_a_comment_ignored() {
+    let ok = from_text("# mine\npk-best 1\nbest 10 1 d -\n") else {
+        assert(false, "a comment is ignored")
+        return
+    }
+    assert(ok.best_score == 10, "read")
+    let bad = from_text("pk-best 1\nwhat 1\n") else {
+        return
+    }
+    assert(false, "an unknown line is refused: {bad.best_score}")
+}
+
+fn test_basename() {
+    assert(basename("/a/b/c.pk") == "c.pk" && basename("c.pk") == "c.pk", "the last segment")
+}

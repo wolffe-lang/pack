@@ -1,0 +1,178 @@
+//! best — the title card's memory (pk03): the best score and the last,
+//! and the last saved replay's path, in one small file, `~/.pack/best`
+//! (R-pk03-1 A: the game is installed under `~/Games/pack/` on PAX and
+//! run from anywhere, so the file lives with the user, not the working
+//! directory). Plain text, one fact a line:
+//!
+//!     pk-best 1
+//!     best 3310 16 2026-10-25T07:30:00Z /home/u/pack-16-3310.pk
+//!     last 1240 7 2026-10-25T07:41:12Z -
+//!     saved /home/u/pack-16-3310.pk
+//!
+//! A score line is the score, the seed, the date the run ended and the
+//! replay's path (`-` when the run was not saved). A missing file is an
+//! empty record; a file that does not parse is read as empty and the
+//! title says so, never silently overwritten until a run is recorded.
+
+use std.env
+use std.fs
+
+/// The record. A score of -1 is none.
+pub struct Best {
+    best_score: int,
+    best_seed: int,
+    best_date: str,
+    best_name: str,
+    last_score: int,
+    last_seed: int,
+    last_date: str,
+    last_name: str,
+    saved: str,
+}
+
+/// An empty record.
+pub fn empty() -> Best {
+    Best {
+        best_score: -1,
+        best_seed: 0,
+        best_date: "",
+        best_name: "-",
+        last_score: -1,
+        last_seed: 0,
+        last_date: "",
+        last_name: "-",
+        saved: "",
+    }
+}
+
+/// Where the file lives: `$HOME/.pack/best`; `missing` without a HOME.
+pub fn path() -> str ! {missing} {
+    let home = env.get("HOME") else {
+        return missing
+    }
+    if home == "" {
+        return missing
+    }
+    "{home}/.pack/best"
+}
+
+/// Read a record's text. `parse` for a version other than 1 or a line
+/// that is none of the three.
+pub fn from_text(text: str) -> Best ! {parse} {
+    var b = empty()
+    var have_version = false
+    for raw in text.lines() {
+        let line = raw.trim()
+        if line.len == 0 || line.starts_with("#") {
+            continue
+        }
+        let words = line.words()
+        if words.len < 2 {
+            return parse
+        }
+        if words[0] == "pk-best" {
+            if words[1] != "1" {
+                return parse
+            }
+            have_version = true
+        } else if words[0] == "best" || words[0] == "last" {
+            if words.len < 5 {
+                return parse
+            }
+            let score = words[1].to_int()?
+            let seed = words[2].to_int()?
+            if words[0] == "best" {
+                b.best_score = score
+                b.best_seed = seed
+                b.best_date = words[3]
+                b.best_name = words[4]
+            } else {
+                b.last_score = score
+                b.last_seed = seed
+                b.last_date = words[3]
+                b.last_name = words[4]
+            }
+        } else if words[0] == "saved" {
+            b.saved = words[1]
+        } else {
+            return parse
+        }
+    }
+    if !have_version {
+        return parse
+    }
+    b
+}
+
+/// The record as text.
+pub fn format(b: Best) -> str {
+    var out = "pk-best 1\n"
+    if b.best_score >= 0 {
+        out += "best {b.best_score} {b.best_seed} {b.best_date} {b.best_name}\n"
+    }
+    if b.last_score >= 0 {
+        out += "last {b.last_score} {b.last_seed} {b.last_date} {b.last_name}\n"
+    }
+    if b.saved != "" {
+        out += "saved {b.saved}\n"
+    }
+    out
+}
+
+/// A run ended: it is the last, and the best if it beats the best (a tie
+/// keeps the older). `name` is the saved replay's path or `-`.
+pub fn record(mut b: Best, score: int, seed: int, date: str, name: str) {
+    b.last_score = score
+    b.last_seed = seed
+    b.last_date = date
+    b.last_name = name
+    if score > b.best_score {
+        b.best_score = score
+        b.best_seed = seed
+        b.best_date = date
+        b.best_name = name
+    }
+}
+
+/// A replay was saved at `path`: the last saved, and the best's name if
+/// the best is this run (`score` and `seed` say which run).
+pub fn saved_at(mut b: Best, path: str, score: int, seed: int) {
+    b.saved = path
+    if b.last_score == score && b.last_seed == seed {
+        b.last_name = path
+    }
+    if b.best_score == score && b.best_seed == seed {
+        b.best_name = path
+    }
+}
+
+/// Load the record from `p`: an empty record when there is no file;
+/// `parse` when the file is there and wrong (the caller says so on the
+/// title and does not write over it until a run is recorded).
+pub fn load(p: str) -> Best ! {parse} {
+    let text = fs.read_text(p) else {
+        return empty()
+    }
+    from_text(text)?
+}
+
+/// Write the record to `p`, making its directory. `io` on failure.
+pub fn store(p: str, b: Best) -> () ! {io} {
+    let slash = p.rfind("/") else 0
+    if slash > 0 {
+        fs.create_dir_all(p[0..slash]) else |_| {
+            return io
+        }
+    }
+    fs.write_text(p, format(b)) else |_| {
+        return io
+    }
+}
+
+/// A name's last path segment, for the card.
+pub fn basename(p: str) -> str {
+    let slash = p.rfind("/") else {
+        return p
+    }
+    p[slash + 1..]
+}
