@@ -2212,7 +2212,7 @@ pub fn deer_rate(s: Sim) -> int {
 /// Linear health bonus: zero at full, 50% at half, 100% at quarter;
 /// bounded at both ends. Fractional thousandths round down.
 pub fn deer_bonus(health: int) -> int {
-    if health >= HEALTH_MAX { return 0 }
+    if health >= HEALTH_MAX { return 50 }
     if health <= HEALTH_MAX / 4 { return DEER_BONUS_MAX }
     if health >= HEALTH_MAX / 2 { return (HEALTH_MAX - health) * 100 / HEALTH_MAX }
     50 + (HEALTH_MAX / 2 - health) * 200 / HEALTH_MAX
