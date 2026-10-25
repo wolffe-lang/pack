@@ -1,0 +1,2 @@
+linux x86-64 (fmt, tests, builds, goldens, pty rows in the container)	the Linux leg, in the container	2026-10-25T16:56:46.7222820Z test src/directional_test.lu::test_pk06b_timing_table_diagonals_in_both_orders_cardinals_and_default ... FAILED (trap(assert))
+linux x86-64 (fmt, tests, builds, goldens, pty rows in the container)	the Linux leg, in the container	2026-10-25T16:56:46.7224202Z test src/directional_test.lu::test_pk06b_aim_window_exact_boundary_and_steering_still_releases ... FAILED (trap(assert))

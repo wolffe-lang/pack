@@ -265,5 +265,5 @@ sprint is cancelled by Down as before; Space does not start a new sprint.
 The shadow gathers back at half a cell/tick for three ticks and holds for three,
 then crosses that gap in six lunge ticks. After landing it settles over six
 ticks rather than snapping back. Parry keeps the existing three-cell/six-tick
-recoil and dim eyes. Both creatures use `leap_arc`; the presentation-offset
+recoil and dim eyes. The shadow uses `leap_arc`, the pack `leap_displacement`; the presentation-offset
 choice (R-pk04-3, recommended) preserves the bite and vanquish hit envelopes.
