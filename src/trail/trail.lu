@@ -55,6 +55,20 @@ pub fn spawn_rate(seed: int, row: int) -> int {
     rate
 }
 
+/// Continuous shadow curve, millionths per tick. The thousandth curve
+/// above remains the deer's legacy input, so a healthy pack's deer roll
+/// does not change. Same bases, slopes and ceiling; no 50-row stair.
+pub fn spawn_rate_fine(seed: int, row: int) -> int {
+    let ahead = if row > 0 then row else 0
+    var rate = SPAWN_BASE * 1000 +
+        ahead * 1000 / SPAWN_DISTANCE +
+        world.density(seed, row) * SPAWN_DENSITY * 1000 / world.FP
+    let ramp = SPAWN_RAMP_BASE * 1000 + ahead * 1000 / SPAWN_RAMP_ROWS
+    if rate > ramp { rate = ramp }
+    if rate > SPAWN_CEILING * 1000 { rate = SPAWN_CEILING * 1000 }
+    rate
+}
+
 /// The spawn rate at the start, thousandths a tick.
 pub const SPAWN_BASE: int = 1
 
