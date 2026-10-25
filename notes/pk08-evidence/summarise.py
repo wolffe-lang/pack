@@ -1,11 +1,12 @@
 """Summarise census traces; events binned by ten seconds, deer by health."""
-import sys, statistics
+import sys, statistics, gzip
 from collections import Counter,defaultdict
 for file in sys.argv[1:]:
     first=[]; clumps=[]; counts=defaultdict(list); health=defaultdict(list); events=Counter(); groups=Counter()
     mode = 0
     wanted = int(__import__("os").environ.get("MODE", "1"))
-    for line in open(file):
+    reader = gzip.open(file,"rt") if file.endswith(".gz") else open(file)
+    for line in reader:
         w=line.split()
         if not w:continue
         if w[0]=="MODE":mode=int(w[1]);continue
