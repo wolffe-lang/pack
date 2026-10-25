@@ -459,3 +459,367 @@ fn test_spawn_rate_is_the_worlds_at_the_alphas_row() {
     )
     assert(world.spawn_rate(3, 4000) > world.spawn_rate(3, 0), "and it rises with distance")
 }
+
+// The shadows (pk02).
+
+fn shadow_at(s: sim.Sim, row_ahead: int, dx_cells: int, state: int) -> sim.Shadow {
+    let a = sim.alpha(s)
+    sim.Shadow {
+        x: a.x + dx_cells * world.FP,
+        y: a.y + row_ahead * world.FP,
+        heading: 0,
+        speed: 0,
+        dir: -1,
+        state: state,
+        target: sim.ALPHA,
+        windup: 0,
+        cooldown: 0,
+        recoil: 0,
+        fade: 0,
+    }
+}
+
+fn no_spawn(mut s: sim.Sim) {
+    // A seed whose first 300 rolls spawn nothing, so a placed shadow is
+    // alone (the roll is the world's hash of the tick; searched once).
+    s.seed = 1
+}
+
+fn test_spawn_roll_is_the_seeds_and_groups_above_the_rate() {
+    var singles = 0
+    var groups = 0
+    var tick = 0
+    while tick < 3000 {
+        let n = sim.spawn_roll(9, tick, 4)
+        assert(n == 0 || n == 1, "under GROUP_RATE a spawn is one shadow: {n}")
+        singles += n
+        let g = sim.spawn_roll(9, tick, 12)
+        assert(g == 0 || g == 2 || g == 3, "above it two or three: {g}")
+        if g > 0 {
+            groups += 1
+        }
+        assert(sim.spawn_roll(9, tick, 4) == n, "the roll is a pure function of the tick")
+        tick += 1
+    }
+    // 4 thousandths over 3000 ticks is 12 expected; 12 thousandths, 36.
+    assert(singles >= 4 && singles <= 24, "{singles} single spawns of 12 expected")
+    assert(groups >= 18 && groups <= 60, "{groups} group spawns of 36 expected")
+}
+
+fn test_shadows_spawn_at_the_edge_ahead_from_the_seed() {
+    // Seed 16 starts in a dense stand (the rate near its highest); within
+    // 300 ticks at least one shadow has appeared at the forest edge above
+    // the top of the screen, and two runs agree on every one of them.
+    var a = sim.new(16, 80, 24)
+    var b = sim.new(16, 80, 24)
+    var first_tick = -1
+    var i = 0
+    while i < 300 {
+        sim.step(mut a, none(), 0)
+        sim.step(mut b, none(), 0)
+        if first_tick < 0 && a.spawned > 0 {
+            first_tick = i
+            let sh = copy a.shadows[0]
+            let (centre, half) = world.path(16, 80, sh.y / world.FP)
+            let d = if sh.x > centre then sh.x - centre else centre - sh.x
+            assert(d > half, "spawned in the forest edge, not on the path: {d} vs {half}")
+            assert(sh.state == sim.LURKING && sh.speed == 0, "a lurker stands still")
+            assert(
+                sim.shadow_screen_row(a, 0) <= 0,
+                "above the alpha's eye: row {sim.shadow_screen_row(a, 0)}",
+            )
+        }
+        assert(a.shadows.len == b.shadows.len, "two runs spawn alike at {i}")
+        i += 1
+    }
+    assert(first_tick >= 0, "seed 16 spawns within 300 ticks")
+}
+
+fn test_a_lurker_perceives_within_the_radius_and_not_beyond() {
+    var far = sim.new(1, 80, 24)
+    no_spawn(mut far)
+    (mut far.shadows).push(shadow_at(far, sim.PERCEIVE + 8, 0, sim.LURKING))
+    sim.step(mut far, none(), 0)
+    assert(far.shadows[0].state == sim.LURKING, "beyond PERCEIVE it lurks on")
+    var near = sim.new(1, 80, 24)
+    no_spawn(mut near)
+    (mut near.shadows).push(shadow_at(near, sim.PERCEIVE + 4, 0, sim.LURKING))
+    sim.step(mut near, none(), 0)
+    // The leaders are five cells ahead of the alpha: within reach of it.
+    assert(near.shadows[0].state == sim.CHASING, "within PERCEIVE of a leader it turns")
+}
+
+fn test_a_passed_shadow_decelerates_turns_at_rest_and_chases_at_1_3_v() {
+    // A shadow stalking down the path at the stalk speed, already past
+    // the leaders and level with the alpha; the pack trots on. It must
+    // brake to zero before its direction flips (no pivot), never change
+    // speed by more than the brake or heading by more than the turn rate
+    // in a tick, and then chase up the path at CHASE_V, closing.
+    var s = sim.new(1, 80, 24)
+    no_spawn(mut s)
+    var sh = shadow_at(s, -1, 5, sim.CHASING)
+    sh.speed = sim.STALK_V
+    (mut s.shadows).push(sh)
+    var flipped_at = -1
+    var speed_at_flip = -1
+    var peak_after_flip = 0
+    var prev_speed = sim.STALK_V
+    var prev_heading = 0
+    var prev_dir = -1
+    var i = 0
+    while i < 200 {
+        sim.step(mut s, none(), 0)
+        let c = copy s.shadows[0]
+        let ds = if c.speed > prev_speed then c.speed - prev_speed else prev_speed - c.speed
+        assert(ds <= sim.SHADOW_BRAKE, "speed jumped {ds} at tick {i}")
+        let dh = if c.heading > prev_heading {
+            c.heading - prev_heading
+        } else {
+            prev_heading - c.heading
+        }
+        assert(dh <= sim.SHADOW_TURN_RATE, "heading jumped {dh} at tick {i}")
+        if c.dir != prev_dir {
+            flipped_at = i
+            speed_at_flip = prev_speed
+        }
+        if flipped_at >= 0 && c.speed > peak_after_flip {
+            peak_after_flip = c.speed
+        }
+        prev_speed = c.speed
+        prev_heading = c.heading
+        prev_dir = c.dir
+        i += 1
+    }
+    let c = copy s.shadows[0]
+    assert(flipped_at > 0, "the direction flipped")
+    assert(speed_at_flip <= sim.SHADOW_BRAKE, "it flipped at rest, speed {speed_at_flip}")
+    assert(peak_after_flip == sim.CHASE_V, "it chased up the path at 1.3 v: peak {peak_after_flip}")
+    // In reach it matches its target's pace (the pack's, slowed by the
+    // health its bites cost) rather than overshooting.
+    assert(
+        c.dir == 1 && c.speed >= sim.TROT_V * 3 / 4 && c.speed <= sim.CHASE_V,
+        "dir {c.dir} speed {c.speed}",
+    )
+    assert(
+        c.state == sim.CHASING || c.state == sim.ATTACKING,
+        "still after the pack: state {c.state}",
+    )
+    let a = sim.alpha(s)
+    assert(
+        c.y <= a.y + sim.REACH * world.FP,
+        "it caught the alpha or hangs behind it: {(a.y - c.y) / world.FP} rows back",
+    )
+}
+
+fn test_a_sprint_shakes_a_chaser_a_trot_does_not() {
+    var s = sim.new(1, 80, 24)
+    no_spawn(mut s)
+    var sh = shadow_at(s, -6, 0, sim.CHASING)
+    sh.dir = 1
+    sh.speed = sim.CHASE_V
+    (mut s.shadows).push(sh)
+    let gap0 = sim.alpha(s).y - s.shadows[0].y
+    run(mut s, 30)
+    let gap_trot = sim.alpha(s).y - s.shadows[0].y
+    assert(gap_trot < gap0, "at the trot the chaser closes: {gap_trot} from {gap0}")
+    sim.step(mut s, one(sim.KEY_UP), 0)
+    run(mut s, sim.SPRINT_BURST_TICKS)
+    let gap_sprint = sim.alpha(s).y - s.shadows[0].y
+    assert(gap_sprint > gap_trot, "a sprint opens the gap: {gap_sprint} from {gap_trot}")
+}
+
+fn test_a_shaken_shadow_is_gone_behind_the_alpha() {
+    var s = sim.new(1, 80, 24)
+    no_spawn(mut s)
+    (mut s.shadows).push(shadow_at(s, 0 - sim.GONE_ROWS - 1, 0, sim.LURKING))
+    sim.step(mut s, none(), 0)
+    assert(s.shadows.len == 0, "dropped from the list")
+}
+
+fn test_bodies_never_overlap_with_shadows() {
+    // Three shadows chasing through the pack over 200 ticks of steering
+    // on two seeds: no two bodies, wolf or shadow, overlap after any tick.
+    var seed = 1
+    while seed <= 2 {
+        var s = sim.new(seed, 80, 24)
+        var k = 0
+        while k < 3 {
+            var sh = shadow_at(s, 8 - 4 * k, 0 - 6 + 6 * k, sim.CHASING)
+            sh.speed = sim.STALK_V
+            (mut s.shadows).push(sh)
+            k += 1
+        }
+        var i = 0
+        while i < 200 {
+            let keys = if i % 60 < 20 {
+                one(sim.KEY_LEFT)
+            } else if i % 60 < 40 {
+                one(sim.KEY_RIGHT)
+            } else {
+                none()
+            }
+            sim.step(mut s, keys, 0)
+            assert(!sim.any_overlap(s), "seed {seed} tick {i}: two bodies overlap")
+            i += 1
+        }
+        seed += 1
+    }
+}
+
+fn test_group_attack_lands_damage_per_shadow_a_lone_one_less() {
+    // Two shadows on the alpha's flanks, in reach, cooldowns ready: after
+    // the windup each lands DAMAGE (health 100 -> 80). One alone: DAMAGE_LONE.
+    var pair = sim.new(1, 80, 24)
+    no_spawn(mut pair)
+    var l = shadow_at(pair, 0, 0 - sim.REACH, sim.CHASING)
+    l.dir = 1
+    l.speed = sim.TROT_V
+    var r = shadow_at(pair, 0, sim.REACH, sim.CHASING)
+    r.dir = 1
+    r.speed = sim.TROT_V
+    (mut pair.shadows).push(l)
+    (mut pair.shadows).push(r)
+    var i = 0
+    while i < sim.ATTACK_WINDUP + 3 && pair.landed < 2 {
+        sim.step(mut pair, none(), 0)
+        i += 1
+    }
+    assert(pair.landed == 2, "both landed: {pair.landed} after {i} ticks")
+    assert(pair.health == sim.HEALTH_MAX - 2 * sim.DAMAGE, "health {pair.health}")
+    assert(pair.down == 1, "one wolf down at 80")
+    var lone = sim.new(1, 80, 24)
+    no_spawn(mut lone)
+    var o = shadow_at(lone, 0, sim.REACH, sim.CHASING)
+    o.dir = 1
+    o.speed = sim.TROT_V
+    (mut lone.shadows).push(o)
+    i = 0
+    while i < sim.ATTACK_WINDUP + 3 && lone.landed < 1 {
+        sim.step(mut lone, none(), 0)
+        i += 1
+    }
+    assert(
+        lone.landed == 1 && lone.health == sim.HEALTH_MAX - sim.DAMAGE_LONE,
+        "alone: health {lone.health}",
+    )
+    // The cooldown: no second landing within ATTACK_COOLDOWN.
+    run(mut lone, sim.ATTACK_COOLDOWN - 2)
+    assert(lone.landed == 1, "the cooldown holds: {lone.landed}")
+}
+
+fn test_leap_vanquishes_in_reach_costs_stamina_and_fades() {
+    var s = sim.new(1, 80, 24)
+    no_spawn(mut s)
+    var near = shadow_at(s, 0, sim.REACH, sim.CHASING)
+    near.dir = 1
+    (mut s.shadows).push(near)
+    (mut s.shadows).push(shadow_at(s, sim.PERCEIVE + sim.LEAP_REACH + 9, 0, sim.LURKING))
+    let st = s.stamina
+    sim.step(mut s, one(sim.KEY_LEAP), 0)
+    assert(s.shadows[0].state == sim.VANQUISHED, "the near one is vanquished")
+    assert(s.shadows[1].state == sim.LURKING, "the far one is not")
+    assert(s.vanquished == 1, "counted")
+    assert(s.stamina == st - sim.LEAP_STAMINA + sim.REGEN_TROT, "stamina paid: {s.stamina}")
+    assert(sim.posture(s) == sim.POSTURE_LEAP, "the lunge shows")
+    run(mut s, sim.FADE_TICKS)
+    assert(s.shadows.len == 1, "faded and gone after FADE_TICKS: {s.shadows.len} left")
+    // Within the cooldown a second leap does nothing.
+    (mut s.shadows).push(shadow_at(s, 0, sim.REACH, sim.CHASING))
+    let st2 = s.stamina
+    sim.step(mut s, one(sim.KEY_LEAP), 0)
+    assert(s.vanquished == 1 && s.stamina == st2 + sim.REGEN_TROT, "the cooldown refuses")
+}
+
+fn test_the_spent_pack_cannot_leap() {
+    var s = sim.new(1, 80, 24)
+    no_spawn(mut s)
+    s.stamina = sim.LEAP_STAMINA - 1
+    (mut s.shadows).push(shadow_at(s, 0, sim.REACH, sim.CHASING))
+    sim.step(mut s, one(sim.KEY_LEAP), 0)
+    assert(s.vanquished == 0 && s.shadows[0].state != sim.VANQUISHED, "nothing happens")
+    var p = sim.new(1, 80, 24)
+    no_spawn(mut p)
+    p.exhausted = true
+    (mut p.shadows).push(shadow_at(p, 0, sim.REACH, sim.CHASING))
+    sim.step(mut p, one(sim.KEY_LEAP), 0)
+    assert(p.vanquished == 0, "the pant refuses")
+}
+
+fn test_a_parry_turns_a_landing_attack() {
+    var s = sim.new(1, 80, 24)
+    no_spawn(mut s)
+    var sh = shadow_at(s, 0, sim.REACH, sim.CHASING)
+    sh.dir = 1
+    sh.speed = sim.TROT_V
+    (mut s.shadows).push(sh)
+    // The windup starts on the first tick; parry a few ticks later, inside
+    // PARRY_WINDOW of the landing.
+    sim.step(mut s, none(), 0)
+    assert(s.shadows[0].state == sim.ATTACKING, "winding up")
+    run(mut s, 3)
+    sim.step(mut s, one(sim.KEY_PARRY), 0)
+    run(mut s, sim.ATTACK_WINDUP)
+    assert(s.turned == 1 && s.landed == 0, "turned {s.turned} landed {s.landed}")
+    assert(s.health == sim.HEALTH_MAX, "no damage")
+    let c = copy s.shadows[0]
+    assert(c.speed == 0, "the shadow lost its speed")
+    assert(c.recoil > 0 || c.y > sim.alpha(s).y + world.FP, "pushed back: recoil {c.recoil}")
+    // A parry pressed during the cooldown does nothing.
+    sim.step(mut s, one(sim.KEY_PARRY), 0)
+    assert(s.parry_until < s.tick, "the cooldown refuses a second window")
+}
+
+fn test_a_parry_is_a_press_not_a_stance() {
+    var s = sim.new(1, 80, 24)
+    sim.step(mut s, one(sim.KEY_PARRY), 0)
+    assert(s.parry_until == sim.PARRY_WINDOW, "the window is PARRY_WINDOW ticks from the press")
+    run(mut s, sim.PARRY_WINDOW)
+    assert(s.tick >= s.parry_until, "and then it is over")
+}
+
+fn test_death_at_zero_health_on_the_next_landed_attack_freezes_the_run() {
+    var s = sim.new(1, 80, 24)
+    no_spawn(mut s)
+    sim.step(mut s, none(), -100)
+    run(mut s, 5)
+    assert(
+        s.health == 0 && s.down == sim.PACK_SIZE - 1 && !s.dead,
+        "the alpha is alone, the run goes on",
+    )
+    var sh = shadow_at(s, 0, sim.REACH, sim.CHASING)
+    sh.dir = 1
+    sh.speed = sim.TROT_V
+    (mut s.shadows).push(sh)
+    var i = 0
+    while i < sim.ATTACK_WINDUP + 3 && !s.dead {
+        sim.step(mut s, none(), 0)
+        i += 1
+    }
+    assert(s.dead, "the next landed attack ends the run")
+    assert(s.died_tick == s.tick - 1, "died at the landing's tick")
+    let y = sim.alpha(s).y
+    let t = s.tick
+    run(mut s, 10)
+    assert(sim.alpha(s).y == y, "the world stands still")
+    assert(s.tick == t + 10, "the tick keeps counting")
+    assert(sim.seconds(s) == s.died_tick / 30, "seconds survived are the death's")
+    assert(
+        sim.score(s) == s.vanquished * 100 + sim.seconds(s) * 2 + sim.distance_cells(s),
+        "the score is the campaign's formula: {sim.score(s)}",
+    )
+}
+
+fn test_shadow_eyes_dim_pulse_steady() {
+    var lurk = shadow_at(sim.new(1, 80, 24), 5, 0, sim.LURKING)
+    assert(sim.shadow_eyes(lurk, 0) == 1, "a lurker's eyes are dim")
+    lurk.state = sim.CHASING
+    assert(
+        sim.shadow_eyes(lurk, 0) != sim.shadow_eyes(lurk, sim.EYE_PULSE),
+        "a chaser's eyes pulse",
+    )
+    lurk.state = sim.ATTACKING
+    assert(
+        sim.shadow_eyes(lurk, 0) == 0 && sim.shadow_eyes(lurk, sim.EYE_PULSE) == 0,
+        "an attacker's eyes are steady and bright",
+    )
+}
