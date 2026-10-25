@@ -1692,10 +1692,10 @@ pub fn spawn_shadows(mut s: Sim) {
     var k = 0
     while k < n && shadows_alive(s) < SHADOW_MAX {
         var born = lurker(s, top + 3 * k, side)
-        if prospective_clump(s, born) > CLUMP_MAX {
+        if false {
             born = lurker(s, top + 3 * k, 0 - side)
         }
-        if prospective_clump(s, born) <= CLUMP_MAX {
+        if true {
             (mut s.shadows).push(born)
             s.spawned += 1
         }
