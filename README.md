@@ -23,8 +23,8 @@ The terminal must be at least 80 columns by 24 rows; the field grows to fill a l
 deer, dusk, the death card and replays verified. Deer graze the path and bolt up it at one and a half
 times the trot when a wolf comes close; they tire, slow below the trot and are run down, and each one
 brought down feeds the pack (the first thing that raises health, so a fainted wolf can return). The
-difficulty curve is gentle for the first minute, brings groups in the second and reaches its ceiling in
-the third or fourth, with more deer where there are more shadows and in clearings. The afternoon turns to
+difficulty curve ramps with distance: groups begin no sooner than about 46 seconds at a flat trot,
+and the ceiling arrives in roughly three to four minutes, with more deer where there are more shadows and in clearings. The afternoon turns to
 dusk after about 111 seconds at a flat trot and to night after about 334, on both tiers, the shadows' red eyes unchanged so
 they come with the dark. The title card holds the seed, the last score and the best (kept in
 `~/.pack/best`), runs the same seed again on `r`, the next on any key, and plays a saved replay (`p` the
@@ -99,7 +99,8 @@ with every sequence split at every byte and the prompt's text mode, the clock, t
 density, the curve and the deer's rate, the simulation's bars (the speeds, the turn rate, the held key, the
 formation's lag, the wander and the bumps, health's floors and returns, the shadows' roll, perception, the
 turn at rest and the chase, the sprint that shakes, bodies never overlapping, group and lone damage, the
-leap and its refusals, the parry's window and recoil, death and the score, the deer's roll, walk, flight,
+alternating leap and its refusals, clipped animation arcs, directional sensing, the two-beat lunge,
+the parry's window and recoil, frozen death frames and recorded replay scores, the deer's roll, walk, flight,
 tiring, catch and feed, the spawn side on a bend, the phase of the day), the palette's blend (the keyframes
 met, the eyes fixed, the cube round-tripped, the plain tier's promise at night), the replay's `start` and
 `# score`, the best file, and the tiers' promises (the cards' text is Latin-1, no digit in the field before
@@ -112,8 +113,8 @@ card and re-run, gives the same card byte for byte, and that the title card runs
 records the score and the saved replay in its own `HOME`, and plays the replay back verified. `.lair/tools/perf`
 holds the render under a millisecond at 80x24 and under four at 200x60 with a dozen shadows and three deer
 at dusk, counts the loop's wake-ups at idle, and times a key to the frame that carries it (median under a
-tick and a render, p90 under two ticks). `.lair/tools/check` runs all of it; CI runs it on Linux for every pull
-request and on macOS as well for trunk, the engine staged at `lair.pin` first in every job.
+tick and a render, p90 under two ticks). `.lair/tools/check` runs the unit tests, builds, goldens and pty rows; `.lair/tools/perf` runs the
+performance gates separately. CI checks Linux for every pull request and adds macOS and perf for trunk.
 
 ## Documents
 
