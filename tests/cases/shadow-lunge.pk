@@ -1,0 +1,8 @@
+# frames 170 every 1 from 148
+# pk04 item 4: six crouch beats, six lunge beats, landing and settle.
+# Seed 16 from row 600 starts the windup at tick 148, lands at 160.
+pk 1
+seed 16
+tier rich
+size 80x24
+start 600

@@ -65,3 +65,29 @@ The speed commit moved all 38 case directories, including standstill
 Detection moves only the ten shadow-case directories; art sheets hold.
 R-pk04-1 A remains recommended: directional perception is legible, contact
 prevents a back-side blind spot, and the shoulder result improves.
+
+## Parry, leap cadence and dusk
+Fixed landing at tick 12, seeds 1–20, one shadow three cells ahead of
+a stationary alpha (the other four are fixture-fainted). Press offsets
+6 and 8 ticks: before 20/20 and after 20/20. Offset 10: before 0/20,
+after 20/20. Offset 12: 0/20 on both: the end is exclusive, as before.
+This measures input timing, not a human's ability to read the new pose.
+An initial flank-edge fixture whiffed on five seeds; it was replaced
+by the three-row fixture so a whiff could not masquerade as a parry miss.
+
+Leap burst cadence: 1.50/s (20-tick cooldown) -> 2.14/s (14 ticks).
+Stamina cost remains 60, so this is a burst, not an indefinitely sustained
+rate. Only accepted presses alternate. The alpha is second and never
+moves the camera. Shared `leap_arc` is out-and-back and half-cell/tick;
+collision clipping can shorten a travel. The shadow gathers backwards
+1.5 cells before the six-tick forward beat, opening room even on a flank.
+R-pk04-3 remains recommended: animation offsets, unchanged hit envelopes;
+bites resolve at landing and vanquishes at the accepted press as before.
+
+Flat full-health trot: 4.6875 -> 5.390625 cells/s. Stop/start tick counts
+remain 5/10 using integer BRAKE 10 and ACCEL 5; leaving 8/4 would take
+6/12 ticks. Deer walk/fresh/tired 16/60/32 -> 18/69/37. Shadow speeds and
+all deer wear-down/perception/recovery timers are unchanged. Dusk onset
+128.0 -> 111.3 s; full dusk 256.0 -> 222.6; night 384.0 -> 333.9. These
+are ideal flat-trot times; steering, trees, health and stops change them.
+Fifteen percent more speed is 13.04% less time, not 15%.

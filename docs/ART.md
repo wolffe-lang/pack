@@ -193,3 +193,14 @@ nearest in-range shadow (forward when there is none). Live bodies clip the arc
 before contact. The low, stretched pose is separate from sprinting on both tiers.
 A second accepted press after fourteen ticks launches the other group; the alpha
 is second, and its sprite never pulls the viewport away from the path.
+
+## The shadow's two-beat attack
+
+A low crouch (rich lower half-block body, plain `w:`) gathers backwards
+for three ticks and holds for three; its eyes are steady bright. A stretched
+lunge (upper half-block body, plain `>:`) crosses toward the target over
+six ticks, landing with the bite. Both use the same integer arc as the pack.
+Contact clips the travel before a body; the shape stays distinct even when
+the gap is short. A parry stops the bite, dims the eyes and pushes the shadow
+back. Sheet row 14, columns 43 and 50 shows the two beats; `shadow-lunge`
+pins every tick of the first seed-16 attack from row 600.

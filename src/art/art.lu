@@ -188,6 +188,43 @@ pub fn draw_shadow(
     }
 }
 
+/// Two readable beats on both tiers: compressed crouch, then stretched
+/// lunge. Existing glyphs only; the eyes remain steady bright throughout.
+pub fn draw_shadow_attack(
+    mut g: grid.Grid,
+    t: int,
+    p: tier.Palette,
+    row: int,
+    col: int,
+    crouch: bool,
+    facing_up: bool,
+    eyes: int,
+) {
+    if t == tier.PLAIN {
+        grid.put(
+            mut g,
+            row,
+            col,
+            grid.cell(if crouch then 119 else 62, p.shadow, p.path, grid.ATTR_BOLD),
+        )
+        grid.put(
+            mut g,
+            row,
+            col + 1,
+            grid.cell(58, if eyes == 0 then p.eye else p.eye_dim, p.path, grid.ATTR_BOLD),
+        )
+        return
+    }
+    let er = if facing_up then row - 1 else row
+    let br = if facing_up then row else row - 1
+    let body = grid.cell(if crouch then 9604 else 9600, p.shadow, p.path, 0)
+    var dx = -1
+    while dx <= 1 { grid.put(mut g, br, col + dx, body); dx += 1 }
+    grid.put(mut g, er, col - 1, tier.glyph_at(t, p, tier.SP_SHADOW_EYE, eyes))
+    grid.put(mut g, er, col, body)
+    grid.put(mut g, er, col + 1, tier.glyph_at(t, p, tier.SP_SHADOW_EYE, eyes))
+}
+
 /// A deer at `row` (its body row), `col` (its left cell), head up the
 /// path (pk03): rich, two cells wide and two tall, the antlers over the
 /// body (`▝▘` over `██`, code points the wolf already uses, so GLYPHS.md
@@ -219,8 +256,9 @@ fn draw_sim_shadow(s: sim.Sim, t: int, p: sprites.Palette, k: int, mut g: grid.G
     if sh.state == sim.GONE {
         return
     }
-    let row = sim.shadow_screen_row(s, k)
-    let col = sim.shadow_screen_col(s, k)
+    let (x, y) = sim.shadow_draw_position(s, k)
+    let row = sim.wolf_row(s) - (y / world.FP - sim.alpha(s).y / world.FP)
+    let col = x / world.FP
     if on_screen(t, row, s.rows) {
         draw_shadow(
             mut g,
@@ -233,6 +271,18 @@ fn draw_sim_shadow(s: sim.Sim, t: int, p: sprites.Palette, k: int, mut g: grid.G
             if sh.state == sim.VANQUISHED then sh.fade + 1 else 0,
             sim.FADE_TICKS + 1,
         )
+        if sh.state == sim.ATTACKING || sh.attack_age > 0 {
+            draw_shadow_attack(
+                mut g,
+                t,
+                p,
+                row,
+                col,
+                sim.shadow_crouching(sh),
+                sh.dir > 0,
+                sim.shadow_eyes(sh, s.tick),
+            )
+        }
         if sh.state == sim.LURKING && sh.face_x != 0 {
             // Outward and diagonal facings read in the eyes too, not only
             // in the sensor. Reuse the tier's body and eye cells.
@@ -499,6 +549,8 @@ pub fn sheet(t: int) -> grid.Grid {
     draw_shadow(mut g, t, p, 11, 33, 1, true, 0, sim.FADE_TICKS)
     draw_shadow(mut g, t, p, 11, 46, 0, false, 10, sim.FADE_TICKS)
     draw_deer(mut g, t, p, 11, 39)
+    draw_shadow_attack(mut g, t, p, 14, 43, true, false, 0)
+    draw_shadow_attack(mut g, t, p, 14, 50, false, false, 0)
     // The pack in formation, the alpha trailing at the centre: the slots
     // of `sim.slot_dx`/`slot_dy` around the alpha at (21, 30).
     var i = 0
