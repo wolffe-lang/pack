@@ -31,3 +31,37 @@ R-pk04-2: A, leaders+left flanker, then right flanker+alpha.
 R-pk04-3: keep an unchanged hit envelope: attacks resolve as before, with
 bounded presentation offsets and collision checks, so no sprite passes
 through another body. The offset is not a new hitbox or camera anchor.
+
+## Detection measurement (before leads)
+Sensor-only traversal of seeds 1–20 to row 1800, 80x24. A detected shadow
+is retired after its first perception to prevent twelve permanent chasers
+filling SHADOW_MAX and censoring later spawns. An initial uncapped live
+census saturated at 12 per seed and was discarded. The centre/shoulder
+controller sends autorepeat every two ticks from the seeded path four rows
+ahead. Health is full. No leaps, sprints or parries.
+
+Before centre 5157/5229 (98.62%); after 4443/4522 (98.25%). The guess of
+35% was wrong: centre-following already met nearly all shadows. The
+complaint about rare fights is consistent with an unsteered screen column,
+not this path-following fixture. No claim of improved centre detection.
+Eligible means spawn column within PERCEIVE+4 of the path centre:
+5081/5150 (98.66%) -> 4432/4502 (98.45%); comfortably above half.
+Far shoulder (right, half-width minus two cells): 3594/5215 (68.92%) ->
+3483/4580 (76.05%); eligible 69.05% -> 76.08%.
+
+Band                 centre before      centre after       shoulder after
+forest edge          5157/5229 98.62%    854/886 96.39%      611/968 63.12%
+inner verge          n/a                1350/1381 97.76%    943/1319 71.49%
+path shoulder        n/a                2239/2255 99.29%    1929/2293 84.13%
+Facing               centre before      centre after       shoulder after
+down path            5157/5229 98.62%    856/863 99.19%      736/922 79.83%
+diagonal down        n/a                877/884 99.21%      726/910 79.78%
+across to path       n/a                969/984 98.48%      729/922 79.07%
+diagonal up          n/a                859/875 98.17%      675/924 73.05%
+up path              n/a                882/916 96.29%      617/902 68.40%
+
+The speed commit moved all 38 case directories, including standstill
+(the braking distance changed despite the five-tick stop), not the art.
+Detection moves only the ten shadow-case directories; art sheets hold.
+R-pk04-1 A remains recommended: directional perception is legible, contact
+prevents a back-side blind spot, and the shoulder result improves.

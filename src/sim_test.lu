@@ -465,6 +465,8 @@ fn test_spawn_rate_is_the_worlds_at_the_alphas_row() {
 fn shadow_at(s: sim.Sim, row_ahead: int, dx_cells: int, state: int) -> sim.Shadow {
     let a = sim.alpha(s)
     sim.Shadow {
+        face_x: 0,
+        face_y: -2,
         x: a.x + dx_cells * world.FP,
         y: a.y + row_ahead * world.FP,
         heading: 0,
@@ -522,7 +524,10 @@ fn test_shadows_spawn_at_the_edge_ahead_from_the_seed() {
             let sh = copy a.shadows[0]
             let (centre, half) = world.path(16, 80, sh.y / world.FP)
             let d = if sh.x > centre then sh.x - centre else centre - sh.x
-            assert(d > half, "spawned in the forest edge, not on the path: {d} vs {half}")
+            assert(
+                d >= half - 3 * world.FP && d <= half + world.FP / 2,
+                "spawn in edge/verge/shoulder band",
+            )
             assert(sh.state == sim.LURKING && sh.speed == 0, "a lurker stands still")
             assert(
                 sim.shadow_screen_row(a, 0) <= 0,
@@ -1134,4 +1139,71 @@ fn test_pk04_speed_preserves_the_maintainers_ticks_and_wear_down() {
         sim.DUSK_START == 600 && sim.DUSK_FULL == 1200 && sim.NIGHT_FULL == 1800,
         "dusk rows unchanged",
     )
+}
+
+fn test_pk04_detection_cone_contact_and_outward_spawn_bands() {
+    var s = sim.new(1, 80, 24)
+    var sh = shadow_at(s, 15, 0, sim.LURKING)
+    sh.face_x = 2
+    sh.face_y = 0
+    assert(sim.shadow_perceives(sh, sh.x + 8 * world.FP, sh.y), "forward edge of range")
+    assert(!sim.shadow_perceives(sh, sh.x + 9 * world.FP, sh.y), "beyond range")
+    assert(!sim.shadow_perceives(sh, sh.x - 4 * world.FP, sh.y), "not behind")
+    assert(sim.shadow_perceives(sh, sh.x - 3 * world.FP, sh.y), "contact all round")
+    assert(
+        sim.shadow_perceives(sh, sh.x + 4 * world.FP, sh.y + 6 * world.FP),
+        "inside sixty degrees",
+    )
+    assert(
+        !sim.shadow_perceives(sh, sh.x + 3 * world.FP, sh.y + 6 * world.FP),
+        "outside sixty degrees",
+    )
+    var bands = List[int]()
+    (mut bands).push(0)
+    (mut bands).push(0)
+    (mut bands).push(0)
+    var facings = List[int]()
+    var j = 0
+    while j < 5 { (mut facings).push(0); j += 1 }
+    var seed = 1
+    while seed <= 100 {
+        s.seed = seed
+        var side = -1
+        while side <= 1 {
+            let c = sim.lurker(s, 30, side)
+            assert(c.face_x * side <= 0, "never facing into woods")
+            assert(c.face_x != 0 || c.face_y != 0, "nonzero facing")
+            let band = sim.spawn_band(seed, 0, 30)
+            bands[band] += 1
+            let face = if c.face_x == 0 {
+                (if c.face_y < 0 then 0 else 4)
+            } else if c.face_y < 0 {
+                1
+            } else if c.face_y == 0 {
+                2
+            } else {
+                3
+            }
+            facings[face] += 1
+            assert(c.x == sim.lurker(s, 30, side).x, "seed-pure columns")
+            side += 2
+        }
+        seed += 1
+    }
+    for n in bands { assert(n > 10, "all three bands represented") }
+    for n in facings { assert(n > 10, "all five outward facings represented") }
+}
+
+fn test_pk04_detection_considers_every_visible_wolf() {
+    var s = sim.new(1, 80, 24)
+    var sh = shadow_at(s, 0, 0, sim.LURKING)
+    sh.face_x = 0
+    sh.face_y = 2
+    // Alpha behind at four cells; leaders in front at five cells.
+    sh.y = sim.alpha(s).y + 4 * world.FP
+    var w = copy s.wolves[0]
+    w.y = sh.y + 5 * world.FP
+    w.x = sh.x
+    s.wolves[0] = w
+    assert(sim.perceived_wolf(s, sh) >= 0, "a hidden nearest wolf cannot mask a visible one")
 }

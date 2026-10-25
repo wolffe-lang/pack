@@ -157,6 +157,8 @@ fn has_digit(g: grid.Grid) -> bool {
 fn chaser(s: sim.Sim, dx_cells: int, dy_rows: int) -> sim.Shadow {
     let a = sim.alpha(s)
     sim.Shadow {
+        face_x: 0,
+        face_y: -2,
         x: a.x + dx_cells * world.FP,
         y: a.y + dy_rows * world.FP,
         heading: 0,

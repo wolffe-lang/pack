@@ -204,6 +204,32 @@ fn draw_sim_shadow(s: sim.Sim, t: int, p: tier.Palette, k: int, mut g: grid.Grid
             if sh.state == sim.VANQUISHED then sh.fade + 1 else 0,
             sim.FADE_TICKS + 1,
         )
+        if sh.state == sim.LURKING && sh.face_x != 0 {
+            // Outward and diagonal facings read in the eyes too, not only
+            // in the sensor. Reuse the tier's body and eye cells.
+            let side = if sh.face_x < 0 then -1 else 1
+            let eye = tier.glyph_at(t, p, tier.SP_SHADOW_EYE, 1)
+            let body = tier.glyph_at(t, p, tier.SP_SHADOW_BODY, 0)
+            if t == tier.RICH {
+                var dy = -1
+                while dy <= 0 {
+                    var dx = -1
+                    while dx <= 1 { grid.put(mut g, row + dy, col + dx, body); dx += 1 }
+                    dy += 1
+                }
+                let er = if sh.face_y > 0 then row - 1 else row
+                grid.put(mut g, er, col + side, eye)
+                grid.put(
+                    mut g,
+                    if sh.face_y == 0 then row - 1 else er,
+                    if sh.face_y == 0 then col + side else col,
+                    eye,
+                )
+            } else {
+                grid.put(mut g, row, col + 1, tier.glyph_at(t, p, tier.SP_PATH, 0))
+                grid.put(mut g, row, col + side, eye)
+            }
+        }
     }
 }
 

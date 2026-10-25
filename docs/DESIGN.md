@@ -135,7 +135,9 @@ a tick for 24 ticks: a cell a burst).
 | `STALK_V` | 20 | the speed a shadow stalks down the path toward the oncoming pack, `v`/2: its turn happens on the screen, not below it | 2026-10-25 proposed |
 | `SHADOW_ACCEL`, `SHADOW_BRAKE` | 4, 8 | a shadow's acceleration and braking, the wolves' | 2026-10-25 proposed |
 | `SHADOW_TURN_RATE` | 12 | a shadow's maximum turn rate, the wolves' `TURN_RATE` (R-pk02-1 A) | 2026-10-25 proposed |
-| `PERCEIVE` | 8 | the perception radius, cells (the larger of the sideways and the along distance): a lurking shadow this close to a pack member turns toward it | 2026-10-25 proposed |
+| `PERCEIVE` | 8 | the outer Chebyshev range, with a 60-degree forward half-cone; any visible wolf wakes it | 2026-10-25 proposed |
+| `PERCEIVE_NEAR` | 3 | short all-round contact radius; beyond it, the 60-degree half-cone (`4 dot² >= norm² product`) | 2026-10-25 proposed, R-pk04-1 A |
+| `SPAWN_EDGE_PERCENT`, `SPAWN_VERGE_PERCENT`, `SPAWN_SHOULDER_CELLS` | 20, 30, 3 | 20% at the former forest edge (+0.5 cells outside the path), 30% inner verge (0.5 inside), 50% shoulder (3 inside); independent seeded five-way outward facing | 2026-10-25 proposed |
 | `REACH` | 4 | the attack reach, cells, measured the same way: bodies three cells wide that touch are three apart centre to centre and a bump leaves them four, so a shadow on a wolf's flank is in reach | 2026-10-25 proposed |
 | `FLANK` | 4 | a chasing shadow stops steering toward its target's column this close to it and rides the flank | 2026-10-25 proposed |
 | `ATTACK_WINDUP` | 9 | the ticks an attack winds up before it lands (300 ms): the lunge the player reads and parries; the eyes go steady | 2026-10-25 proposed |
@@ -151,8 +153,11 @@ a tick for 24 ticks: a cell a burst).
 
 How a shadow works, in one paragraph: each tick the world's hash of the tick is rolled against
 `world.spawn_rate` (thousandths), so a run's spawns are the seed's and never a replay event. A shadow
-appears half a cell into the verge one row above the top of the screen and lurks, speed zero, facing down the
-path. When a pack member comes within `PERCEIVE` it turns toward the nearest one: it steers to the wolf's
+spawns across the forest edge, inner verge and path shoulder (20/30/50 percent),
+with one of five evenly spaced facings in the outward half-circle, never into the woods.
+A lurking shadow sees inside an eight-cell range and a 60-degree forward half-cone, or hears
+contact within three cells all round (R-pk04-1 A, proposed). When any living wolf is visible,
+it turns toward the nearest one: it steers to the wolf's
 column at the chase speed's split (the lateral heading turning at `SHADOW_TURN_RATE`, bounded by
 `STEER_HEADING`) and moves along the path toward the pack at `STALK_V`. Once its target is past it, it
 decelerates at `SHADOW_BRAKE`, flips its direction only when its speed has reached zero (no pivot), and
