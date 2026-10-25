@@ -1,0 +1,8 @@
+pty: quit ok (darwin arm64, exit 0, 103316 bytes captured)
+pty: ctrl-c ok (darwin arm64, exit 0, 83091 bytes captured)
+pty: trap ok (darwin arm64, exit 134, 82602 bytes captured)
+pty: agree-rich ok (darwin arm64, exit 0, 333798 bytes captured)
+pty: agree-plain ok (darwin arm64, exit 0, 183783 bytes captured)
+pty: held-run ok (darwin arm64, exit 0, 455151 bytes captured; 28 sequences typed, last key at tick 54, peak |heading| 48, straight at 59, column at rest at 58)
+pty: card ok (darwin arm64, exit 0, 577676 bytes captured; death in the trace, 11 events saved, last tick 242, re-run twice identical)
+exit 0
