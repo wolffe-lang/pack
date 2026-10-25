@@ -823,3 +823,202 @@ fn test_shadow_eyes_dim_pulse_steady() {
         "an attacker's eyes are steady and bright",
     )
 }
+
+// The deer (pk03).
+
+fn deer_at(s: sim.Sim, row_ahead: int, dx_cells: int) -> sim.Deer {
+    let a = sim.alpha(s)
+    sim.Deer {
+        id: 0,
+        x: a.x + dx_cells * world.FP,
+        y: a.y + row_ahead * world.FP,
+        heading: 0,
+        speed: 0,
+        dir: -1,
+        state: sim.DEER_WANDERING,
+        stamina: sim.DEER_STAMINA,
+        tired: false,
+    }
+}
+
+fn test_deer_roll_is_the_seeds_and_rarer_than_the_shadows() {
+    var deer = 0
+    var shadows = 0
+    var tick = 0
+    while tick < 3000 {
+        if sim.deer_roll(9, tick, world.deer_rate(9, 0)) {
+            deer += 1
+        }
+        if sim.spawn_roll(9, tick, world.SPAWN_CEILING) > 0 {
+            shadows += 1
+        }
+        assert(
+            sim.deer_roll(9, tick, 2) == sim.deer_roll(9, tick, 2),
+            "the roll is a pure function of the tick",
+        )
+        tick += 1
+    }
+    // 2 to 5 thousandths over 3000 ticks is 6 to 15 expected deer; the
+    // ceiling's 12 thousandths is 36 shadow rolls.
+    assert(deer >= 2 && deer <= 30, "{deer} deer rolls of 6 to 15 expected")
+    assert(shadows > deer, "shadows at the ceiling outnumber the deer: {shadows} to {deer}")
+}
+
+fn test_deer_spawn_on_the_path_ahead_from_the_seed() {
+    // Seed 11 starts in a clearing, where deer graze (the rate at its
+    // highest); within 600 ticks one has appeared on the path above the
+    // top of the screen, and two runs agree.
+    var a = sim.new(11, 80, 24)
+    var b = sim.new(11, 80, 24)
+    var first = -1
+    var i = 0
+    while i < 600 {
+        sim.step(mut a, none(), 0)
+        sim.step(mut b, none(), 0)
+        if first < 0 && a.deer_spawned > 0 {
+            first = i
+            let d = copy a.deer[0]
+            let (centre, half) = world.path(11, 80, d.y / world.FP)
+            let off = if d.x > centre then d.x - centre else centre - d.x
+            assert(off <= half, "spawned on the path: {off} inside {half}")
+            assert(d.state == sim.DEER_WANDERING, "a grazer")
+            assert(sim.deer_screen_row(a, 0) <= 0, "above the alpha's eye")
+        }
+        assert(a.deer.len == b.deer.len, "two runs spawn alike at {i}")
+        i += 1
+    }
+    assert(first >= 0, "seed 11 spawns a deer within 600 ticks")
+}
+
+fn test_a_deer_wanders_at_the_walk_beyond_perception() {
+    var s = sim.new(1, 80, 24)
+    no_spawn(mut s)
+    (mut s.deer).push(deer_at(s, sim.DEER_PERCEIVE + 12, 0))
+    // Stand the pack so the deer stays out of its perception.
+    sim.step(mut s, one(sim.KEY_DOWN), 0)
+    var peak = 0
+    var i = 0
+    while i < 100 {
+        sim.step(mut s, none(), 0)
+        let d = copy s.deer[0]
+        assert(d.state == sim.DEER_WANDERING, "wandering at tick {i}")
+        if d.speed > peak {
+            peak = d.speed
+        }
+        i += 1
+    }
+    assert(peak > 0 && peak <= sim.DEER_WALK_V, "the walk: peak {peak}")
+    assert(s.deer[0].stamina == sim.DEER_STAMINA, "walking keeps its stamina")
+}
+
+fn test_a_deer_flees_at_1_5_v_away_from_the_pack_under_the_bars() {
+    var s = sim.new(1, 80, 24)
+    no_spawn(mut s)
+    // Thirteen rows ahead of the alpha: eight from the leaders, inside
+    // DEER_PERCEIVE and outside CATCH_REACH.
+    var d0 = deer_at(s, sim.DEER_PERCEIVE + 3, 0)
+    d0.dir = 1
+    (mut s.deer).push(d0)
+    var peak = 0
+    var prev_speed = 0
+    var prev_heading = 0
+    var i = 0
+    while i < 60 {
+        sim.step(mut s, none(), 0)
+        let d = copy s.deer[0]
+        assert(d.state == sim.DEER_FLEEING, "fleeing at tick {i}")
+        assert(d.dir == 1, "away from the pack: up the path")
+        let ds = if d.speed > prev_speed then d.speed - prev_speed else prev_speed - d.speed
+        assert(ds <= sim.DEER_BRAKE, "speed jumped {ds} at tick {i}")
+        let dh = if d.heading > prev_heading {
+            d.heading - prev_heading
+        } else {
+            prev_heading - d.heading
+        }
+        assert(dh <= sim.DEER_TURN_RATE, "heading jumped {dh} at tick {i}")
+        if d.speed > peak {
+            peak = d.speed
+        }
+        prev_speed = d.speed
+        prev_heading = d.heading
+        i += 1
+    }
+    assert(peak == sim.FLEE_V, "it fled at 1.5 v: peak {peak}")
+    assert(sim.FLEE_V > sim.TROT_V && sim.FLEE_V < sim.SPRINT_V, "between the trot and the sprint")
+    let d = copy s.deer[0]
+    assert(d.stamina < sim.DEER_STAMINA, "flight drains: {d.stamina}")
+    // It pulled away from a trotting pack.
+    assert(d.y - sim.alpha(s).y > (sim.DEER_PERCEIVE + 3) * world.FP, "the gap opened")
+}
+
+fn test_a_tired_deer_slows_below_the_trot_and_recovers_walking() {
+    var s = sim.new(1, 80, 24)
+    no_spawn(mut s)
+    var d0 = deer_at(s, sim.DEER_PERCEIVE + 3, 0)
+    d0.dir = 1
+    d0.speed = sim.FLEE_V
+    d0.stamina = 2
+    (mut s.deer).push(d0)
+    run(mut s, 20)
+    var d = copy s.deer[0]
+    assert(d.tired, "tired once its stamina is spent")
+    assert(
+        d.speed == sim.DEER_TIRED_V && sim.DEER_TIRED_V < sim.TROT_V,
+        "slowed below the trot: {d.speed}",
+    )
+    // Out of the pack's sight it walks and recovers.
+    d.y = sim.alpha(s).y + (sim.DEER_PERCEIVE + sim.DEER_CALM + 19) * world.FP
+    s.deer[0] = d
+    sim.step(mut s, one(sim.KEY_DOWN), 0)
+    run(mut s, sim.DEER_RECOVER + 5)
+    let e = copy s.deer[0]
+    assert(e.state == sim.DEER_WANDERING, "calm again")
+    assert(e.stamina > 0, "walking returns stamina: {e.stamina}")
+    run(mut s, sim.DEER_RECOVER * sim.DEER_REGEN_TICKS)
+    let f = copy s.deer[0]
+    assert(!f.tired && f.stamina >= sim.DEER_RECOVER, "recovered: {f.stamina}")
+}
+
+fn test_a_caught_deer_feeds_the_pack_and_a_wolf_returns() {
+    var s = sim.new(1, 80, 24)
+    no_spawn(mut s)
+    sim.step(mut s, none(), -25)
+    assert(s.health == 75 && s.down == 1, "one wolf down")
+    // A deer just ahead of a RUNNING leader (the faint took the farthest
+    // wolf, which may be a leader), in reach: brought down this tick.
+    let lead = if s.wolves[0].state == sim.FAINTED then copy s.wolves[1] else copy s.wolves[0]
+    var d0 = deer_at(s, 0, 0)
+    d0.x = lead.x
+    d0.y = lead.y + sim.CATCH_REACH * world.FP
+    (mut s.deer).push(d0)
+    sim.step(mut s, none(), 0)
+    assert(s.fed == 1, "fed")
+    assert(s.health == 75 + sim.FEED, "health up by FEED: {s.health}")
+    assert(s.deer.len == 0, "the deer is gone")
+    assert(s.down == 0, "the fainted wolf returns above its threshold")
+}
+
+fn test_bodies_never_overlap_with_deer() {
+    var s = sim.new(2, 80, 24)
+    no_spawn(mut s)
+    var k = 0
+    while k < 3 {
+        (mut s.deer).push(deer_at(s, 7 + 3 * k, 0 - 4 + 4 * k))
+        k += 1
+    }
+    var i = 0
+    while i < 150 {
+        sim.step(mut s, if i % 40 < 20 then one(sim.KEY_LEFT) else none(), 0)
+        assert(!sim.any_overlap(s), "tick {i}: two bodies overlap")
+        i += 1
+    }
+}
+
+fn test_a_deer_far_behind_or_far_ahead_is_gone() {
+    var s = sim.new(1, 80, 24)
+    no_spawn(mut s)
+    (mut s.deer).push(deer_at(s, 0 - sim.GONE_ROWS - 1, 0))
+    (mut s.deer).push(deer_at(s, sim.wolf_row(s) + sim.DEER_GONE_MARGIN + 1, 0))
+    sim.step(mut s, none(), 0)
+    assert(s.deer.len == 0, "both dropped: {s.deer.len} left")
+}

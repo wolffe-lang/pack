@@ -302,6 +302,94 @@ pub const PARRY_RECOIL: int = 6
 /// The red eyes pulse every this many ticks while a shadow chases.
 pub const EYE_PULSE: int = 4
 
+// The deer (pk03, M-PK3). Every number proposed 2026-10-25, the
+// maintainer's to tune by play (R-PK-7); mirrored in docs/DESIGN.md.
+
+/// A deer's walk, 0.4 v: it grazes and wanders, slower than anything else
+/// on the path.
+pub const DEER_WALK_V: int = 16
+
+/// A deer's flight, 1.5 v (the campaign's bar): faster than the trot and
+/// slower than the sprint, so a trot cannot close on a fresh deer and a
+/// sprint can.
+pub const FLEE_V: int = 60
+
+/// A tired deer's flight, below the trot: the pack runs it down.
+pub const DEER_TIRED_V: int = 32
+
+/// A deer's acceleration, FP units a tick each tick: it bolts (the
+/// wolves' `ACCEL` is 4).
+pub const DEER_ACCEL: int = 6
+
+/// A deer's braking.
+pub const DEER_BRAKE: int = 8
+
+/// A deer's maximum turn rate, heading units a tick: a lighter animal
+/// than a wolf turns quicker.
+pub const DEER_TURN_RATE: int = 16
+
+/// A deer's perception radius, cells (as `PERCEIVE` measures): a running
+/// wolf this close puts it to flight.
+pub const DEER_PERCEIVE: int = 10
+
+/// A fleeing deer calms once the nearest wolf is this many cells beyond
+/// `DEER_PERCEIVE` (the hysteresis, so it does not stutter at the edge).
+pub const DEER_CALM: int = 6
+
+/// A deer's stamina: ticks of flight before it tires (three seconds).
+pub const DEER_STAMINA: int = 90
+
+/// A walking deer regains a point of stamina every this many ticks (a
+/// fleeing tick costs one): a deer put to flight again and again tires,
+/// which is how a pack at the trot runs one down.
+pub const DEER_REGEN_TICKS: int = 3
+
+/// A tired deer flees at `FLEE_V` again once its stamina is back to this.
+pub const DEER_RECOVER: int = 60
+
+/// A running wolf this close to a deer brings it down (cells, as `REACH`
+/// measures): from behind, since the separation rule keeps bodies three
+/// cells apart sideways.
+pub const CATCH_REACH: int = 3
+
+/// Health a deer feeds the pack (R-pk03-3 A: a fixed feed, one floor and
+/// a bit): the first thing that raises health in play.
+pub const FEED: int = 25
+
+/// Deer alive at once, at most; the spawn waits.
+pub const DEER_MAX: int = 3
+
+/// A deer this many rows beyond the top of the screen has got away and is
+/// gone; behind the alpha the shadows' `GONE_ROWS` holds for it too.
+pub const DEER_GONE_MARGIN: int = 20
+
+/// A deer's states: wandering (the walk, grazing across the path and the
+/// verge).
+pub const DEER_WANDERING: int = 0
+
+/// Fleeing a wolf within `DEER_PERCEIVE`, along the path away from it.
+pub const DEER_FLEEING: int = 1
+
+/// Gone: caught (the pack fed), got away, or left behind; dropped at the
+/// end of the tick.
+pub const DEER_GONE: int = 2
+
+/// One deer: its position, lateral heading, speed and direction along the
+/// path (the realism bars), its state, its stamina and whether it is
+/// tired; `id` is its number in the run (the wander's noise reads it, so
+/// a deer keeps its own wander when another is dropped from the list).
+pub struct Deer {
+    id: int,
+    x: int,
+    y: int,
+    heading: int,
+    speed: int,
+    dir: int,
+    state: int,
+    stamina: int,
+    tired: bool,
+}
+
 /// A shadow's states.
 pub const LURKING: int = 0
 
@@ -460,6 +548,9 @@ pub struct Sim {
     spawned: int,
     dead: bool,
     died_tick: int,
+    deer: List[Deer],
+    deer_spawned: int,
+    fed: int,
 }
 
 /// A slot's sideways offset from the reference, in cells: the leaders two
@@ -557,6 +648,9 @@ pub fn new(seed: int, cols: int, rows: int) -> Sim {
         spawned: 0,
         dead: false,
         died_tick: 0,
+        deer: List[Deer](),
+        deer_spawned: 0,
+        fed: 0,
     }
 }
 
@@ -586,6 +680,13 @@ pub fn resize(mut s: Sim, cols: int, rows: int) {
             var sh = copy s.shadows[k]
             sh.x = sh.x * cols / s.cols
             s.shadows[k] = sh
+            k += 1
+        }
+        k = 0
+        while k < s.deer.len {
+            var d = copy s.deer[k]
+            d.x = d.x * cols / s.cols
+            s.deer[k] = d
             k += 1
         }
     }
@@ -821,14 +922,17 @@ pub fn step(mut s: Sim, keys: List[int], health_delta: int) {
     // The shadows: spawn, perceive, chase, flock, attack. Their landed
     // attacks join the replay's and the debug keys' channel into health;
     // at health 0 the alpha is alone and the next landed attack ends the
-    // run.
+    // run. The deer (pk03): spawn, wander, flee, tire; a deer brought down
+    // feeds the pack through the same channel.
     spawn_shadows(mut s)
+    spawn_deer(mut s)
     let damage = shadows_step(mut s)
+    let feed = deer_step(mut s)
     if damage > 0 && s.health == 0 {
         s.dead = true
         s.died_tick = s.tick
     }
-    s.health = clamp(s.health + health_delta - damage, 0, HEALTH_MAX)
+    s.health = clamp(s.health + health_delta - damage + feed, 0, HEALTH_MAX)
     health_step(mut s)
     if s.leap_left > 0 {
         s.leap_left -= 1
@@ -953,9 +1057,10 @@ fn split(speed: int, h: int) -> (int, int) {
 }
 
 /// The bodies the separation rule sees: the five wolves, then the live
-/// shadows (a fainted wolf and a vanquished shadow are not bodies).
+/// shadows, then the deer (a fainted wolf, a vanquished shadow and a
+/// caught deer are not bodies).
 fn body_count(s: Sim) -> int {
-    PACK_SIZE + s.shadows.len
+    PACK_SIZE + s.shadows.len + s.deer.len
 }
 
 /// Body `k`'s position and whether it is live: `(x, y, live)`.
@@ -964,8 +1069,12 @@ fn body(s: Sim, k: int) -> (int, int, bool) {
         let w = copy s.wolves[k]
         return (w.x, w.y, w.state != FAINTED)
     }
-    let sh = copy s.shadows[k - PACK_SIZE]
-    (sh.x, sh.y, sh.state != VANQUISHED && sh.state != GONE)
+    if k < PACK_SIZE + s.shadows.len {
+        let sh = copy s.shadows[k - PACK_SIZE]
+        return (sh.x, sh.y, sh.state != VANQUISHED && sh.state != GONE)
+    }
+    let d = copy s.deer[k - PACK_SIZE - s.shadows.len]
+    (d.x, d.y, d.state != DEER_GONE)
 }
 
 /// Move body `k` sideways to `x`.
@@ -976,9 +1085,16 @@ fn set_body_x(mut s: Sim, k: int, x: int) {
         s.wolves[k] = w
         return
     }
-    var sh = copy s.shadows[k - PACK_SIZE]
-    sh.x = x
-    s.shadows[k - PACK_SIZE] = sh
+    if k < PACK_SIZE + s.shadows.len {
+        var sh = copy s.shadows[k - PACK_SIZE]
+        sh.x = x
+        s.shadows[k - PACK_SIZE] = sh
+        return
+    }
+    let j = k - PACK_SIZE - s.shadows.len
+    var d = copy s.deer[j]
+    d.x = x
+    s.deer[j] = d
 }
 
 /// The separation rule over every pair of live bodies — wolves and
@@ -1509,6 +1625,213 @@ fn cohesion(s: Sim, k: int) -> (int, int) {
         clamp((sx / n - me.x) / COHESION, 0 - COHESION_MAX, COHESION_MAX),
         clamp((sy / n - me.y) / COHESION, 0 - COHESION_MAX, COHESION_MAX),
     )
+}
+
+// The deer (pk03).
+
+/// The deer rate at the alpha's row (`world.deer_rate`), thousandths a
+/// tick.
+pub fn deer_rate(s: Sim) -> int {
+    world.deer_rate(s.seed, alpha(s).y / world.FP)
+}
+
+/// Whether the tick's roll brings a deer: the world's hash of the tick
+/// (salted apart from the shadows' roll) against `rate` thousandths. Pure.
+pub fn deer_roll(seed: int, tick: int, rate: int) -> bool {
+    world.hash(seed + 6000, tick, 1, 1000) < rate
+}
+
+/// How many deer are alive now.
+pub fn deer_alive(s: Sim) -> int {
+    var n = 0
+    for d in s.deer {
+        if d.state != DEER_GONE {
+            n += 1
+        }
+    }
+    n
+}
+
+/// A deer's row on the screen (its body's), by the alpha's eye.
+pub fn deer_screen_row(s: Sim, k: int) -> int {
+    wolf_row(s) - (s.deer[k].y / world.FP - alpha(s).y / world.FP)
+}
+
+/// A deer's screen column.
+pub fn deer_screen_col(s: Sim, k: int) -> int {
+    s.deer[k].x / world.FP
+}
+
+/// A deer standing on the path at world row `row`, `off` FP units from the
+/// path's centre, facing down the path at a walk (it grazes toward the
+/// oncoming pack until it sees it).
+pub fn grazer(s: Sim, row: int, off: int) -> Deer {
+    let (centre, _) = world.path(s.seed, s.cols, row)
+    Deer {
+        id: s.deer_spawned,
+        x: clamp_x(centre + off, s.cols),
+        y: row * world.FP,
+        heading: 0,
+        speed: 0,
+        dir: -1,
+        state: DEER_WANDERING,
+        stamina: DEER_STAMINA,
+        tired: false,
+    }
+}
+
+/// Spawn a deer: roll the tick against the deer rate; one appears on the
+/// path one row above the top of the screen, at a column the seed picks
+/// across the path's width, while fewer than `DEER_MAX` are alive. Deer
+/// are the seed's, never a replay event, as the shadows are.
+fn spawn_deer(mut s: Sim) {
+    if deer_alive(s) >= DEER_MAX || !deer_roll(s.seed, s.tick, deer_rate(s)) {
+        return
+    }
+    let row = world_row(s, 0) + 1
+    let (_, half) = world.path(s.seed, s.cols, row)
+    let span = 2 * half / world.FP
+    let off = world.hash(s.seed + 6000, s.tick, 2, if span > 0 then span else 1) * world.FP - half
+    (mut s.deer).push(grazer(s, row, off))
+    s.deer_spawned += 1
+}
+
+/// Place `n` deer wandering ahead of the pack at once (the perf gate's
+/// `--bench-deer`; nothing in a game calls it).
+pub fn seed_deer(mut s: Sim, n: int) {
+    var k = 0
+    while k < n {
+        let row = alpha(s).y / world.FP + 8 + 4 * k
+        (mut s.deer).push(grazer(s, row, (k % 3 - 1) * 3 * world.FP))
+        s.deer_spawned += 1
+        k += 1
+    }
+}
+
+/// One tick of every deer: perception (flight within `DEER_PERCEIVE`,
+/// calm again beyond it plus `DEER_CALM`), stamina (flight drains it,
+/// walking returns it; tired below the trot), the wander (a seeded
+/// heading across the path, the walk's direction from the same noise,
+/// turned back past the verge) or the flight (along the path away from
+/// the nearest wolf, toward the path's centre), the move under the realism
+/// bars (the direction flips only at rest), the catch (a running wolf
+/// within `CATCH_REACH` brings it down: the pack is fed `FEED`, the deer
+/// gone), and gone when far behind the alpha or away beyond the top. The
+/// health fed is returned; gone deer are dropped at the end.
+fn deer_step(mut s: Sim) -> int {
+    var feed = 0
+    var k = 0
+    while k < s.deer.len {
+        var d = copy s.deer[k]
+        if d.state == DEER_GONE {
+            k += 1
+            continue
+        }
+        let t = nearest_wolf(s, d.x, d.y)
+        let w = copy s.wolves[t]
+        let dist = reach_dist(d.x, d.y, w.x, w.y)
+        if dist <= CATCH_REACH * world.FP {
+            // Brought down: the pack feeds, the deer is gone.
+            feed += FEED
+            s.fed += 1
+            d.state = DEER_GONE
+            s.deer[k] = d
+            k += 1
+            continue
+        }
+        if d.state == DEER_FLEEING {
+            if dist > (DEER_PERCEIVE + DEER_CALM) * world.FP {
+                d.state = DEER_WANDERING
+            }
+        } else if dist <= DEER_PERCEIVE * world.FP {
+            d.state = DEER_FLEEING
+        }
+        if d.state == DEER_FLEEING {
+            d.stamina -= 1
+            if d.stamina <= 0 {
+                d.stamina = 0
+                d.tired = true
+            }
+        } else if s.tick % DEER_REGEN_TICKS == 0 {
+            d.stamina = clamp(d.stamina + 1, 0, DEER_STAMINA)
+        }
+        if d.tired && d.stamina >= DEER_RECOVER {
+            d.tired = false
+        }
+        let (centre, half) = world.path(s.seed, s.cols, d.y / world.FP)
+        var want_dir = d.dir
+        var want_speed = scaled(s, DEER_WALK_V)
+        var aim = 0
+        if d.state == DEER_FLEEING {
+            // Away from the wolf along the path, and onto the path's
+            // centre, where the running is.
+            want_dir = if d.y >= w.y then 1 else -1
+            want_speed = scaled(s, if d.tired then DEER_TIRED_V else FLEE_V)
+            let off = centre - d.x
+            aim = if off > world.FP {
+                STEER_HEADING / 2
+            } else if off < 0 - world.FP {
+                0 - STEER_HEADING / 2
+            } else {
+                0
+            }
+        } else {
+            // The wander: slow seeded noise across the path, the walk's
+            // direction from a slower channel's sign; a deer past the
+            // verge turns back toward the path.
+            let n = world.noise(s.seed + 3000 + d.id, 7, s.tick)
+            aim = (n - world.FP / 2) * STEER_HEADING / (world.FP / 2)
+            want_dir = if world.noise(s.seed + 4000 + d.id, 8, s.tick / 4) >= world.FP / 2 {
+                1
+            } else {
+                -1
+            }
+            let off = d.x - centre
+            if abs(off) > half + world.FP {
+                aim = if off > 0 then 0 - STEER_HEADING else STEER_HEADING
+            }
+        }
+        if want_dir != d.dir {
+            // Brake; the direction flips only at rest (no pivot).
+            d.speed = toward(d.speed, 0, scaled(s, DEER_BRAKE))
+            if d.speed == 0 {
+                d.dir = want_dir
+            }
+        } else {
+            d.speed = toward(
+                d.speed,
+                want_speed,
+                if want_speed < d.speed then scaled(s, DEER_BRAKE) else scaled(s, DEER_ACCEL),
+            )
+        }
+        d.heading = toward(d.heading, aim, DEER_TURN_RATE)
+        let (vx, vy) = split(d.speed, d.heading)
+        d.x = clamp_x(d.x + vx, s.cols)
+        d.y += d.dir * vy
+        let a = alpha(s)
+        if d.y < a.y - GONE_ROWS * world.FP ||
+            d.y > a.y + (wolf_row(s) + DEER_GONE_MARGIN) * world.FP {
+            d.state = DEER_GONE
+        }
+        s.deer[k] = d
+        k += 1
+    }
+    // Drop the gone, keeping order.
+    var n = 0
+    k = 0
+    while k < s.deer.len {
+        if s.deer[k].state != DEER_GONE {
+            if n != k {
+                s.deer[n] = copy s.deer[k]
+            }
+            n += 1
+        }
+        k += 1
+    }
+    while s.deer.len > n {
+        let _ = (mut s.deer).pop() else grazer(s, 0, 0)
+    }
+    feed
 }
 
 /// Seconds the run lasted (to its death, or so far).

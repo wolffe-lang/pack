@@ -10,7 +10,7 @@
 //! drawn where the simulation has them (pk02: eyes dim while they lurk,
 //! pulsing while they chase, steady through an attack; a vanquished body
 //! fades); the death card is drawn over the field from the same cell model
-//! on both tiers; the deer is drawn for the art study's sheet only (pk03).
+//! on both tiers; the deer (pk03) are drawn where the simulation has them.
 
 use grid
 use sim
@@ -152,11 +152,16 @@ pub fn draw_shadow(
     }
 }
 
-/// A deer at `row`, `col`, head up the path.
+/// A deer at `row` (its body row), `col` (its left cell), head up the
+/// path (pk03): rich, two cells wide and two tall, the antlers over the
+/// body (`▝▘` over `██`, code points the wolf already uses, so GLYPHS.md
+/// gains no row); plain `YD`.
 pub fn draw_deer(mut g: grid.Grid, t: int, row: int, col: int) {
     if t == tier.RICH {
         grid.put(mut g, row - 1, col, tier.glyph(t, tier.SP_DEER, 0))
+        grid.put(mut g, row - 1, col + 1, tier.glyph(t, tier.SP_DEER, 2))
         grid.put(mut g, row, col, tier.glyph(t, tier.SP_DEER, 1))
+        grid.put(mut g, row, col + 1, tier.glyph(t, tier.SP_DEER, 1))
         return
     }
     grid.put(mut g, row, col, tier.glyph(t, tier.SP_DEER, 0))
@@ -194,6 +199,18 @@ fn draw_sim_shadow(s: sim.Sim, t: int, k: int, mut g: grid.Grid) {
     }
 }
 
+/// Draw deer `k` where the alpha's eye puts it, if on the screen.
+fn draw_sim_deer(s: sim.Sim, t: int, k: int, mut g: grid.Grid) {
+    if s.deer[k].state == sim.DEER_GONE {
+        return
+    }
+    let row = sim.deer_screen_row(s, k)
+    let col = sim.deer_screen_col(s, k)
+    if on_screen(t, row, s.rows) {
+        draw_deer(mut g, t, row, col)
+    }
+}
+
 /// Draw wolf `i` of the simulation where the alpha's eye puts it, if on
 /// the screen.
 fn draw_pack_wolf(s: sim.Sim, t: int, i: int, mut g: grid.Grid) {
@@ -222,8 +239,8 @@ fn draw_pack_wolf(s: sim.Sim, t: int, i: int, mut g: grid.Grid) {
 }
 
 /// The whole frame: terrain on every row, then the fainted (they lie under
-/// the path), the fading shadows, the live shadows, the wolves, the alpha
-/// last; the death card over it all once the run is over. `g` must be the simulation's size
+/// the path), the fading shadows, the deer, the live shadows, the wolves,
+/// the alpha last; the death card over it all once the run is over. `g` must be the simulation's size
 /// (`assert`).
 pub fn render(s: sim.Sim, t: int, mut g: grid.Grid) {
     assert(g.rows == s.rows && g.cols == s.cols, "art.render: the grid is the simulation's size")
@@ -245,6 +262,11 @@ pub fn render(s: sim.Sim, t: int, mut g: grid.Grid) {
         if s.shadows[k].state == sim.VANQUISHED {
             draw_sim_shadow(s, t, k, mut g)
         }
+        k += 1
+    }
+    k = 0
+    while k < s.deer.len {
+        draw_sim_deer(s, t, k, mut g)
         k += 1
     }
     k = 0

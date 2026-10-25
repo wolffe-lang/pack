@@ -52,6 +52,7 @@ struct Options {
     debug: bool,
     speed_scale: int,
     bench_shadows: int,
+    bench_deer: int,
     help: bool,
     version: bool,
 }
@@ -65,7 +66,8 @@ fn usage_text() -> str {
         "  pack --apply CAPTURE --size WxH   a captured byte stream as a frame\n" +
         "  pack --art-study --dump DIR       the sprite sheets, both tiers\n" +
         "  pack --probe-glyphs               measure the rich glyphs' widths here\n" +
-        "  pack --bench --size WxH --tier T --frames N [--bench-shadows N]   time render + diff a frame\n" +
+        "  pack --bench --size WxH --tier T --frames N [--bench-shadows N] [--bench-deer N]\n" +
+        "                                    time render + diff a frame\n" +
         "  pack --selftest                   the decoder table and the diff property, on THIS binary\n\n" +
         "  keys: arrows steer, Up sprints, Down stops, Space leaps,\n" +
         "        Shift+Down or z parries, q or Esc quits; on the death card s saves the replay\n" +
@@ -104,6 +106,7 @@ fn options_default() -> Options {
         debug: false,
         speed_scale: 100,
         bench_shadows: 0,
+        bench_deer: 0,
         help: false,
         version: false,
     }
@@ -139,6 +142,9 @@ fn parse_args(args: List[str]) -> Options ! {usage, parse} {
         } else if more && a == "--bench-shadows" {
             i += 1
             o.bench_shadows = args[i].to_int()?
+        } else if more && a == "--bench-deer" {
+            i += 1
+            o.bench_deer = args[i].to_int()?
         } else if a == "--truecolor" {
             o.truecolor = 1
         } else if a == "--no-truecolor" {
@@ -193,7 +199,12 @@ fn parse_args(args: List[str]) -> Options ! {usage, parse} {
         }
         i += 1
     }
-    if o.frames < 1 || o.every < 1 || o.from_tick < 0 || o.speed_scale < 1 || o.bench_shadows < 0 {
+    if o.frames < 1 ||
+        o.every < 1 ||
+        o.from_tick < 0 ||
+        o.speed_scale < 1 ||
+        o.bench_shadows < 0 ||
+        o.bench_deer < 0 {
         return usage
     }
     o
@@ -503,6 +514,9 @@ fn run_bench(o: Options) -> int {
         // first frame (the spawn would take a long run to reach that many).
         sim.seed_shadows(mut s, o.bench_shadows)
     }
+    if o.bench_deer > 0 {
+        sim.seed_deer(mut s, o.bench_deer)
+    }
     var front = grid.new(rows, cols)
     var back = grid.new(rows, cols)
     var pen = grid.pen_new()
@@ -552,7 +566,7 @@ fn run_bench(o: Options) -> int {
     let n = times.len
     let p99 = times[n * 99 / 100 - (if n * 99 % 100 == 0 && n > 0 then 1 else 0)]
     print(
-        "bench {cols}x{rows} {tier.name(t)} frames {n} avg_us {total / n} p99_us {p99} max_us {times[n - 1]} bytes_avg {bytes / n} shadows {o.bench_shadows} alive_at_end {sim.shadows_alive(s)}",
+        "bench {cols}x{rows} {tier.name(t)} frames {n} avg_us {total / n} p99_us {p99} max_us {times[n - 1]} bytes_avg {bytes / n} shadows {o.bench_shadows} alive_at_end {sim.shadows_alive(s)} deer {o.bench_deer} deer_at_end {sim.deer_alive(s)}",
     )
     0
 }
@@ -889,7 +903,7 @@ fn run_live(o: Options, args: List[str]) -> int {
             sim.step(mut s, tick_keys, health)
             if o.trace {
                 eprint(
-                    "trace tick {s.tick} in {trace_bytes} keys {tick_keys.len} queue {keys.len} steer {sim.steer_target(s)} heading {sim.steer_heading(s)} x {sim.steer_x(s)} y {sim.steer_y(s)} stamina {s.stamina} health {s.health} down {s.down} spawn {sim.spawn_rate(s)} shadows {sim.shadows_alive(s)} landed {s.landed} dead {if s.dead then 1 else 0} wall_us {(clock.now_ns() - t0_ns) / 1000}",
+                    "trace tick {s.tick} in {trace_bytes} keys {tick_keys.len} queue {keys.len} steer {sim.steer_target(s)} heading {sim.steer_heading(s)} x {sim.steer_x(s)} y {sim.steer_y(s)} stamina {s.stamina} health {s.health} down {s.down} spawn {sim.spawn_rate(s)} shadows {sim.shadows_alive(s)} landed {s.landed} deer {sim.deer_alive(s)} fed {s.fed} dead {if s.dead then 1 else 0} wall_us {(clock.now_ns() - t0_ns) / 1000}",
                 )
                 trace_bytes = 0
             }
@@ -957,7 +971,7 @@ fn run_live(o: Options, args: List[str]) -> int {
     let avg_us = if frames > 0 then render_ns / frames / 1000 else 0
     let late_avg_us = if late_n > 0 then late_ns / late_n / 1000 else 0
     eprint(
-        "pack: ended by {ended}; {s.tick} ticks, {frames} frames, {c.dropped} dropped, {c.waits} waits, {sim.distance_cells(s)} cells, health {s.health} ({s.down} down), stamina {s.stamina}; shadows {s.spawned} spawned {s.vanquished} vanquished {s.landed} landed {s.turned} turned; {if s.dead then "dead at tick {s.died_tick}, score {sim.score(s)}" else "alive"}{if saved != "" then ", saved {saved}" else ""}{if save_failed then ", the save FAILED" else ""}; render avg {avg_us} us max {render_max_ns / 1000} us; wait late avg {late_avg_us} us max {late_max_ns / 1000} us over {late_n}; seed {rp.seed} tier {tier.name(rp.tier)} {cols}x{rows}{if o.speed_scale != 100 then " speed-scale {o.speed_scale}" else ""}",
+        "pack: ended by {ended}; {s.tick} ticks, {frames} frames, {c.dropped} dropped, {c.waits} waits, {sim.distance_cells(s)} cells, health {s.health} ({s.down} down), stamina {s.stamina}; shadows {s.spawned} spawned {s.vanquished} vanquished {s.landed} landed {s.turned} turned; deer {s.deer_spawned} seen {s.fed} fed; {if s.dead then "dead at tick {s.died_tick}, score {sim.score(s)}" else "alive"}{if saved != "" then ", saved {saved}" else ""}{if save_failed then ", the save FAILED" else ""}; render avg {avg_us} us max {render_max_ns / 1000} us; wait late avg {late_avg_us} us max {late_max_ns / 1000} us over {late_n}; seed {rp.seed} tier {tier.name(rp.tier)} {cols}x{rows}{if o.speed_scale != 100 then " speed-scale {o.speed_scale}" else ""}",
     )
     0
 }

@@ -63,7 +63,8 @@ pub const SP_SHADOW_BODY: int = 10
 /// it chases, are dim while it lurks and steady through an attack).
 pub const SP_SHADOW_EYE: int = 11
 
-/// A deer's cell (variant 0 head, 1 body).
+/// A deer's cell (rich: variant 0 the left antler, 2 the right, 1 the
+/// body; plain: 0 the antlered head `Y`, 1 the body `D`). pk03.
 pub const SP_DEER: int = 12
 
 /// The wolf in the forest edge (scratched: dim body).
@@ -142,7 +143,7 @@ pub fn palette(tier: int, role: int) -> int {
             8 => 245,  // C_FUR_DIM
             9 => 236,  // C_SHADOW
             10 => 196,  // C_EYE
-            11 => 173,  // C_DEER
+            11 => 223,  // C_DEER
             12 => 243,  // C_FAINT
             13 => 124,  // C_EYE_DIM
             _ => grid.COLOR_DEFAULT,
@@ -255,7 +256,7 @@ fn rich(sprite: int, v: int) -> grid.Cell {
         9 => c(t, if v == 0 then 9617 else 9604, C_FAINT, C_PATH, 0),  // SP_FAINTED
         10 => c(t, if v == 0 then 9608 else if v == 1 then 9619 else 9617, C_SHADOW, C_PATH, 0),  // SP_SHADOW_BODY
         11 => c(t, 9642, if v == 0 then C_EYE else C_EYE_DIM, C_SHADOW, 0),  // SP_SHADOW_EYE
-        12 => c(t, if v == 0 then 9600 else 9608, C_DEER, C_PATH, 0),  // SP_DEER
+        12 => c(t, if v == 0 then 9629 else if v == 2 then 9624 else 9608, C_DEER, C_PATH, 0),  // SP_DEER
         14 =>
             c(
                 t,
@@ -325,7 +326,7 @@ fn plain(sprite: int, v: int) -> grid.Cell {
                 grid.ATTR_BOLD,
             ),  // SP_SHADOW_BODY
         11 => c(t, 58, if v == 0 then C_EYE else C_EYE_DIM, C_PATH, grid.ATTR_BOLD),  // SP_SHADOW_EYE
-        12 => c(t, if v == 0 then 89 else 124, C_DEER, C_PATH, grid.ATTR_BOLD),  // SP_DEER
+        12 => c(t, if v == 0 then 89 else 68, C_DEER, C_PATH, grid.ATTR_BOLD),  // SP_DEER
         14 => c(t, if v == 0 then 39 else 96, C_FUR, C_PATH, 0),  // SP_WOLF_EAR
         _ => grid.blank(),
     }
