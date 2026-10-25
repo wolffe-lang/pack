@@ -1587,7 +1587,7 @@ fn zero_slots() -> List[int] {
 /// Alternating groups: the leaders and left flanker, then right flanker
 /// and alpha. Only accepted leaps alternate; refusals do not.
 pub fn leap_member(group: int, slot: int) -> bool {
-    if group == 0 then slot < 3 else slot >= 3
+    if group == 0 then slot >= 3 else slot < 3
 }
 
 /// One shared integer arc: out and back at at most half a cell per tick,
