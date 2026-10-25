@@ -1,0 +1,160 @@
+//! member: false
+//!
+//! pack's vocabulary over the engine's decoder: every control from byte
+//! strings through the decoder and the mapping, whole and split at every
+//! byte; the title's keys and text mode; the replay names round trip.
+
+use controls
+use input
+
+fn bytes_of(s: str) -> List[byte] {
+    var v = List[byte]()
+    for b in s.bytes() {
+        (mut v).push(b)
+    }
+    v
+}
+
+fn decode(s: str, at: int, text: bool) -> List[int] {
+    var d = input.new()
+    var raw = List[int]()
+    let bs = bytes_of(s)
+    var i = 0
+    while i < bs.len {
+        input.feed(mut d, bs[i], if i < at then 1000 else 1010, mut raw)
+        i += 1
+    }
+    input.flush(mut d, 1010 + input.ESC_TIMEOUT_MS, mut raw)
+    var keys = List[int]()
+    controls.map_all(raw, text, mut keys)
+    keys
+}
+
+fn same_keys(a: List[int], b: List[int]) -> bool {
+    if a.len != b.len {
+        return false
+    }
+    var i = 0
+    while i < a.len {
+        if a[i] != b[i] {
+            return false
+        }
+        i += 1
+    }
+    true
+}
+
+fn one(k: int) -> List[int] {
+    var v = List[int]()
+    (mut v).push(k)
+    v
+}
+
+fn check(s: str, want: List[int], what: str) {
+    var at = 0
+    while at <= s.len {
+        let got = decode(s, at, false)
+        assert(same_keys(got, want), "{what}: split at {at} gave {got}, want {want}")
+        at += 1
+    }
+}
+
+fn test_arrows_steer_sprint_and_stop() {
+    check("\x1b[A", one(controls.KEY_UP), "CSI up")
+    check("\x1b[B", one(controls.KEY_DOWN), "CSI down")
+    check("\x1b[C", one(controls.KEY_RIGHT), "CSI right")
+    check("\x1b[D", one(controls.KEY_LEFT), "CSI left")
+    check("\x1bOA", one(controls.KEY_UP), "SS3 up")
+    check("\x1bOD", one(controls.KEY_LEFT), "SS3 left")
+}
+
+fn test_shift_down_is_parry() {
+    check("\x1b[1;2B", one(controls.KEY_PARRY), "Shift+Down")
+    check("\x1b[1;2A", one(controls.KEY_UP), "Shift+Up is Up")
+    check("\x1b[1;2C", one(controls.KEY_RIGHT), "Shift+Right is Right")
+    check("\x1b[1;2D", one(controls.KEY_LEFT), "Shift+Left is Left")
+    check("\x1b[1;5B", one(controls.KEY_DOWN), "Ctrl+Down is Down")
+}
+
+fn test_plain_keys() {
+    check(" ", one(controls.KEY_LEAP), "space")
+    check("z", one(controls.KEY_PARRY), "z")
+    check("Z", one(controls.KEY_PARRY), "Z")
+    check("q", one(controls.KEY_QUIT), "q")
+    check("Q", one(controls.KEY_QUIT), "Q")
+    check("\x03", one(controls.KEY_INTERRUPT), "Ctrl-C")
+    check("-", one(controls.KEY_HEALTH_DOWN), "- (debug: health down)")
+    check("_", one(controls.KEY_HEALTH_DOWN), "_")
+    check("=", one(controls.KEY_HEALTH_UP), "= (debug: health up)")
+    check("+", one(controls.KEY_HEALTH_UP), "+")
+    check("s", one(controls.KEY_SAVE), "s (the card: save the replay)")
+    check("S", one(controls.KEY_SAVE), "S")
+    check("r", one(controls.KEY_RESTART), "r (the title)")
+    check("P", one(controls.KEY_PLAY), "P (the title)")
+    check("/", one(controls.KEY_PROMPT), "/ (the title)")
+    check("\x1b", one(controls.KEY_QUIT), "a lone Esc is the quit")
+    check(
+        "ab\x7f\x01\r",
+        List[int](),
+        "letters pack does not read, Backspace and Enter are dropped in key mode",
+    )
+}
+
+fn test_esc_then_plain_byte_is_quit_and_the_byte() {
+    var want = List[int]()
+    (mut want).push(controls.KEY_QUIT)
+    (mut want).push(controls.KEY_LEAP)
+    check("\x1b ", want, "Alt+Space")
+}
+
+fn test_two_sequences_in_one_read() {
+    var want = List[int]()
+    (mut want).push(controls.KEY_LEFT)
+    (mut want).push(controls.KEY_PARRY)
+    (mut want).push(controls.KEY_LEAP)
+    check("\x1b[D\x1b[1;2B ", want, "left, parry, leap")
+}
+
+fn test_text_mode() {
+    // Letters are characters, Enter and Backspace keys, Esc the quit (the
+    // cancel), an arrow still an arrow.
+    let keys = decode("aq/\x7f\r", 0, true)
+    assert(keys.len == 5, "five keys: {keys}")
+    assert(
+        controls.char_of(keys[0]) == 97 &&
+            controls.char_of(keys[1]) == 113 &&
+            controls.char_of(keys[2]) == 47,
+        "the characters",
+    )
+    assert(
+        keys[3] == controls.KEY_BACKSPACE && keys[4] == controls.KEY_ENTER,
+        "backspace and enter",
+    )
+    assert(
+        controls.char_of(controls.KEY_ENTER) == -1 && controls.char_of(controls.KEY_UP) == -1,
+        "a key is no character",
+    )
+    let arrow = decode("\x1b[A", 0, true)
+    assert(arrow.len == 1 && arrow[0] == controls.KEY_UP, "an arrow in text mode")
+    let esc = decode("\x1b", 0, true)
+    assert(esc.len == 1 && esc[0] == controls.KEY_QUIT, "a lone Esc in text mode is the quit")
+    assert(decode("a", 0, false).len == 0, "out of text mode a letter is dropped")
+}
+
+fn test_key_names_round_trip() {
+    var k = 1
+    while k <= 8 {
+        let back = controls.key_of(controls.key_name(k)) else -1
+        assert(back == k, "name of {k}")
+        k += 1
+    }
+    let bad = controls.key_of("sideways") else -1
+    assert(bad == -1, "an unknown name is parse")
+    assert(
+        controls.key_name(controls.KEY_PARRY) == "parry" &&
+            controls.key_name(controls.KEY_SAVE) == "none",
+        "the recorded keys have names; the card's do not",
+    )
+    let v = controls.vocab()
+    assert(v.keys.len == 9 && v.args.len == 1 && v.args[0] == "health", "the vocabulary")
+}

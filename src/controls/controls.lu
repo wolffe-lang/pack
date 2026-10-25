@@ -1,0 +1,191 @@
+//! controls — pack's key vocabulary over the engine's decoder. The engine
+//! (`input`) turns the terminal's bytes into the terminal's keys (arrows,
+//! Shift+arrows, Esc, Ctrl-C, Enter, Backspace, character keys); this
+//! module says what each means to pack, in the numbers the simulation and
+//! the replay file have used since pk00: `KEY_UP` 1 to `KEY_INTERRUPT` 8
+//! are the recorded keys (`docs/REPLAY.md`'s words are `vocab`'s), the
+//! rest are the card's and the title's, never recorded.
+//!
+//! The table (`docs/KEYS.md`): the arrows steer, sprint and stop; Shift+Down
+//! is the parry (campaign R-PK-3) and any other Shift+arrow the bare arrow;
+//! Space the leap; `z`/`Z` the parry alias; `q`/`Q` and Esc quit; Ctrl-C
+//! the interrupt; the debug keys `-`/`_` and `=`/`+` (health down and up,
+//! `--debug` only); `s`/`S` saves the replay on the death card (pk02);
+//! `r`/`R`, `p`/`P` and `/` are the title card's (pk03), and in text mode
+//! (the title's prompt) a printable byte is a character key, Enter and
+//! Backspace keys of their own, Esc still the quit (the cancel).
+
+use input
+use replay
+
+/// No key (never pushed; the zero value).
+pub const KEY_NONE: int = 0
+
+/// Up: the sprint burst.
+pub const KEY_UP: int = 1
+
+/// Down: stop.
+pub const KEY_DOWN: int = 2
+
+/// Left: steer left.
+pub const KEY_LEFT: int = 3
+
+/// Right: steer right.
+pub const KEY_RIGHT: int = 4
+
+/// Shift+Down or `z`: parry.
+pub const KEY_PARRY: int = 5
+
+/// Space: the leap.
+pub const KEY_LEAP: int = 6
+
+/// `q` or Esc: quit.
+pub const KEY_QUIT: int = 7
+
+/// Ctrl-C as a byte: interrupt (the signal path is the terminal's).
+pub const KEY_INTERRUPT: int = 8
+
+/// `-` or `_`: health down (a debug key, acted on only under `--debug`;
+/// it reaches the replay as a `health` event, never as a key).
+pub const KEY_HEALTH_DOWN: int = 9
+
+/// `=` or `+`: health up (the same).
+pub const KEY_HEALTH_UP: int = 10
+
+/// `s` or `S`: save the replay, on the death card alone (pk02); never
+/// recorded, dropped in play.
+pub const KEY_SAVE: int = 11
+
+/// Enter, in text mode (pk03: the title's prompt).
+pub const KEY_ENTER: int = 12
+
+/// Backspace or Delete, in text mode.
+pub const KEY_BACKSPACE: int = 13
+
+/// `r` or `R`: on the title card, run the same seed again (pk03); dropped
+/// in play, never recorded.
+pub const KEY_RESTART: int = 14
+
+/// `p` or `P`: on the title card, play the last saved replay (pk03).
+pub const KEY_PLAY: int = 15
+
+/// `/`: on the title card, open the prompt for a replay's name (pk03).
+pub const KEY_PROMPT: int = 16
+
+/// In text mode a printable byte `b` (32 to 126) is the key
+/// `KEY_CHAR_BASE + b` (the engine's own numbering); `char_of` reads it back.
+pub const KEY_CHAR_BASE: int = 1000
+
+/// The replay file's `health` event (`t TICK health N`): the engine's first
+/// numeric event, the one `replay.at` sums for the step.
+pub const EV_HEALTH: int = 100
+
+/// The character a text-mode key carries, or -1 for a key that is none.
+pub fn char_of(k: int) -> int {
+    input.char_of(k)
+}
+
+/// What a character means in key mode, or `KEY_NONE`.
+fn plain_key(b: int) -> int {
+    if b == 32 {
+        return KEY_LEAP
+    }
+    if b == 122 || b == 90 {
+        return KEY_PARRY
+    }
+    if b == 113 || b == 81 {
+        return KEY_QUIT
+    }
+    if b == 45 || b == 95 {
+        return KEY_HEALTH_DOWN
+    }
+    if b == 61 || b == 43 {
+        return KEY_HEALTH_UP
+    }
+    if b == 115 || b == 83 {
+        return KEY_SAVE
+    }
+    if b == 114 || b == 82 {
+        return KEY_RESTART
+    }
+    if b == 112 || b == 80 {
+        return KEY_PLAY
+    }
+    if b == 47 {
+        return KEY_PROMPT
+    }
+    KEY_NONE
+}
+
+/// pack's key for one of the engine's, or `KEY_NONE` for one pack does
+/// not read: in key mode a character is looked up in the table above
+/// (Enter and Backspace mean nothing); in `text` mode (the title's prompt)
+/// a character is itself, Enter and Backspace are keys, and Esc is still
+/// the quit. Any Shift+arrow but Shift+Down is the bare arrow.
+pub fn map(k: int, text: bool) -> int {
+    if k == input.KEY_UP || k == input.KEY_SHIFT_UP {
+        return KEY_UP
+    }
+    if k == input.KEY_DOWN {
+        return KEY_DOWN
+    }
+    if k == input.KEY_LEFT || k == input.KEY_SHIFT_LEFT {
+        return KEY_LEFT
+    }
+    if k == input.KEY_RIGHT || k == input.KEY_SHIFT_RIGHT {
+        return KEY_RIGHT
+    }
+    if k == input.KEY_SHIFT_DOWN {
+        return KEY_PARRY
+    }
+    if k == input.KEY_ESC {
+        return KEY_QUIT
+    }
+    if k == input.KEY_INTERRUPT {
+        return KEY_INTERRUPT
+    }
+    let ch = input.char_of(k)
+    if text {
+        if k == input.KEY_ENTER {
+            return KEY_ENTER
+        }
+        if k == input.KEY_BACKSPACE {
+            return KEY_BACKSPACE
+        }
+        return if ch >= 0 then k else KEY_NONE
+    }
+    if ch >= 0 then plain_key(ch) else KEY_NONE
+}
+
+/// Every key of `raw` mapped and pushed onto `keys`, in order, the ones
+/// pack does not read dropped.
+pub fn map_all(raw: List[int], text: bool, mut keys: List[int]) {
+    for k in raw {
+        let m = map(k, text)
+        if m != KEY_NONE {
+            (mut keys).push(m)
+        }
+    }
+}
+
+/// The key's name in a replay file (`docs/REPLAY.md`).
+pub fn key_name(k: int) -> str {
+    replay.key_name(vocab(), k)
+}
+
+/// The key a replay file's name means; `parse` for a name that is none.
+pub fn key_of(name: str) -> int ! {parse} {
+    replay.key_of(vocab(), name)
+}
+
+/// pack's words for the replay file: the eight recorded keys by number,
+/// and the one numeric event, `health`.
+pub fn vocab() -> replay.Vocab {
+    var names = List[str]()
+    for w in "none up down left right parry leap quit interrupt".words() {
+        (mut names).push(w)
+    }
+    var args = List[str]()
+    (mut args).push("health")
+    replay.vocab(take names, take args)
+}
