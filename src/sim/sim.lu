@@ -213,6 +213,19 @@ pub const SHADOW_TURN_RATE: int = 12
 /// member this close (the larger of the sideways and the along distance).
 pub const PERCEIVE: int = 8
 
+/// Close contact is heard all round; farther away requires the 60-degree
+/// half-cone (4 dot² >= |f|² |d|²). R-pk04-1 A, proposed 2026-10-25.
+pub const PERCEIVE_NEAR: int = 3
+
+/// Spawn bands: forest edge 20%, inner verge 30%, path shoulder 50%.
+pub const SPAWN_EDGE_PERCENT: int = 20
+
+/// The inner-verge share, percent.
+pub const SPAWN_VERGE_PERCENT: int = 30
+
+/// Shoulder inset from the path edge, cells.
+pub const SPAWN_SHOULDER_CELLS: int = 3
+
 /// Above this spawn rate (thousandths a tick) shadows come in groups.
 pub const GROUP_RATE: int = 5
 
@@ -413,6 +426,10 @@ pub const GONE: int = 4
 /// oncoming pack), its state, the pack member it pursues, its attack's
 /// windup and cooldown, a parry's recoil, its fade.
 pub struct Shadow {
+    // A stationary lurker's facing: a seeded vector in the outward
+    // half-circle, independent of the chase's later bounded heading.
+    face_x: int,
+    face_y: int,
     x: int,
     y: int,
     heading: int,
@@ -1286,14 +1303,25 @@ pub fn spawn_roll(seed: int, tick: int, rate: int) -> int {
 
 /// A shadow lurking at the forest edge of world row `row`, on `side` (-1
 /// left, 1 right): half a cell into the verge, facing down the path.
-fn lurker(s: Sim, row: int, side: int) -> Shadow {
+pub fn lurker(s: Sim, row: int, side: int) -> Shadow {
     let (centre, half) = trail.path(s.seed, s.cols, row)
+    let band = spawn_band(s.seed, s.tick, row)
+    let off = if band == 0 {
+        half + world.FP / 2
+    } else if band == 1 {
+        half - world.FP / 2
+    } else {
+        half - SPAWN_SHOULDER_CELLS * world.FP
+    }
+    let (fx, fy) = spawn_facing(s.seed, s.tick, row, side)
     Shadow {
-        x: clamp_x(centre + side * (half + world.FP / 2), s.cols),
+        face_x: fx,
+        face_y: fy,
+        x: clamp_x(centre + side * off, s.cols),
         y: row * world.FP,
-        heading: 0,
+        heading: fx * HEADING_MAX / 2,
         speed: 0,
-        dir: -1,
+        dir: if fy < 0 then -1 else 1,
         state: LURKING,
         target: ALPHA,
         windup: 0,
@@ -1301,6 +1329,59 @@ fn lurker(s: Sim, row: int, side: int) -> Shadow {
         recoil: 0,
         fade: 0,
     }
+}
+
+/// The seed picks a spawn band, independently of its facing.
+pub fn spawn_band(seed: int, tick: int, row: int) -> int {
+    let n = world.hash(seed + 5100, tick, row, 100)
+    if n < SPAWN_EDGE_PERCENT {
+        0
+    } else if n < SPAWN_EDGE_PERCENT + SPAWN_VERGE_PERCENT {
+        1
+    } else {
+        2
+    }
+}
+
+/// Five evenly spaced facings across the outward half-circle: along the
+/// path both ways, diagonally toward it both ways, straight across to it.
+/// No facing has a component into the woods, even on the right bank.
+pub fn spawn_facing(seed: int, tick: int, row: int, side: int) -> (int, int) {
+    let n = world.hash(seed + 5200, tick, row, 5)
+    let fx = if n == 0 || n == 4 then 0 else 0 - side * 2
+    let fy = if n < 2 then -2 else if n == 2 then 0 else 2
+    (fx, fy)
+}
+
+/// A wolf within PERCEIVE and in the forward 60-degree half-cone, or
+/// brushing past within PERCEIVE_NEAR all round. Integer dot products;
+/// the original Chebyshev range and the hit envelope do not change.
+pub fn shadow_perceives(sh: Shadow, x: int, y: int) -> bool {
+    let dx = x - sh.x
+    let dy = y - sh.y
+    let d = reach_dist(sh.x, sh.y, x, y)
+    if d <= PERCEIVE_NEAR * world.FP { return true }
+    if d > PERCEIVE * world.FP { return false }
+    let dot = dx * sh.face_x + dy * sh.face_y
+    dot >= 0 &&
+        4 * dot * dot >= (sh.face_x * sh.face_x + sh.face_y * sh.face_y) * (dx * dx + dy * dy)
+}
+
+/// The nearest visible living wolf, not merely whether the nearest wolf
+/// is visible (a nearer wolf behind the cone must not mask one in front).
+pub fn perceived_wolf(s: Sim, sh: Shadow) -> int {
+    var best = -1
+    var best_d = 0
+    var i = 0
+    while i < PACK_SIZE {
+        let w = copy s.wolves[i]
+        if w.state != FAINTED && shadow_perceives(sh, w.x, w.y) {
+            let d = reach_dist(sh.x, sh.y, w.x, w.y)
+            if best < 0 || d < best_d { best = i; best_d = d }
+        }
+        i += 1
+    }
+    best
 }
 
 /// The side a spawn lurks on, by the path's bend between the alpha's row
@@ -1459,14 +1540,13 @@ fn shadows_step(mut s: Sim) -> int {
             continue
         }
         // Pursuit of the nearest pack member; perception for a lurker.
-        let t = nearest_wolf(s, sh.x, sh.y)
+        let t = if sh.state == LURKING then perceived_wolf(s, sh) else nearest_wolf(s, sh.x, sh.y)
         if t >= 0 {
             sh.target = t
         }
         let w = copy s.wolves[sh.target]
-        let d = reach_dist(sh.x, sh.y, w.x, w.y)
         if sh.state == LURKING {
-            if d <= PERCEIVE * world.FP {
+            if t >= 0 {
                 sh.state = CHASING
             }
         }
