@@ -260,21 +260,10 @@ def row_agree(bin, tier):
 
 
 def mac_memory_ok():
-    """RULES section 4 (nomad): a heavy job runs only with 8 GB free, inactive
-    and speculative together, read from vm_stat by the script itself."""
-    if sys.platform != "darwin":
-        return True
-    out = subprocess.run(["vm_stat"], capture_output=True, text=True).stdout
-    page = int(re.search(r"page size of (\d+) bytes", out).group(1))
-    pages = 0
-    for key in ("Pages free", "Pages inactive", "Pages speculative"):
-        m = re.search(key + r":\s+(\d+)", out)
-        pages += int(m.group(1)) if m else 0
-    free = pages * page
-    if free < 8 * 1024 ** 3:
-        print("pty: REFUSED on this Mac: %.1f GB free+inactive+speculative, the floor is 8 GB (RULES section 4)" % (free / 1024 ** 3))
-        return False
-    return True
+    """RULES section 4's gate, nomad's alone: tools/memgate.py decides."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import memgate
+    return memgate.check("pty")
 
 
 def main():
