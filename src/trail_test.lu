@@ -1,0 +1,79 @@
+//! member: false
+//!
+//! The path and the rates over the engine's noise: in range and continuous,
+//! different seeds different paths, a clearing widens the path, the curve
+//! holds its ramp and its ceiling.
+
+use trail
+use world
+
+fn test_path_in_range_and_continuous() {
+    var prev = -1
+    var r = -50
+    while r < 2000 {
+        let (c, h) = trail.path(7, 80, r)
+        assert(c >= 25 * world.FP && c <= 55 * world.FP, "centre {c} at {r}")
+        assert(h >= 3 * world.FP && h <= 25 * world.FP / 2 + 2, "half {h} at {r}")
+        if prev >= 0 {
+            let d = if c > prev then c - prev else prev - c
+            assert(d <= world.FP, "the trail.path bends at most a cell a row ({d} at {r})")
+        }
+        prev = c
+        r += 1
+    }
+}
+
+fn test_seeds_differ_in_their_paths() {
+    var same = 0
+    var r = 0
+    while r < 100 {
+        let (a, _) = trail.path(1, 80, r)
+        let (b, _) = trail.path(2, 80, r)
+        if a == b {
+            same += 1
+        }
+        r += 1
+    }
+    assert(same < 10, "two seeds share {same} of 100 centres")
+}
+
+fn test_density_widens_the_path_in_a_clearing_and_raises_the_rate() {
+    // The same channels, the world.density forced by seed search: find a clearing
+    // row and a stand row and compare the width's world.density term directly.
+    var clearing = -1
+    var stand = -1
+    var r = 0
+    while r < 5000 && (clearing < 0 || stand < 0) {
+        let b = world.density_band(7, r)
+        if b == 0 && clearing < 0 {
+            clearing = r
+        }
+        if b == 2 && stand < 0 {
+            stand = r
+        }
+        r += world.LATTICE
+    }
+    assert(clearing >= 0 && stand >= 0, "seed 7 has a clearing ({clearing}) and a stand ({stand})")
+    assert(world.density(7, clearing) < world.density(7, stand), "world.density ordered")
+    assert(
+        trail.spawn_rate(7, stand) > trail.spawn_rate(7, 0) || stand == 0,
+        "the spawn rate rises with world.density and distance",
+    )
+    assert(trail.spawn_rate(7, 4000) > trail.spawn_rate(7, 0), "the spawn rate rises with distance")
+}
+
+fn test_the_curve_holds_the_ramp_and_the_ceiling() {
+    var r = 0
+    while r < 3000 {
+        let rate = trail.spawn_rate(16, r)
+        assert(rate >= trail.SPAWN_BASE && rate <= trail.SPAWN_CEILING, "rate {rate} at {r}")
+        assert(
+            rate <= trail.SPAWN_RAMP_BASE + r / trail.SPAWN_RAMP_ROWS,
+            "under the ramp at {r}: {rate}",
+        )
+        assert(trail.deer_rate(16, r) >= trail.DEER_BASE, "deer at {r}")
+        r += 50
+    }
+    assert(trail.spawn_rate(16, 0) == trail.SPAWN_RAMP_BASE, "a stand starts at the ramp's base")
+    assert(trail.spawn_rate(16, 3000) == trail.SPAWN_CEILING, "and ends at the ceiling")
+}
