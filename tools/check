@@ -1,0 +1,12 @@
+#!/bin/sh
+# check — everything a pull request must pass, in order, each exit read
+# directly: fmt, the unit tests, both builds, the goldens, the pty rows.
+set -eu
+PACK_ROOT=$(cd "$(dirname "$0")/.." && pwd)
+cd "$PACK_ROOT"
+tools/check-fmt
+tools/test
+tools/build --all
+tools/goldens
+python3 -I tools/pty --bin target/release/pack
+echo "check: green"

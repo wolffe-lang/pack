@@ -1,0 +1,39 @@
+#!/bin/sh
+# build — compile pack on one tier or both.
+#
+#   tools/build [--native|--release|--all]
+#   --native   the fast default backend  -> target/native/pack
+#   --release  LLVM with the mid-end on  -> target/release/pack, and a
+#              copy at target/pack (the one the maintainer runs)
+#   --all      both (the default)
+# Every build denies warnings. The program is src/pack.lu over the modules
+# under src/ (grid, tier, term, input, clock, sim, world, replay, art).
+set -eu
+PACK_ROOT=$(cd "$(dirname "$0")/.." && pwd)
+export PACK_ROOT
+cd "$PACK_ROOT"
+. tools/lib-mem.sh
+require_memory
+. tools/lib-toolchain.sh
+
+tiers="native release"
+case "${1:-}" in
+--native) tiers=native ;;
+--release) tiers=release ;;
+--all | "") ;;
+*)
+    echo "build: unknown option $1" >&2
+    exit 2
+    ;;
+esac
+
+for tier in $tiers; do
+    mkdir -p "target/$tier"
+    if [ "$tier" = release ]; then
+        "$WOLF" build --release --deny-warnings src/pack.lu -o target/release/pack
+        cp target/release/pack target/pack
+    else
+        "$WOLF" build --deny-warnings src/pack.lu -o target/native/pack
+    fi
+    echo "build: target/$tier/pack"
+done
