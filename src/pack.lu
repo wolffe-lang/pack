@@ -20,9 +20,13 @@ use art
 use best
 use clock
 use grid
+use headless
 use input
+use controls
+use probe
 use replay
 use sim
+use sprites
 use std.env
 use std.fs
 use std.time
@@ -243,32 +247,6 @@ fn debug_refusal(o: Options) -> str {
     ""
 }
 
-fn pad4(n: int) -> str {
-    if n < 10 {
-        return "000{n}"
-    }
-    if n < 100 {
-        return "00{n}"
-    }
-    if n < 1000 {
-        return "0{n}"
-    }
-    "{n}"
-}
-
-fn write_frame(dir: str, name: str, g: grid.Grid) -> () ! {io} {
-    var text = List[byte]()
-    grid.dump_text(g, mut text)
-    fs.write_bytes("{dir}/{name}.txt", text) else |_| {
-        return io
-    }
-    var sty = List[byte]()
-    grid.dump_styles(g, mut sty)
-    fs.write_bytes("{dir}/{name}.sty", sty) else |_| {
-        return io
-    }
-}
-
 /// The replay a run follows: the file named by `--script` or `--replay`,
 /// or an empty one from the options. Flags given on the command line
 /// override the file's header.
@@ -279,7 +257,7 @@ fn load_replay(o: Options, want_cols: int, want_rows: int) -> replay.Replay ! {p
         let text = fs.read_text(path) else |_| {
             return io
         }
-        r = replay.from_text(text)?
+        r = replay.from_text(text, controls.vocab())?
         if o.cols > 0 {
             r.cols = o.cols
             r.rows = o.rows
@@ -341,7 +319,7 @@ fn run_headless(o: Options, args: List[str]) -> int {
         sim.step(mut s, keys, health)
         if k + 1 >= o.from_tick && (k + 1) % o.every == 0 && k + 1 < o.frames {
             art.render(s, r.tier, mut g)
-            write_frame(o.dump, "frame-{pad4(k + 1)}", g) else |_| {
+            headless.write_frame(o.dump, "frame-{headless.pad4(k + 1)}", g) else |_| {
                 eprint("pack: cannot write into {o.dump}")
                 return 2
             }
@@ -350,7 +328,7 @@ fn run_headless(o: Options, args: List[str]) -> int {
     }
     // The last frame is always `final` (the pty runner compares it).
     art.render(s, r.tier, mut g)
-    write_frame(o.dump, "final", g) else |_| {
+    headless.write_frame(o.dump, "final", g) else |_| {
         eprint("pack: cannot write into {o.dump}")
         return 2
     }
@@ -369,18 +347,8 @@ fn run_apply(o: Options) -> int {
         eprint("pack: cannot read {o.apply_path}")
         return 2
     }
-    var m = grid.model_new(o.rows, o.cols)
-    grid.model_feed(mut m, bytes)
-    var out = List[byte]()
-    grid.dump_text(m.grid, mut out)
-    grid.push_str(mut out, "--\n")
-    grid.dump_styles(m.grid, mut out)
-    grid.push_str(
-        mut out,
-        "--\nalt_enters {m.alt_enters} alt_leaves {m.alt_leaves} cursor_visible {m.cursor_visible} unknown {m.unknown}\n",
-    )
     var tout = fs.stdout()
-    fs.write_chunk(mut tout, out) else |_| {
+    fs.write_chunk(mut tout, headless.apply(bytes, o.cols, o.rows)) else |_| {
         return 2
     }
     0
@@ -397,10 +365,10 @@ fn run_art_study(o: Options) -> int {
         eprint("pack: cannot create {o.dump}")
         return 2
     }
-    write_frame(o.dump, "sheet-rich", art.sheet(tier.RICH)) else |_| {
+    headless.write_frame(o.dump, "sheet-rich", art.sheet(tier.RICH)) else |_| {
         return 2
     }
-    write_frame(o.dump, "sheet-plain", art.sheet(tier.PLAIN)) else |_| {
+    headless.write_frame(o.dump, "sheet-plain", art.sheet(tier.PLAIN)) else |_| {
         return 2
     }
     // The title card (pk03) over seed 7's forest, with a record to show.
@@ -418,7 +386,7 @@ fn run_art_study(o: Options) -> int {
         var g = grid.new(24, 80)
         art.render(field, t, mut g)
         art.title(t, 0, info, 24, 80, mut g)
-        write_frame(o.dump, "title-{tier.name(t)}", g) else |_| {
+        headless.write_frame(o.dump, "title-{tier.name(t)}", g) else |_| {
             return 2
         }
         t += 1
@@ -444,104 +412,8 @@ fn pick_tier(o: Options) -> (int, bool) {
 /// cursor asked where it landed (`CSI 6 n`), the width it took printed
 /// as a table after the terminal is restored. The measurement
 /// `docs/GLYPHS.md` records per terminal; a photo is not evidence.
-fn run_probe(o: Options) -> int {
-    var t = term.open() else |e| {
-        eprint(term.message("{e}"))
-        return 2
-    }
-    term.enter(mut t) else |_| {
-        eprint(term.message("io"))
-        return 3
-    }
-    let cps = tier.rich_code_points()
-    var widths = List[int]()
-    for cp in cps {
-        var probe = List[byte]()
-        grid.push_str(mut probe, "\x1b[2;1H\x1b[2K")
-        grid.push_utf8(mut probe, cp)
-        grid.push_str(mut probe, "\x1b[6n")
-        term.write(probe) else |_| {}
-        // The reply: ESC [ row ; col R, within 200 ms.
-        var col = -1
-        var waited = 0
-        var reply = List[byte]()
-        while col < 0 && waited < 10 {
-            var c = clock.new(clock.now_ns())
-            let w = clock.wait_until(mut c, clock.now_ns() + 20000000, term.signal_set()) else |_| {
-                break
-            }
-            if w.input_ready {
-                let got = term.read_keys(64) else |_| {
-                    break
-                }
-                for b in got {
-                    (mut reply).push(b)
-                }
-                col = cpr_col(reply)
-            }
-            waited += 1
-        }
-        (mut widths).push(if col < 0 then -1 else col - 1)
-    }
-    term.leave(mut t)
-    print("code point | width | terminal {t.term_name}")
-    var i = 0
-    while i < cps.len {
-        print("U+{hex4(cps[i])} | {widths[i]} | {string_of(cps[i])}")
-        i += 1
-    }
-    0
-}
-
-fn string_of(cp: int) -> str {
-    var v = List[byte]()
-    grid.push_utf8(mut v, cp)
-    str_from_utf8(v) else "?"
-}
-
-fn hex4(n: int) -> str {
-    let digits = "0123456789ABCDEF"
-    var s = ""
-    var p = 4096
-    while p >= 1 {
-        let d = n / p % 16
-        s = s + digits[d..d + 1]
-        p /= 16
-    }
-    s
-}
-
-/// The column of a cursor position report `ESC [ row ; col R` in `v`, or
-/// -1 when none is complete.
-fn cpr_col(v: List[byte]) -> int {
-    var i = 0
-    while i + 3 < v.len {
-        if v[i] as int == 27 && v[i + 1] as int == 91 {
-            var j = i + 2
-            var row = 0
-            var col = 0
-            var second = false
-            while j < v.len {
-                let b = v[j] as int
-                if b >= 48 && b <= 57 {
-                    if second {
-                        col = col * 10 + b - 48
-                    } else {
-                        row = row * 10 + b - 48
-                    }
-                } else if b == 59 {
-                    second = true
-                } else if b == 82 {
-                    return col
-                } else {
-                    break
-                }
-                j += 1
-            }
-        }
-        i += 1
-    }
-    -1
+fn run_probe() -> int {
+    probe.run("pack", sprites.rich_code_points())
 }
 
 /// `--bench`: `frames` ticks of a scripted steer on a field of `--size`,
@@ -634,7 +506,9 @@ fn decode_all(s: str, split_at: int) -> List[int] {
         i += 1
     }
     input.flush(mut d, 1010 + input.ESC_TIMEOUT_MS, mut keys)
-    keys
+    var mapped = List[int]()
+    controls.map_all(keys, false, mut mapped)
+    mapped
 }
 
 fn keys_text(keys: List[int]) -> str {
@@ -697,46 +571,8 @@ fn run_selftest() -> int {
             at += 1
         }
     }
-    // The diff property, through the model, in the 256 and the 16 dialects.
-    var m = grid.model_new(5, 9)
-    var prev = grid.new(5, 9)
-    var pen = grid.pen_new()
-    var salt = 0
-    while salt < 12 {
-        var next = grid.new(5, 9)
-        var r = 0
-        while r < 5 {
-            var c = 0
-            while c < 9 {
-                let k = (r * 7 + c * 13 + salt) % 11
-                if k < 7 {
-                    grid.put(
-                        mut next,
-                        r,
-                        c,
-                        grid.cell(
-                            9600 + k,
-                            (k * 37 + salt) % 256,
-                            if k % 3 == 0 then grid.COLOR_DEFAULT else k * 20,
-                            k % 8 & grid.ATTR_MASK,
-                        ),
-                    )
-                }
-                c += 1
-            }
-            r += 1
-        }
-        var out = List[byte]()
-        grid.diff(prev, next, salt == 0, mut pen, mut out, grid.COLORS_256)
-        grid.model_feed(mut m, out)
-        if !grid.model_equals(m, next) {
-            let (dr, dc) = grid.model_first_diff(m, next)
-            print("selftest: diff property: frame {salt} differs first at {dr},{dc}")
-            bad += 1
-        }
-        prev = next
-        salt += 1
-    }
+    // The diff property, through the model (the engine's, on this binary).
+    bad += headless.diff_property()
     if bad == 0 {
         print(
             "selftest: ok (the decoder table whole and split at every byte; the diff property over 12 frames)",
@@ -767,9 +603,9 @@ fn card_save_name(seed: int, score: int) -> str {
 /// failed write; the card then says nothing was saved.
 fn save_replay(rec: replay.Replay, tick: int, path: str, score: int) -> () ! {io} {
     var r = copy rec
-    replay.push_key(mut r, tick, input.KEY_QUIT)
+    replay.push_key(mut r, tick, controls.KEY_QUIT)
     var text = List[byte]()
-    replay.format_scored(r, score, mut text)
+    replay.format_scored(r, controls.vocab(), score, mut text)
     fs.write_bytes(path, text) else |_| {
         return io
     }
@@ -827,7 +663,7 @@ fn load_for_play(path: str) -> (replay.Replay, str) ! {parse, io} {
     let text = fs.read_text(path) else |_| {
         return io
     }
-    let rp = replay.from_text(text)?
+    let rp = replay.from_text(text, controls.vocab())?
     let v = verdict_of(rp, text)
     (rp, v)
 }
@@ -880,6 +716,7 @@ fn play(
     var out = List[byte]()
     var keys = List[int]()
     var tick_keys = List[int]()
+    var raw = List[int]()
     var d = input.new()
     var c = clock.new(clock.now_ns())
     var full = true
@@ -956,13 +793,17 @@ fn play(
                 List[byte]()
             }
             let before = keys.len
-            input.feed_all(mut d, got, now_ms, mut keys)
+            input.feed_all(mut d, got, now_ms, mut raw)
+            controls.map_all(raw, false, mut keys)
+            (mut raw).reset()
             trace_bytes += got.len
             if keys.len > before && trace_first_key_ns == 0 {
                 trace_first_key_ns = now
             }
         }
-        input.flush(mut d, now_ms, mut keys)
+        input.flush(mut d, now_ms, mut raw)
+        controls.map_all(raw, false, mut keys)
+        (mut raw).reset()
         let due = clock.advance(mut c, now)
         var n = 0
         while n < due {
@@ -987,27 +828,31 @@ fn play(
                     // The keyboard is ignored during a replay, except that
                     // q, Esc and Ctrl-C leave it (pk03).
                     for k in keys {
-                        if k == input.KEY_QUIT || k == input.KEY_INTERRUPT {
-                            ended = if k == input.KEY_QUIT {
+                        if k == controls.KEY_QUIT || k == controls.KEY_INTERRUPT {
+                            ended = if k == controls.KEY_QUIT {
                                 "the quit key"
                             } else {
                                 "Ctrl-C as a byte"
                             }
                             quit = true
-                            leave = !titled || k == input.KEY_INTERRUPT
+                            leave = !titled || k == controls.KEY_INTERRUPT
                         }
                     }
                 }
             } else if n == 0 {
                 for k in keys {
-                    if k == input.KEY_QUIT || k == input.KEY_INTERRUPT {
-                        ended = if k == input.KEY_QUIT then "the quit key" else "Ctrl-C as a byte"
+                    if k == controls.KEY_QUIT || k == controls.KEY_INTERRUPT {
+                        ended = if k == controls.KEY_QUIT {
+                            "the quit key"
+                        } else {
+                            "Ctrl-C as a byte"
+                        }
                         quit = true
-                        leave = !titled || k == input.KEY_INTERRUPT
+                        leave = !titled || k == controls.KEY_INTERRUPT
                         // Recorded, so a replay of the file ends where the
                         // run did (the card shown for as long as it was).
                         replay.push_key(mut rec, s.tick, k)
-                    } else if k == input.KEY_SAVE {
+                    } else if k == controls.KEY_SAVE {
                         if s.dead && saved == "" && !save_failed {
                             let path = if o.record_path != "" {
                                 o.record_path
@@ -1021,13 +866,13 @@ fn play(
                                 saved = path
                             }
                         }
-                    } else if k == input.KEY_HEALTH_DOWN || k == input.KEY_HEALTH_UP {
+                    } else if k == controls.KEY_HEALTH_DOWN || k == controls.KEY_HEALTH_UP {
                         // The debug keys: health by ten, recorded as a
                         // `health` event; nothing without --debug.
                         if o.debug && !s.dead {
-                            let delta = if k == input.KEY_HEALTH_DOWN then -10 else 10
+                            let delta = if k == controls.KEY_HEALTH_DOWN then -10 else 10
                             health += delta
-                            replay.push_health(mut rec, s.tick, delta)
+                            replay.push_arg(mut rec, s.tick, 0, delta)
                         }
                     } else if k >= sim.KEY_UP && k <= sim.KEY_LEAP && !s.dead {
                         // The simulation's keys alone are applied and
@@ -1105,7 +950,7 @@ fn play(
         // The run as played, to --record's path, unless the card saved it
         // there already (that file carries the score and ends at the save).
         var text = List[byte]()
-        replay.format(rec, mut text)
+        replay.format(rec, controls.vocab(), mut text)
         fs.write_bytes(o.record_path, text) else |_| {
             eprint("pack: cannot write {o.record_path}")
         }
@@ -1134,7 +979,7 @@ fn play(
 /// The terminal is restored on every path out, the title's included.
 fn run_live(o: Options, args: List[str]) -> int {
     var t = term.open() else |e| {
-        eprint(term.message("{e}"))
+        eprint(term.message("{e}", "pack"))
         return 2
     }
     let (tr, truecolor) = pick_tier(o)
@@ -1154,7 +999,7 @@ fn run_live(o: Options, args: List[str]) -> int {
         }
     }
     term.enter(mut t) else |_| {
-        eprint(term.message("io"))
+        eprint(term.message("io", "pack"))
         return 3
     }
     if replaying || o.no_title {
@@ -1181,6 +1026,8 @@ fn run_live(o: Options, args: List[str]) -> int {
     var pen = grid.pen_new()
     var out = List[byte]()
     var keys = List[int]()
+    var raw = List[int]()
+    var text_mode = false
     var d = input.new()
     var c = clock.new(clock.now_ns())
     var full = true
@@ -1240,9 +1087,11 @@ fn run_live(o: Options, args: List[str]) -> int {
                     leave = true
                     List[byte]()
                 }
-                input.feed_all(mut d, got, clock.now_ns() / 1000000, mut keys)
+                input.feed_all(mut d, got, clock.now_ns() / 1000000, mut raw)
             }
-            input.flush(mut d, clock.now_ns() / 1000000, mut keys)
+            input.flush(mut d, clock.now_ns() / 1000000, mut raw)
+            controls.map_all(raw, text_mode, mut keys)
+            (mut raw).reset()
         }
         if leave || redraw {
             continue
@@ -1253,39 +1102,39 @@ fn run_live(o: Options, args: List[str]) -> int {
         var action = 0
         for k in keys {
             if info.prompt_open {
-                if k == input.KEY_ENTER {
+                if k == controls.KEY_ENTER {
                     info.prompt_open = false
-                    input.set_text(mut d, false)
+                    text_mode = false
                     if info.prompt != "" {
                         action = 4
                     }
-                } else if k == input.KEY_QUIT {
+                } else if k == controls.KEY_QUIT {
                     info.prompt_open = false
                     info.prompt = ""
-                    input.set_text(mut d, false)
-                } else if k == input.KEY_BACKSPACE {
+                    text_mode = false
+                } else if k == controls.KEY_BACKSPACE {
                     if info.prompt.len > 0 {
                         info.prompt = info.prompt[0..info.prompt.len - 1]
                     }
-                } else if k == input.KEY_INTERRUPT {
+                } else if k == controls.KEY_INTERRUPT {
                     leave = true
                 } else {
-                    let ch = input.char_of(k)
+                    let ch = controls.char_of(k)
                     if ch >= 0 && info.prompt.len < 200 {
                         info.prompt += ch as char
                     }
                 }
-            } else if k == input.KEY_QUIT || k == input.KEY_INTERRUPT {
+            } else if k == controls.KEY_QUIT || k == controls.KEY_INTERRUPT {
                 leave = true
-            } else if k == input.KEY_RESTART {
+            } else if k == controls.KEY_RESTART {
                 action = 1
-            } else if k == input.KEY_PLAY {
+            } else if k == controls.KEY_PLAY {
                 action = 3
-            } else if k == input.KEY_PROMPT {
+            } else if k == controls.KEY_PROMPT {
                 info.prompt_open = true
                 info.prompt = ""
                 info.message = ""
-                input.set_text(mut d, true)
+                text_mode = true
             } else if action == 0 {
                 action = if ran then 2 else 1
             }
@@ -1386,7 +1235,7 @@ fn main() -> int {
         return run_art_study(o)
     }
     if o.probe_glyphs {
-        return run_probe(o)
+        return run_probe()
     }
     if o.bench {
         return run_bench(o)
