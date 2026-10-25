@@ -33,10 +33,10 @@
 //! (R-pk02-1 A: the wolves' rate), a speed moved at `SHADOW_ACCEL` and
 //! `SHADOW_BRAKE`, and a direction along the path. Shadows are the seed's:
 //! each tick the world's hash of the tick is rolled against
-//! `world.spawn_rate` (thousandths a tick) and a shadow appears just above
+//! the continuous millionth curve (`trail.spawn_rate_fine`) and a shadow appears just above
 //! the top of the screen — at the forest edge, in the verge, on the path's
 //! shoulder or in the middle of the path (pk07), alone, or in a group of
-//! two or three once the rate passes `GROUP_RATE` — and lurks there, eyes
+//! two or three after a minute once the rate passes `GROUP_RATE` — and lurks there, eyes
 //! toward the path and, mostly, down it. A lurking shadow that sees a pack
 //! member within its range (`PERCEIVE` cells, or across the path on a
 //! wide field) turns toward it and stalks down the path at `STALK_V`; once the
@@ -251,6 +251,28 @@ pub const GROUP_RATE: int = 5
 /// A shadow this many rows behind the alpha is gone.
 pub const GONE_ROWS: int = 12
 
+/// First lone shadow's seeded deadline, 20..30 seconds (30 Hz).
+pub const SPAWN_FIRST_MIN: int = 600
+
+/// Latest first birth, 30 seconds.
+pub const SPAWN_FIRST_MAX: int = 900
+
+/// At least two seconds between successful spawn events.
+pub const SPAWN_GAP_TICKS: int = 60
+
+/// Groups cannot appear before the first minute of a run.
+pub const SPAWN_GROUP_TICKS: int = 1800
+
+/// Same-bank connected lurker component: at most five, edges bounded
+/// by six cells sideways and four rows along the path (conservative).
+pub const CLUMP_MAX: int = 5
+
+/// Maximum sideways edge within a lurker clump, cells.
+pub const CLUMP_CELLS: int = 6
+
+/// Maximum longitudinal edge within a lurker clump, rows.
+pub const CLUMP_ROWS: int = 4
+
 /// Shadows alive at once, at most (the spawn waits).
 pub const SHADOW_MAX: int = 12
 
@@ -461,6 +483,12 @@ pub const FEED: int = 25
 /// Deer alive at once, at most; the spawn waits.
 pub const DEER_MAX: int = 3
 
+/// One additional catchable deer below half health, never more.
+pub const DEER_HURT_MAX: int = 4
+
+/// Rate bonus in percent: +50 at half health, +100 at quarter or less.
+pub const DEER_BONUS_MAX: int = 100
+
 /// A deer this many rows beyond the top of the screen has got away and is
 /// gone; behind the alpha the shadows' `GONE_ROWS` holds for it too.
 pub const DEER_GONE_MARGIN: int = 20
@@ -649,6 +677,7 @@ pub struct Sim {
     landed: int,
     turned: int,
     spawned: int,
+    last_spawn_tick: int,
     dead: bool,
     died_tick: int,
     deer: List[Deer],
@@ -774,6 +803,7 @@ pub fn new_at(seed: int, cols: int, rows: int, start: int) -> Sim {
         landed: 0,
         turned: 0,
         spawned: 0,
+        last_spawn_tick: -SPAWN_GAP_TICKS,
         dead: false,
         died_tick: 0,
         deer: List[Deer](),
@@ -1601,23 +1631,77 @@ pub fn spawn_side(s: Sim, top: int) -> int {
     if world.hash(s.seed + 5000, s.tick, 3, 2) == 0 then -1 else 1
 }
 
-/// Spawn: roll the tick; a shadow (or a group spaced three rows apart,
-/// the same side) appears at the forest edge one row above the top of the
-/// screen, on the side the bend names, while fewer than `SHADOW_MAX` are
-/// alive.
-fn spawn_shadows(mut s: Sim) {
-    let n = spawn_roll(s.seed, s.tick, spawn_rate(s))
-    if n == 0 {
-        return
+/// Scheduled first lone lurker, then a continuous roll. Compensate for
+/// the unavailable gap ticks so the late curve retains its event rate:
+/// p_roll = p / (1 - (gap-1)*p), a geometric wait plus a fixed gap.
+pub fn paced_spawn_roll(s: Sim) -> int {
+    if s.tick - s.last_spawn_tick < SPAWN_GAP_TICKS { return 0 }
+    if s.spawned == 0 {
+        let deadline = SPAWN_FIRST_MIN +
+            world.hash(s.seed + 5400, 0, 1, SPAWN_FIRST_MAX - SPAWN_FIRST_MIN + 1)
+        return if s.tick >= deadline then 1 else 0
     }
+    let rate = trail.spawn_rate_fine(s.seed, alpha(s).y / world.FP)
+    let roll_rate = rate * 1000000 / (1000000 - (SPAWN_GAP_TICKS - 1) * rate)
+    if world.hash(s.seed + 5000, s.tick, 1, 1000000) >= roll_rate { return 0 }
+    if s.tick < SPAWN_GROUP_TICKS || rate <= GROUP_RATE * 1000 { return 1 }
+    2 + world.hash(s.seed + 5000, s.tick, 2, 2)
+}
+
+fn same_clump(s: Sim, a: Shadow, b: Shadow) -> bool {
+    let (ac, _) = trail.path(s.seed, s.cols, a.y / world.FP)
+    let (bc, _) = trail.path(s.seed, s.cols, b.y / world.FP)
+    (a.x < ac) == (b.x < bc) &&
+        abs(a.x - b.x) <= CLUMP_CELLS * world.FP &&
+        abs(a.y - b.y) <= CLUMP_ROWS * world.FP
+}
+
+/// Prospective connected component including a new lurker. Count all
+/// lurkers, even above the viewport, so the cap holds when they scroll in.
+pub fn prospective_clump(s: Sim, candidate: Shadow) -> int {
+    var members = List[int]()
+    var seen = List[int]()
+    var i = 0
+    while i < s.shadows.len { (mut seen).push(0); i += 1 }
+    (mut members).push(s.shadows.len)
+    var at = 0
+    while at < members.len {
+        let index = members[at]
+        let sh = if index == s.shadows.len then copy candidate else copy s.shadows[index]
+        var k = 0
+        while k < s.shadows.len {
+            if seen[k] == 0 && s.shadows[k].state == LURKING && same_clump(s, sh, s.shadows[k]) {
+                seen[k] = 1
+                (mut members).push(k)
+            }
+            k += 1
+        }
+        at += 1
+    }
+    members.len
+}
+
+/// Try the bend's bank, then the other; if both would exceed the clump
+/// cap defer that member to a future event. A rejected roll spends no gap.
+pub fn spawn_shadows(mut s: Sim) {
+    let n = paced_spawn_roll(s)
+    if n == 0 { return }
     let top = world_row(s, 0) + 1
     let side = spawn_side(s, top)
+    let before = s.spawned
     var k = 0
     while k < n && shadows_alive(s) < SHADOW_MAX {
-        (mut s.shadows).push(lurker(s, top + 3 * k, side))
-        s.spawned += 1
+        var born = lurker(s, top + 3 * k, side)
+        if prospective_clump(s, born) > CLUMP_MAX {
+            born = lurker(s, top + 3 * k, 0 - side)
+        }
+        if prospective_clump(s, born) <= CLUMP_MAX {
+            (mut s.shadows).push(born)
+            s.spawned += 1
+        }
         k += 1
     }
+    if s.spawned > before { s.last_spawn_tick = s.tick }
 }
 
 /// Place `n` shadows chasing around the pack at once (the perf gate's
@@ -2121,7 +2205,22 @@ fn cohesion(s: Sim, k: int) -> (int, int) {
 /// The deer rate at the alpha's row (`world.deer_rate`), thousandths a
 /// tick.
 pub fn deer_rate(s: Sim) -> int {
-    trail.deer_rate(s.seed, alpha(s).y / world.FP)
+    let base = trail.deer_rate(s.seed, alpha(s).y / world.FP)
+    base + base * deer_bonus(s.health) / 100
+}
+
+/// Linear health bonus: zero at full, 50% at half, 100% at quarter;
+/// bounded at both ends. Fractional thousandths round down.
+pub fn deer_bonus(health: int) -> int {
+    if health >= HEALTH_MAX { return 0 }
+    if health <= HEALTH_MAX / 4 { return DEER_BONUS_MAX }
+    if health >= HEALTH_MAX / 2 { return (HEALTH_MAX - health) * 100 / HEALTH_MAX }
+    50 + (HEALTH_MAX / 2 - health) * 200 / HEALTH_MAX
+}
+
+/// Alive-deer ceiling: four strictly below half health, otherwise three.
+pub fn deer_limit(health: int) -> int {
+    if health < HEALTH_MAX / 2 then DEER_HURT_MAX else DEER_MAX
 }
 
 /// Whether the tick's roll brings a deer: the world's hash of the tick
@@ -2173,8 +2272,8 @@ pub fn grazer(s: Sim, row: int, off: int) -> Deer {
 /// path one row above the top of the screen, at a column the seed picks
 /// across the path's width, while fewer than `DEER_MAX` are alive. Deer
 /// are the seed's, never a replay event, as the shadows are.
-fn spawn_deer(mut s: Sim) {
-    if deer_alive(s) >= DEER_MAX || !deer_roll(s.seed, s.tick, deer_rate(s)) {
+pub fn spawn_deer(mut s: Sim) {
+    if deer_alive(s) >= deer_limit(s.health) || !deer_roll(s.seed, s.tick, deer_rate(s)) {
         return
     }
     let row = world_row(s, 0) + 1
