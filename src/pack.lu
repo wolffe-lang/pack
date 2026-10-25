@@ -549,6 +549,7 @@ fn run_live(o: Options, args: List[str]) -> int {
     var frames = 0
     var render_ns = 0
     var render_max_ns = 0
+    var ended = "the loop"
     loop {
         var deadline = clock.next_due_ns(c)
         if input.esc_pending(d) {
@@ -558,6 +559,7 @@ fn run_live(o: Options, args: List[str]) -> int {
             }
         }
         let w = clock.wait_until(mut c, deadline, term.signal_set()) else |_| {
+            ended = "a failed wait"
             quit = true
             break
         }
@@ -576,6 +578,7 @@ fn run_live(o: Options, args: List[str]) -> int {
                     replay.push_size(mut rec, s.tick, cols, rows)
                 }
             } else {
+                ended = if w.meaning == 16 then "the interrupt" else "a signal ({w.meaning})"
                 quit = true
             }
         }
@@ -583,6 +586,7 @@ fn run_live(o: Options, args: List[str]) -> int {
             term.read_keys(mut buf, 64) else |e| {
                 // A hang-up (eof) or a failed read ends the game; say which.
                 eprint("pack: standard input: {e}")
+                ended = "standard input ({e})"
                 quit = true
                 (mut buf).reset()
             }
@@ -603,11 +607,13 @@ fn run_live(o: Options, args: List[str]) -> int {
                     full = true
                 }
                 if s.tick > replay.last_tick(rp) && o.ticks == 0 {
+                    ended = "the replay's end"
                     quit = true
                 }
             } else if n == 0 {
                 for k in keys {
                     if k == input.KEY_QUIT || k == input.KEY_INTERRUPT {
+                        ended = if k == input.KEY_QUIT then "the quit key" else "Ctrl-C as a byte"
                         quit = true
                     } else {
                         (mut tick_keys).push(k)
@@ -622,6 +628,7 @@ fn run_live(o: Options, args: List[str]) -> int {
                 assert(false, "pack: --trap-at {o.trap_at} (a planted trap)")
             }
             if o.ticks > 0 && s.tick >= o.ticks {
+                ended = "--ticks"
                 quit = true
             }
             n += 1
@@ -641,6 +648,7 @@ fn run_live(o: Options, args: List[str]) -> int {
                 render_max_ns = r1 - r0
             }
             term.write(out) else |_| {
+                ended = "a failed write"
                 quit = true
             }
             (mut out).reset()
@@ -664,7 +672,7 @@ fn run_live(o: Options, args: List[str]) -> int {
     }
     let avg_us = if frames > 0 then render_ns / frames / 1000 else 0
     eprint(
-        "pack: {s.tick} ticks, {frames} frames, {c.dropped} dropped, {c.waits} waits, {sim.distance_cells(s)} cells; render avg {avg_us} us max {render_max_ns / 1000} us; seed {rp.seed} tier {tier.name(rp.tier)} {cols}x{rows}",
+        "pack: ended by {ended}; {s.tick} ticks, {frames} frames, {c.dropped} dropped, {c.waits} waits, {sim.distance_cells(s)} cells; render avg {avg_us} us max {render_max_ns / 1000} us; seed {rp.seed} tier {tier.name(rp.tier)} {cols}x{rows}",
     )
     0
 }

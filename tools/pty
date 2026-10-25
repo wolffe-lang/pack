@@ -197,8 +197,9 @@ def row_keys(bin, name, how):
     s.finish()
     problems = []
     common_checks(s, 0, problems)
-    if b"pack:" not in s.err:
-        problems.append("no closing line on stderr")
+    want = b"ended by the interrupt" if how == "ctrl-c" else b"ended by the quit key"
+    if want not in s.err:
+        problems.append("the closing line does not say %r: %r" % (want, s.err[-200:]))
     return s, problems
 
 
@@ -219,6 +220,8 @@ def row_agree(bin, tier):
     s.finish(timeout=60)
     problems = []
     common_checks(s, 0, problems)
+    if b"ended by --ticks" not in s.err:
+        problems.append("the closing line does not say the run ended by --ticks: %r" % s.err[-200:])
     d = os.path.join(ROOT, "target", "pty")
     os.makedirs(d, exist_ok=True)
     cap = os.path.join(d, "agree-%s.bin" % tier)
