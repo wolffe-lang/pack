@@ -5,6 +5,7 @@
 //! code by this test, which reads it from the repository root (where
 //! tools/test runs).
 
+use sprites
 use std.fs
 use tier
 
@@ -49,7 +50,7 @@ fn test_glyphs_doc_matches_the_tier() {
         ""
     }
     let listed = listed_code_points(text)
-    let used = tier.rich_code_points()
+    let used = sprites.rich_code_points()
     assert(
         listed.len == used.len,
         "the doc lists {listed.len} code points, the tier uses {used.len}",
@@ -66,10 +67,10 @@ fn test_glyphs_doc_matches_the_tier() {
 
 fn test_plain_tier_needs_no_row() {
     var s = 0
-    while s < tier.SPRITE_COUNT {
+    while s < sprites.SPRITE_COUNT {
         var v = 0
-        while v < tier.VARIANT_COUNT {
-            assert(tier.glyph(tier.PLAIN, s, v).cp <= 255, "sprite {s}")
+        while v < sprites.VARIANT_COUNT {
+            assert(sprites.glyph(tier.PLAIN, s, v).cp <= 255, "sprite {s}")
             v += 1
         }
         s += 1

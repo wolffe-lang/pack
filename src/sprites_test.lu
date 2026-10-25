@@ -1,0 +1,204 @@
+//! member: false
+//!
+//! The sprite table's promises: the plain tier inside Latin-1 and the
+//! sixteen colours for every sprite and variant; the rich tier's colours
+//! indices; the posture glyphs, the eyes and the fade; the card cells; the
+//! dusk palette's blend and steps. (The tiers' own machinery — detection,
+//! the names, the dialects, the nearest index — is tested in the engine.)
+
+use grid
+use sprites
+use tier
+
+fn test_plain_tier_keeps_its_promise() {
+    var s = 0
+    while s < sprites.SPRITE_COUNT {
+        var v = 0
+        while v < sprites.VARIANT_COUNT {
+            let c = sprites.glyph(tier.PLAIN, s, v)
+            assert(c.cp >= 32 && c.cp <= 255, "sprite {s} variant {v}: cp {c.cp}")
+            assert(c.fg <= 15 || c.fg == grid.COLOR_DEFAULT, "sprite {s}: fg {c.fg}")
+            assert(c.bg <= 15 || c.bg == grid.COLOR_DEFAULT, "sprite {s}: bg {c.bg}")
+            v += 1
+        }
+        s += 1
+    }
+}
+
+fn test_rich_tier_colours_are_indices() {
+    var s = 0
+    while s < sprites.SPRITE_COUNT {
+        let c = sprites.glyph(tier.RICH, s, 0)
+        assert(c.fg >= 0 && c.fg <= 255 && c.bg >= 0 && c.bg <= 255, "sprite {s}")
+        s += 1
+    }
+}
+
+fn test_wolf_sprites_sit_on_the_path() {
+    let p = sprites.glyph(tier.RICH, sprites.SP_PATH, 0)
+    assert(
+        sprites.glyph(tier.RICH, sprites.SP_WOLF_BODY, 0).bg == p.bg,
+        "the wolf's background is the path's",
+    )
+    assert(
+        sprites.glyph(tier.PLAIN, sprites.SP_WOLF_HEAD, 0).bg ==
+            sprites.glyph(tier.PLAIN, sprites.SP_PATH, 0).bg,
+        "plain too",
+    )
+}
+
+fn test_posture_glyphs_differ_by_band() {
+    // The ears: fresh and tired swap the quadrants, spent is flat.
+    let fresh_l = sprites.glyph(tier.RICH, sprites.SP_WOLF_EAR, 0).cp
+    let tired_l = sprites.glyph(tier.RICH, sprites.SP_WOLF_EAR, 2).cp
+    let spent_l = sprites.glyph(tier.RICH, sprites.SP_WOLF_EAR, 4).cp
+    assert(fresh_l != tired_l && tired_l != spent_l && fresh_l != spent_l, "three ear shapes")
+    assert(
+        spent_l == sprites.glyph(tier.RICH, sprites.SP_WOLF_EAR, 5).cp,
+        "flat ears are symmetric",
+    )
+    // The tail: a fresh tail wags, a tired one holds, a spent one is low.
+    assert(
+        sprites.glyph(tier.RICH, sprites.SP_WOLF_TAIL, 0).cp !=
+            sprites.glyph(tier.RICH, sprites.SP_WOLF_TAIL, 1).cp,
+        "the fresh tail wags",
+    )
+    assert(
+        sprites.glyph(tier.RICH, sprites.SP_WOLF_TAIL, 4).cp ==
+            sprites.glyph(tier.RICH, sprites.SP_WOLF_TAIL, 5).cp,
+        "the tired tail holds",
+    )
+    assert(
+        sprites.glyph(tier.PLAIN, sprites.SP_WOLF_TAIL, 0).cp !=
+            sprites.glyph(tier.PLAIN, sprites.SP_WOLF_TAIL, 8).cp,
+        "plain fresh and spent tails differ",
+    )
+}
+
+fn test_shadow_variants_eyes_and_fade() {
+    let bright = sprites.glyph(tier.RICH, sprites.SP_SHADOW_EYE, 0)
+    let dim = sprites.glyph(tier.RICH, sprites.SP_SHADOW_EYE, 1)
+    assert(bright.cp == dim.cp && bright.fg != dim.fg, "the eyes pulse by colour, one glyph")
+    assert(bright.fg == 196 && dim.fg == 124, "red, and a darker red (PALETTE.md)")
+    assert(
+        sprites.glyph(tier.PLAIN, sprites.SP_SHADOW_EYE, 0).fg == 9 &&
+            sprites.glyph(tier.PLAIN, sprites.SP_SHADOW_EYE, 1).fg == 1,
+        "plain: bright red and red, the one colour both tiers share",
+    )
+    let solid = sprites.glyph(tier.RICH, sprites.SP_SHADOW_BODY, 0).cp
+    let dark = sprites.glyph(tier.RICH, sprites.SP_SHADOW_BODY, 1).cp
+    let light = sprites.glyph(tier.RICH, sprites.SP_SHADOW_BODY, 2).cp
+    assert(
+        solid == 9608 && dark == 9619 && light == 9617,
+        "the fade: full block, dark shade, light shade",
+    )
+    assert(
+        sprites.glyph(tier.PLAIN, sprites.SP_SHADOW_BODY, 0).cp !=
+            sprites.glyph(tier.PLAIN, sprites.SP_SHADOW_BODY, 2).cp,
+        "the plain fade changes the glyph too",
+    )
+}
+
+fn test_card_cells_need_no_font_row() {
+    var cp = 32
+    while cp <= 126 {
+        let c = sprites.card_text(tier.RICH, cp, false)
+        assert(c.cp == cp && c.cp <= 255, "text is Latin-1")
+        let p = sprites.card_text(tier.PLAIN, cp, true)
+        assert(p.fg <= 15 && p.bg <= 15, "plain text in the sixteen")
+        cp += 1
+    }
+    let listed = sprites.rich_code_points()
+    var which = 0
+    while which < 3 {
+        let f = sprites.card_frame(tier.RICH, which).cp
+        var found = false
+        for k in listed {
+            if k == f {
+                found = true
+            }
+        }
+        assert(found, "the frame's glyph {f} is in GLYPHS.md's list already")
+        assert(sprites.card_frame(tier.PLAIN, which).cp <= 126, "the plain frame is ASCII")
+        which += 1
+    }
+}
+
+// Dusk (pk03).
+
+fn test_the_rich_palette_blends_from_afternoon_to_night_with_the_eyes_fixed() {
+    let day = sprites.palette_at(tier.RICH, 0)
+    let dusk = sprites.palette_at(tier.RICH, sprites.PHASE_DUSK)
+    let night = sprites.palette_at(tier.RICH, sprites.PHASE_NIGHT)
+    var role = 0
+    while role < sprites.ROLE_COUNT {
+        assert(
+            sprites.color(day, role) == sprites.rich_key(role, 0),
+            "role {role} at 0 is the afternoon key",
+        )
+        assert(
+            sprites.color(dusk, role) == sprites.rich_key(role, 1),
+            "role {role} at dusk is the dusk key",
+        )
+        assert(
+            sprites.color(night, role) == sprites.rich_key(role, 2),
+            "role {role} at night is the night key",
+        )
+        role += 1
+    }
+    assert(
+        sprites.color(day, sprites.C_EYE) == sprites.color(night, sprites.C_EYE),
+        "the red eye never changes",
+    )
+    assert(
+        sprites.color(day, sprites.C_EYE_DIM) == sprites.color(night, sprites.C_EYE_DIM),
+        "nor the dim one",
+    )
+    // Between the keyframes the path is neither: a blend, and no index
+    // outside the cube and the greys.
+    var steps = 0
+    var prev = sprites.color(day, sprites.C_PATH)
+    var ph = 1
+    while ph <= sprites.PHASE_NIGHT {
+        let c = sprites.color(sprites.palette_at(tier.RICH, ph), sprites.C_PATH)
+        assert(c >= 16 && c <= 255, "an index of the cube or the greys: {c}")
+        if c != prev {
+            steps += 1
+            prev = c
+        }
+        ph += 1
+    }
+    // The cube is coarse: the path takes three steps from afternoon to
+    // night (137, 95, 241, 59: one cube level or the grey ramp at a time),
+    // never the two keyframes' jump.
+    assert(steps >= 3, "the path takes several small steps, never one: {steps}")
+    let mid = sprites.color(sprites.palette_at(tier.RICH, 300), sprites.C_PATH)
+    assert(
+        mid != sprites.rich_key(sprites.C_PATH, 0) && mid != sprites.rich_key(sprites.C_PATH, 2),
+        "between dusk and night the path is neither day's nor night's: {mid}",
+    )
+}
+
+fn test_the_plain_palette_steps_and_keeps_its_promise_at_night() {
+    let day = sprites.palette_at(tier.PLAIN, 0)
+    let night = sprites.palette_at(tier.PLAIN, sprites.PHASE_NIGHT)
+    assert(sprites.color(night, sprites.C_PATH) == 8, "the path drops to bright black at night")
+    assert(sprites.color(day, sprites.C_PATH) == 3, "and is yellow by day")
+    assert(!day.dim && night.dim, "the greens dim")
+    var ph = 0
+    while ph <= sprites.PHASE_NIGHT {
+        let p = sprites.palette_at(tier.PLAIN, ph)
+        var s = 0
+        while s < sprites.SPRITE_COUNT {
+            let c = sprites.glyph_at(tier.PLAIN, p, s, 0)
+            assert(
+                c.fg <= 15 && c.bg <= 15 && c.cp <= 255,
+                "phase {ph} sprite {s} keeps the promise",
+            )
+            s += 1
+        }
+        ph += 64
+    }
+    let eye = sprites.glyph_at(tier.PLAIN, night, sprites.SP_SHADOW_EYE, 0)
+    assert(eye.fg == 9, "the eye stays bright red at night")
+}

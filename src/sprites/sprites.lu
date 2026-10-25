@@ -1,0 +1,548 @@
+//! sprites — pack's semantic sprites to cells: the sprite table. The game
+//! draws sprites (a path cell, a trunk, a wolf's head); the engine's two
+//! tiers (`tier`, campaign R-PK-4) say which code point and colours each
+//! is here, in this one file (cb00's R-cb00-2 A: the game owns its
+//! sprites, the engine the draw calls):
+//!
+//! - **rich**: block elements and half-blocks (the wolf, doubled vertical
+//!   resolution, R-pk00-4 B: only the wolves), braille for foliage, heavy
+//!   box drawing for trunks, the 256-colour cube; `docs/GLYPHS.md` names
+//!   every code point here and is PAX's font specification;
+//! - **plain**: code points 0-255 (what PAX's Spleen 8x16 console draws
+//!   today) and the sixteen colours only — `grid.plain_ok` holds it to
+//!   that, and `test_plain_tier_keeps_its_promise` checks every sprite.
+//!
+//! Colours are named once in `docs/PALETTE.md`; the numbers here are that
+//! document's. The dusk shift (pk03, innovation 4): `palette_at` takes a
+//! phase from the distance (afternoon, dusk, night) and blends the rich
+//! tier's keyframes in RGB, quantized to the nearest cube index, so the
+//! change is slow and never a step; the plain tier's sixteen colours step
+//! at the midpoints. The red eyes never change: shadows come with the dark.
+
+use grid
+use tier
+
+// Sprites.
+
+/// Bare path.
+pub const SP_PATH: int = 0
+
+/// Path texture, a pebble or a print (variant 0-3).
+pub const SP_PATH_MARK: int = 1
+
+/// The verge: grass at the path's edge.
+pub const SP_GRASS: int = 2
+
+/// A trunk.
+pub const SP_TRUNK: int = 3
+
+/// Canopy (variant 0-3, lighter to darker).
+pub const SP_CANOPY: int = 4
+
+/// Deep forest, where nothing is seen.
+pub const SP_FOREST_DARK: int = 5
+
+/// The wolf's body cell (variant: the trot frame 0-3 for the side cells).
+pub const SP_WOLF_BODY: int = 6
+
+/// The wolf's head cell (variant 0 normal, 1 panting, 2 spent: the plain
+/// tier's low head).
+pub const SP_WOLF_HEAD: int = 7
+
+/// The wolf's leg cell (variant: the trot frame 0-3).
+pub const SP_WOLF_LEGS: int = 8
+
+/// A fainted wolf's cell (variant 0 head, 1 body).
+pub const SP_FAINTED: int = 9
+
+/// A shadow wolf's body cell (variant 0 solid; 1 and 2 the fade of a
+/// vanquished shadow, pk02).
+pub const SP_SHADOW_BODY: int = 10
+
+/// A shadow wolf's red eye (variant 0 bright, 1 dim: the eyes pulse while
+/// it chases, are dim while it lurks and steady through an attack).
+pub const SP_SHADOW_EYE: int = 11
+
+/// A deer's cell (rich: variant 0 the left antler, 2 the right, 1 the
+/// body; plain: 0 the antlered head `Y`, 1 the body `D`). pk03.
+pub const SP_DEER: int = 12
+
+/// The wolf in the forest edge (scratched: dim body).
+pub const SP_WOLF_BODY_DIM: int = 13
+
+/// The wolf's ear cell (rich: variant side + 2 * stamina band — 0 left,
+/// 1 right; fresh ears up, tired ears back, spent ears flat; plain unused).
+pub const SP_WOLF_EAR: int = 14
+
+/// The wolf's tail cell (variant: stamina band * 4 + the trot frame: a
+/// fresh tail wags with the gait, a tired one is level, a spent one low).
+pub const SP_WOLF_TAIL: int = 15
+
+/// The number of sprites (every id below this).
+pub const SPRITE_COUNT: int = 16
+
+/// The most variants any sprite has (the tail's twelve).
+pub const VARIANT_COUNT: int = 16
+
+// The palette, by role (docs/PALETTE.md).
+
+/// Path (bg).
+pub const C_PATH: int = 0
+
+/// Path mark (fg).
+pub const C_PATH_MARK: int = 1
+
+/// Grass (fg).
+pub const C_GRASS: int = 2
+
+/// Trunk (fg).
+pub const C_TRUNK: int = 3
+
+/// Canopy light (fg).
+pub const C_CANOPY: int = 4
+
+/// Canopy dark (fg).
+pub const C_CANOPY_DARK: int = 5
+
+/// Forest floor (bg).
+pub const C_FLOOR: int = 6
+
+/// Wolf fur (fg).
+pub const C_FUR: int = 7
+
+/// Wolf fur, dim (fg).
+pub const C_FUR_DIM: int = 8
+
+/// A shadow (fg).
+pub const C_SHADOW: int = 9
+
+/// A red eye (fg).
+pub const C_EYE: int = 10
+
+/// Deer (fg).
+pub const C_DEER: int = 11
+
+/// The fainted (fg).
+pub const C_FAINT: int = 12
+
+/// A red eye, dim (fg): the pulse's other phase, a lurker's eyes.
+pub const C_EYE_DIM: int = 13
+
+/// The number of palette roles.
+pub const ROLE_COUNT: int = 14
+
+/// The phase of the day, in 256ths (pk03, campaign innovation 4): 0 is the
+/// afternoon, `PHASE_DUSK` dusk, `PHASE_NIGHT` night; the simulation reads
+/// it from the distance (`sim.phase`) and the palette blends between the
+/// keyframes, never a step on the rich tier (the plain tier's sixteen
+/// colours step at the midpoints).
+pub const PHASE_DUSK: int = 256
+
+/// Night.
+pub const PHASE_NIGHT: int = 512
+
+/// A keyframe colour of a role on the rich tier: a 256-colour index at
+/// keyframe `key` (0 afternoon, 1 dusk, 2 night). `docs/PALETTE.md`'s
+/// tables. The red eyes never change, so shadows come with the dark.
+pub fn rich_key(role: int, key: int) -> int {
+    match role {
+        0 => if key == 0 then 137 else if key == 1 then 95 else 59,  // C_PATH
+        1 => if key == 0 then 180 else if key == 1 then 138 else 102,  // C_PATH_MARK
+        2 => if key == 0 then 64 else if key == 1 then 58 else 22,  // C_GRASS
+        3 => if key == 0 then 94 else if key == 1 then 58 else 237,  // C_TRUNK
+        4 => if key == 0 then 28 else if key == 1 then 22 else 17,  // C_CANOPY
+        5 => if key == 0 then 22 else if key == 1 then 17 else 16,  // C_CANOPY_DARK
+        6 => if key == 0 then 234 else if key == 1 then 233 else 232,  // C_FLOOR
+        7 => if key == 0 then 250 else if key == 1 then 248 else 245,  // C_FUR
+        8 => if key == 0 then 245 else if key == 1 then 243 else 240,  // C_FUR_DIM
+        9 => if key == 0 then 236 else if key == 1 then 235 else 233,  // C_SHADOW
+        10 => 196,  // C_EYE
+        11 => if key == 0 then 223 else if key == 1 then 180 else 138,  // C_DEER
+        12 => if key == 0 then 243 else if key == 1 then 241 else 238,  // C_FAINT
+        13 => 124,  // C_EYE_DIM
+        _ => grid.COLOR_DEFAULT,
+    }
+}
+
+/// A keyframe colour of a role on the plain tier: one of the sixteen at
+/// keyframe `key` (0 afternoon, 1 dusk, 2 night). Dusk dims the greens
+/// (the canopy loses its bold); night drops the path to bright black, the
+/// foliage to black on black, the fur to white.
+pub fn plain_key(role: int, key: int) -> int {
+    match role {
+        0 => if key < 2 then 3 else 8,  // C_PATH
+        1 => if key == 0 then 11 else if key == 1 then 3 else 7,  // C_PATH_MARK
+        2 => if key < 2 then 2 else 0,  // C_GRASS
+        3 => if key < 2 then 3 else 8,  // C_TRUNK
+        4 => if key < 2 then 2 else 0,  // C_CANOPY
+        5 => 0,  // C_CANOPY_DARK
+        6 => 0,  // C_FLOOR
+        7 => if key < 2 then 15 else 7,  // C_FUR
+        8 => if key < 2 then 7 else 8,  // C_FUR_DIM
+        9 => if key < 2 then 8 else 0,  // C_SHADOW
+        10 => 9,  // C_EYE
+        11 => if key < 2 then 11 else 7,  // C_DEER
+        12 => if key < 2 then 8 else 0,  // C_FAINT
+        13 => 1,  // C_EYE_DIM
+        _ => grid.COLOR_DEFAULT,
+    }
+}
+
+/// The palette at one phase: a colour per role, and `dim` (the plain
+/// tier at dusk and after: the canopy's bold dropped). A struct of ints,
+/// computed once a frame by `palette_at`.
+pub struct Palette {
+    path: int,
+    path_mark: int,
+    grass: int,
+    trunk: int,
+    canopy: int,
+    canopy_dark: int,
+    floor: int,
+    fur: int,
+    fur_dim: int,
+    shadow: int,
+    eye: int,
+    deer: int,
+    faint: int,
+    eye_dim: int,
+    dim: bool,
+}
+
+/// The colour a role has in a palette.
+pub fn color(p: Palette, role: int) -> int {
+    match role {
+        0 => p.path,
+        1 => p.path_mark,
+        2 => p.grass,
+        3 => p.trunk,
+        4 => p.canopy,
+        5 => p.canopy_dark,
+        6 => p.floor,
+        7 => p.fur,
+        8 => p.fur_dim,
+        9 => p.shadow,
+        10 => p.eye,
+        11 => p.deer,
+        12 => p.faint,
+        13 => p.eye_dim,
+        _ => grid.COLOR_DEFAULT,
+    }
+}
+
+/// A role's rich colour at `phase`: the two keyframes around it blended
+/// in RGB by the phase's fraction and quantized to the nearest index
+/// (`tier.blend`). A role whose keyframes agree (the eyes) is returned as is.
+fn rich_at(role: int, phase: int) -> int {
+    var ph = phase
+    if ph < 0 {
+        ph = 0
+    }
+    if ph > PHASE_NIGHT {
+        ph = PHASE_NIGHT
+    }
+    let key = if ph < PHASE_DUSK then 0 else 1
+    let t = ph - key * PHASE_DUSK
+    tier.blend(rich_key(role, key), rich_key(role, key + 1), t, PHASE_DUSK)
+}
+
+/// The plain tier's keyframe at `phase`: steps at the midpoints (the
+/// sixteen colours cannot blend).
+fn plain_step(phase: int) -> int {
+    if phase < PHASE_DUSK / 2 {
+        return 0
+    }
+    if phase < (PHASE_DUSK + PHASE_NIGHT) / 2 {
+        return 1
+    }
+    2
+}
+
+/// The palette of a tier at a phase (0 afternoon .. `PHASE_NIGHT`).
+pub fn palette_at(t: int, phase: int) -> Palette {
+    if t == tier.RICH {
+        return Palette {
+            path: rich_at(C_PATH, phase),
+            path_mark: rich_at(C_PATH_MARK, phase),
+            grass: rich_at(C_GRASS, phase),
+            trunk: rich_at(C_TRUNK, phase),
+            canopy: rich_at(C_CANOPY, phase),
+            canopy_dark: rich_at(C_CANOPY_DARK, phase),
+            floor: rich_at(C_FLOOR, phase),
+            fur: rich_at(C_FUR, phase),
+            fur_dim: rich_at(C_FUR_DIM, phase),
+            shadow: rich_at(C_SHADOW, phase),
+            eye: rich_at(C_EYE, phase),
+            deer: rich_at(C_DEER, phase),
+            faint: rich_at(C_FAINT, phase),
+            eye_dim: rich_at(C_EYE_DIM, phase),
+            dim: false,
+        }
+    }
+    let k = plain_step(phase)
+    Palette {
+        path: plain_key(C_PATH, k),
+        path_mark: plain_key(C_PATH_MARK, k),
+        grass: plain_key(C_GRASS, k),
+        trunk: plain_key(C_TRUNK, k),
+        canopy: plain_key(C_CANOPY, k),
+        canopy_dark: plain_key(C_CANOPY_DARK, k),
+        floor: plain_key(C_FLOOR, k),
+        fur: plain_key(C_FUR, k),
+        fur_dim: plain_key(C_FUR_DIM, k),
+        shadow: plain_key(C_SHADOW, k),
+        eye: plain_key(C_EYE, k),
+        deer: plain_key(C_DEER, k),
+        faint: plain_key(C_FAINT, k),
+        eye_dim: plain_key(C_EYE_DIM, k),
+        dim: k > 0,
+    }
+}
+
+/// The colour index a palette role has on a t in the afternoon (the
+/// one phase before pk03; the sheet's and the tests' palette).
+pub fn palette(t: int, role: int) -> int {
+    color(palette_at(t, 0), role)
+}
+
+fn c(p: Palette, cp: int, fg: int, bg: int, attrs: int) -> grid.Cell {
+    grid.cell(cp, color(p, fg), color(p, bg), attrs)
+}
+
+/// The cell a sprite is on a tier in the afternoon, with its variant (a
+/// trot frame, a texture index; a variant a sprite has no use for is
+/// ignored). The renderer uses `glyph_at` with the frame's palette.
+pub fn glyph(t: int, sprite: int, variant: int) -> grid.Cell {
+    glyph_at(t, palette_at(t, 0), sprite, variant)
+}
+
+/// The cell a sprite is on a t under palette `p` (the phase's).
+pub fn glyph_at(t: int, p: Palette, sprite: int, variant: int) -> grid.Cell {
+    if t == tier.RICH {
+        return rich(p, sprite, variant)
+    }
+    plain(p, sprite, variant)
+}
+
+fn rich(t: Palette, sprite: int, v: int) -> grid.Cell {
+    match sprite {
+        0 => c(t, 32, C_PATH_MARK, C_PATH, 0),  // SP_PATH
+        1 =>
+            c(
+                t,
+                if v % 4 == 0 {
+                    183
+                } else if v % 4 == 1 {
+                    9617
+                } else if v % 4 == 2 {
+                    8228
+                } else {
+                    96
+                },
+                C_PATH_MARK,
+                C_PATH,
+                0,
+            ),  // SP_PATH_MARK
+        2 => c(t, if v % 2 == 0 then 10294 else 10262, C_GRASS, C_FLOOR, 0),  // SP_GRASS
+        3 => c(t, 9475, C_TRUNK, C_FLOOR, 0),  // SP_TRUNK
+        4 =>
+            c(
+                t,
+                if v % 4 == 0 {
+                    10495
+                } else if v % 4 == 1 {
+                    10486
+                } else if v % 4 == 2 {
+                    10478
+                } else {
+                    10294
+                },
+                if v % 4 < 2 then C_CANOPY else C_CANOPY_DARK,
+                C_FLOOR,
+                0,
+            ),  // SP_CANOPY
+        5 => c(t, 32, C_CANOPY_DARK, C_FLOOR, 0),  // SP_FOREST_DARK
+        6 => c(t, 9608, C_FUR, C_PATH, 0),  // SP_WOLF_BODY
+        13 => c(t, 9608, C_FUR_DIM, C_PATH, 0),  // SP_WOLF_BODY_DIM
+        7 => c(t, if v == 1 then 9619 else 9608, C_FUR, C_PATH, 0),  // SP_WOLF_HEAD
+        8 =>
+            c(
+                t,
+                if v % 4 == 0 {
+                    9600
+                } else if v % 4 == 1 {
+                    9624
+                } else if v % 4 == 2 {
+                    9604
+                } else {
+                    9623
+                },
+                C_FUR,
+                C_PATH,
+                0,
+            ),  // SP_WOLF_LEGS
+        15 =>
+            c(
+                t,
+                if v / 4 % 4 == 0 {
+                    if v % 2 == 0 then 9624 else 9629
+                } else if v / 4 % 4 == 1 {
+                    9600
+                } else {
+                    9604
+                },
+                C_FUR,
+                C_PATH,
+                0,
+            ),  // SP_WOLF_TAIL
+        9 => c(t, if v == 0 then 9617 else 9604, C_FAINT, C_PATH, 0),  // SP_FAINTED
+        10 => c(t, if v == 0 then 9608 else if v == 1 then 9619 else 9617, C_SHADOW, C_PATH, 0),  // SP_SHADOW_BODY
+        11 => c(t, 9642, if v == 0 then C_EYE else C_EYE_DIM, C_SHADOW, 0),  // SP_SHADOW_EYE
+        12 => c(t, if v == 0 then 9629 else if v == 2 then 9624 else 9608, C_DEER, C_PATH, 0),  // SP_DEER
+        14 =>
+            c(
+                t,
+                if v / 2 % 4 == 0 {
+                    if v % 2 == 0 then 9629 else 9624
+                } else if v / 2 % 4 == 1 {
+                    if v % 2 == 0 then 9624 else 9629
+                } else {
+                    9600
+                },
+                C_FUR,
+                C_PATH,
+                0,
+            ),  // SP_WOLF_EAR
+        _ => grid.blank(),
+    }
+}
+
+fn plain(t: Palette, sprite: int, v: int) -> grid.Cell {
+    match sprite {
+        0 => c(t, 32, C_PATH_MARK, C_PATH, 0),  // SP_PATH
+        1 =>
+            c(
+                t,
+                if v % 4 == 0 then 46 else if v % 4 == 1 then 44 else if v % 4 == 2 then 39 else 96,
+                C_PATH_MARK,
+                C_PATH,
+                0,
+            ),  // SP_PATH_MARK
+        2 => c(t, if v % 2 == 0 then 34 else 39, C_GRASS, C_FLOOR, 0),  // SP_GRASS
+        3 => c(t, 124, C_TRUNK, C_FLOOR, 0),  // SP_TRUNK
+        4 =>
+            c(
+                t,
+                if v % 4 == 0 then 38 else if v % 4 == 1 then 37 else if v % 4 == 2 then 42 else 59,
+                if v % 4 < 2 then C_CANOPY else C_CANOPY_DARK,
+                C_FLOOR,
+                if v % 4 < 2 && !t.dim then grid.ATTR_BOLD else 0,
+            ),  // SP_CANOPY
+        5 => c(t, 32, C_CANOPY_DARK, C_FLOOR, 0),  // SP_FOREST_DARK
+        6 => c(t, 87, C_FUR, C_PATH, grid.ATTR_BOLD),  // SP_WOLF_BODY
+        13 => c(t, 87, C_FUR_DIM, C_PATH, 0),  // SP_WOLF_BODY_DIM
+        7 => c(t, if v == 0 then 87 else 119, C_FUR, C_PATH, grid.ATTR_BOLD),  // SP_WOLF_HEAD
+        8 => c(t, if v % 2 == 0 then 44 else 46, C_FUR, C_PATH, grid.ATTR_BOLD),  // SP_WOLF_LEGS
+        15 =>
+            c(
+                t,
+                if v / 4 % 4 == 0 {
+                    if v % 2 == 0 then 44 else 39
+                } else if v / 4 % 4 == 1 {
+                    44
+                } else {
+                    46
+                },
+                C_FUR,
+                C_PATH,
+                grid.ATTR_BOLD,
+            ),  // SP_WOLF_TAIL
+        9 => c(t, if v == 0 then 120 else 95, C_FAINT, C_PATH, 0),  // SP_FAINTED
+        10 =>
+            c(
+                t,
+                if v == 0 then 87 else if v == 1 then 119 else 46,
+                C_SHADOW,
+                C_PATH,
+                grid.ATTR_BOLD,
+            ),  // SP_SHADOW_BODY
+        11 => c(t, 58, if v == 0 then C_EYE else C_EYE_DIM, C_PATH, grid.ATTR_BOLD),  // SP_SHADOW_EYE
+        12 => c(t, if v == 0 then 89 else 68, C_DEER, C_PATH, grid.ATTR_BOLD),  // SP_DEER
+        14 => c(t, if v == 0 then 39 else 96, C_FUR, C_PATH, 0),  // SP_WOLF_EAR
+        _ => grid.blank(),
+    }
+}
+
+/// A cell of the death card's text (pk02): a Latin-1 code point in fur on
+/// the forest floor, bold when `emphasis` (the score line). The card's
+/// text is ASCII, inside PAX's font today, so it adds no row to
+/// `docs/GLYPHS.md`; its frame is drawn with the blocks the wolf already
+/// uses (`card_frame`).
+pub fn card_text(t: int, cp: int, emphasis: bool) -> grid.Cell {
+    card_text_at(t, palette_at(t, 0), cp, emphasis)
+}
+
+/// The card's text under palette `p`.
+pub fn card_text_at(t: int, p: Palette, cp: int, emphasis: bool) -> grid.Cell {
+    let attrs = if emphasis || t == tier.PLAIN then grid.ATTR_BOLD else 0
+    c(p, cp, C_FUR, C_FLOOR, attrs)
+}
+
+/// A cell of the card's frame: `which` 0 the top edge, 1 the bottom, 2 a
+/// side. Rich: the upper and lower half blocks and the full block (all in
+/// `docs/GLYPHS.md`); plain: `-` and `|`.
+pub fn card_frame(t: int, which: int) -> grid.Cell {
+    card_frame_at(t, palette_at(t, 0), which)
+}
+
+/// The card's frame under palette `p`.
+pub fn card_frame_at(t: int, p: Palette, which: int) -> grid.Cell {
+    if t == tier.RICH {
+        return c(
+            p,
+            if which == 0 then 9600 else if which == 1 then 9604 else 9608,
+            C_FUR_DIM,
+            C_FLOOR,
+            0,
+        )
+    }
+    c(p, if which == 2 then 124 else 45, C_FUR_DIM, C_FLOOR, 0)
+}
+
+/// Every code point the rich t can draw, each once, ascending: the
+/// list `docs/GLYPHS.md` must name (a test holds the two together), and
+/// PAX's font row's specification.
+pub fn rich_code_points() -> List[int] {
+    var cps = List[int]()
+    var s = 0
+    while s < SPRITE_COUNT {
+        var v = 0
+        while v < VARIANT_COUNT {
+            let cp = glyph(tier.RICH, s, v).cp
+            var seen = false
+            for k in cps {
+                if k == cp {
+                    seen = true
+                }
+            }
+            if !seen && cp != 32 {
+                (mut cps).push(cp)
+            }
+            v += 1
+        }
+        s += 1
+    }
+    // Insertion sort: the list is short.
+    var i = 1
+    while i < cps.len {
+        var j = i
+        while j > 0 && cps[j - 1] > cps[j] {
+            let t = cps[j]
+            cps[j] = cps[j - 1]
+            cps[j - 1] = t
+            j -= 1
+        }
+        i += 1
+    }
+    cps
+}
