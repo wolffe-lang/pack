@@ -5,7 +5,7 @@ fn text_of(v: List[byte]) -> str {
 }
 
 fn sample() -> str {
-    "# a run\npk 1\nseed 42\ntier rich\nsize 80x24\n\nt 30 up\nt 30 left\nt 95 size 100x30\nt 120 quit\n"
+    "# a run\npk 1\nseed 42\ntier rich\nsize 80x24\n\nt 30 up\nt 30 left\nt 95 size 100x30\nt 110 health -25\nt 120 quit\n"
 }
 
 fn test_parse_sample() {
@@ -14,16 +14,19 @@ fn test_parse_sample() {
         new(0, 0, 0, 0)
     }
     assert(r.seed == 42 && r.tier == 1 && r.cols == 80 && r.rows == 24, "header")
-    assert(r.events.len == 4 && last_tick(r) == 120, "events")
+    assert(r.events.len == 5 && last_tick(r) == 120, "events")
     var keys = List[int]()
-    let (c, rows) = at(r, 30, mut keys)
+    let (c, rows, h) = at(r, 30, mut keys)
     assert(
-        keys.len == 2 && keys[0] == 1 && keys[1] == 3 && c == 0 && rows == 0,
+        keys.len == 2 && keys[0] == 1 && keys[1] == 3 && c == 0 && rows == 0 && h == 0,
         "tick 30: up, left",
     )
     var k2 = List[int]()
-    let (c2, r2) = at(r, 95, mut k2)
-    assert(k2.len == 0 && c2 == 100 && r2 == 30, "tick 95: a resize")
+    let (c2, r2, h2) = at(r, 95, mut k2)
+    assert(k2.len == 0 && c2 == 100 && r2 == 30 && h2 == 0, "tick 95: a resize")
+    var k3 = List[int]()
+    let (c3, _, h3) = at(r, 110, mut k3)
+    assert(k3.len == 0 && c3 == 0 && h3 == -25, "tick 110: health -25")
 }
 
 fn test_round_trip() {
@@ -36,7 +39,7 @@ fn test_round_trip() {
     assert(text_of(out) == text_of(out2), "format is a fixed point:\n{text_of(out)}")
     assert(
         text_of(out) ==
-            "pk 1\nseed 42\ntier rich\nsize 80x24\nt 30 up\nt 30 left\nt 95 size 100x30\nt 120 quit\n",
+            "pk 1\nseed 42\ntier rich\nsize 80x24\nt 30 up\nt 30 left\nt 95 size 100x30\nt 110 health -25\nt 120 quit\n",
         "{text_of(out)}",
     )
 }
@@ -58,6 +61,8 @@ fn test_refusals() {
     assert(refused("pk 1\nseed 1\ntier rich\nsize 80x24\nt 10 up\nt 5 up\n"), "ticks backwards")
     assert(refused("pk 1\nseed 1\ntier rich\nsize 80x24\nt 10 sideways\n"), "unknown key")
     assert(refused("pk 1\nseed 1\ntier rich\nsize 80x24\nwolves 5\n"), "unknown word")
+    assert(refused("pk 1\nseed 1\ntier rich\nsize 80x24\nt 10 health\n"), "health without a number")
+    assert(refused("pk 1\nseed 1\ntier rich\nsize 80x24\nt 10 health ten\n"), "health with a word")
     assert(!refused("pk 1\nseed -7\ntier plain\nsize 20x10\n"), "a negative seed is a seed")
 }
 

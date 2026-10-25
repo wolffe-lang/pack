@@ -9,9 +9,12 @@
 //!     size 80x24
 //!     t 30 up
 //!     t 95 size 100x30
+//!     t 120 health -25
 //!
 //! `pk 1` is the version. Events are `t TICK KEY` (a key name as `input`
-//! names them) or `t TICK size WxH` (a resize), ticks non-decreasing. A
+//! names them), `t TICK size WxH` (a resize) or `t TICK health N` (a
+//! change to the pack's health, pk01: the goldens' and the debug keys'
+//! channel until pk02's shadows deal damage), ticks non-decreasing. A
 //! blank line or one starting `#` is ignored. `parse` names a line that
 //! is none of these (the parser's row carries nothing more: the file is
 //! small and a reader reads it).
@@ -19,13 +22,18 @@
 /// A resize event's key (no key); `cols` and `rows` carry the size.
 pub const EV_SIZE: int = 0
 
-/// One event: at `tick`, a key (as `input` numbers them) or, with `key`
-/// `EV_SIZE`, a resize to `cols` by `rows`.
+/// A health event's key (no key); `arg` carries the change.
+pub const EV_HEALTH: int = 100
+
+/// One event: at `tick`, a key (as `input` numbers them); with `key`
+/// `EV_SIZE`, a resize to `cols` by `rows`; with `EV_HEALTH`, a change of
+/// `arg` to the pack's health.
 pub struct Event {
     tick: int,
     key: int,
     cols: int,
     rows: int,
+    arg: int,
 }
 
 /// A replay.
@@ -44,28 +52,39 @@ pub fn new(seed: int, tier: int, cols: int, rows: int) -> Replay {
 
 /// Record a key at a tick.
 pub fn push_key(mut r: Replay, tick: int, key: int) {
-    (mut r.events).push(Event { tick: tick, key: key, cols: 0, rows: 0 })
+    (mut r.events).push(Event { tick: tick, key: key, cols: 0, rows: 0, arg: 0 })
 }
 
 /// Record a resize at a tick.
 pub fn push_size(mut r: Replay, tick: int, cols: int, rows: int) {
-    (mut r.events).push(Event { tick: tick, key: EV_SIZE, cols: cols, rows: rows })
+    (mut r.events).push(Event { tick: tick, key: EV_SIZE, cols: cols, rows: rows, arg: 0 })
+}
+
+/// Record a health change at a tick.
+pub fn push_health(mut r: Replay, tick: int, delta: int) {
+    (mut r.events).push(Event { tick: tick, key: EV_HEALTH, cols: 0, rows: 0, arg: delta })
 }
 
 /// The keys at `tick`, pushed onto `keys` in file order; the last resize
-/// at that tick as `(cols, rows)`, or `(0, 0)` when none.
-pub fn at(r: Replay, tick: int, mut keys: List[int]) -> (int, int) {
-    var size = (0, 0)
+/// at that tick as `(cols, rows)`, or `(0, 0)` when none; the health
+/// changes at that tick summed.
+pub fn at(r: Replay, tick: int, mut keys: List[int]) -> (int, int, int) {
+    var cols = 0
+    var rows = 0
+    var health = 0
     for e in r.events {
         if e.tick == tick {
             if e.key == EV_SIZE {
-                size = (e.cols, e.rows)
+                cols = e.cols
+                rows = e.rows
+            } else if e.key == EV_HEALTH {
+                health += e.arg
             } else {
                 (mut keys).push(e.key)
             }
         }
     }
-    size
+    (cols, rows, health)
 }
 
 /// The last tick any event names (0 for none).
@@ -207,6 +226,11 @@ pub fn from_text(text: str) -> Replay ! {parse} {
                 }
                 let (c, rows) = parse_size(words[3])?
                 push_size(mut r, tick, c, rows)
+            } else if words[2] == "health" {
+                if words.len < 4 {
+                    return parse
+                }
+                push_health(mut r, tick, words[3].to_int()?)
             } else {
                 push_key(mut r, tick, key_of(words[2])?)
             }
@@ -235,6 +259,8 @@ pub fn format(r: Replay, mut out: List[byte]) {
     for e in r.events {
         if e.key == EV_SIZE {
             push_str(mut out, "t {e.tick} size {e.cols}x{e.rows}\n")
+        } else if e.key == EV_HEALTH {
+            push_str(mut out, "t {e.tick} health {e.arg}\n")
         } else {
             push_str(mut out, "t {e.tick} {key_name(e.key)}\n")
         }
