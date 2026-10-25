@@ -12,7 +12,10 @@
 //! quit; Esc quit, once `ESC_TIMEOUT_MS` passes with nothing after it;
 //! Ctrl-C the interrupt (when the terminal passes it as a byte). The
 //! debug keys `-`/`_` and `=`/`+` (health down and up, `--debug` only);
-//! `s`/`S` saves the replay on the death card (pk02). The
+//! `s`/`S` saves the replay on the death card (pk02); `r`/`R`, `p`/`P` and
+//! `/` are the title card's (pk03: the same seed again, the last replay,
+//! a replay by name), and in text mode (the title's prompt) a printable
+//! byte is a character key, Enter and Backspace keys of their own. The
 //! kitty/CSI-u form `ESC [ code ; mods u` and the tilde form `ESC [ n ~`
 //! are recognised and ignored; an unknown CSI is consumed; any other byte
 //! is dropped and counted in `dropped`.
@@ -55,6 +58,26 @@ pub const KEY_HEALTH_UP: int = 10
 /// recorded, dropped in play.
 pub const KEY_SAVE: int = 11
 
+/// Enter, in text mode (pk03: the title's prompt).
+pub const KEY_ENTER: int = 12
+
+/// Backspace or Delete, in text mode.
+pub const KEY_BACKSPACE: int = 13
+
+/// `r` or `R`: on the title card, run the same seed again (pk03); dropped
+/// in play, never recorded.
+pub const KEY_RESTART: int = 14
+
+/// `p` or `P`: on the title card, play the last saved replay (pk03).
+pub const KEY_PLAY: int = 15
+
+/// `/`: on the title card, open the prompt for a replay's name (pk03).
+pub const KEY_PROMPT: int = 16
+
+/// In text mode a printable byte `b` (32 to 126) is the key
+/// `KEY_CHAR_BASE + b`; `char_of` reads it back.
+pub const KEY_CHAR_BASE: int = 1000
+
 /// The milliseconds after which a lone ESC is Esc.
 pub const ESC_TIMEOUT_MS: int = 50
 
@@ -65,11 +88,42 @@ pub struct Decoder {
     esc_at_ms: int,
     dropped: int,
     ignored: int,
+    text: bool,
 }
 
-/// A fresh decoder.
+/// A fresh decoder, in key mode.
 pub fn new() -> Decoder {
-    Decoder { pending: List[byte](), esc_at_ms: 0, dropped: 0, ignored: 0 }
+    Decoder { pending: List[byte](), esc_at_ms: 0, dropped: 0, ignored: 0, text: false }
+}
+
+/// Text mode on or off (the title's prompt, pk03): in text mode a plain
+/// printable byte is a character key, Enter and Backspace are keys of
+/// their own, and Esc is still the quit key (the prompt's cancel); the
+/// escape sequences decode as ever and are dropped by the prompt.
+pub fn set_text(mut d: Decoder, on: bool) {
+    d.text = on
+}
+
+/// The character a text-mode key carries, or -1 for a key that is none.
+pub fn char_of(k: int) -> int {
+    if k >= KEY_CHAR_BASE + 32 && k <= KEY_CHAR_BASE + 126 then k - KEY_CHAR_BASE else -1
+}
+
+/// The key a plain byte means in text mode, or `KEY_NONE`.
+pub fn text_key(b: int) -> int {
+    if b == 13 || b == 10 {
+        return KEY_ENTER
+    }
+    if b == 127 || b == 8 {
+        return KEY_BACKSPACE
+    }
+    if b >= 32 && b <= 126 {
+        return KEY_CHAR_BASE + b
+    }
+    if b == 3 {
+        return KEY_INTERRUPT
+    }
+    KEY_NONE
 }
 
 /// The key a plain (non-escape) byte means, or `KEY_NONE`.
@@ -94,6 +148,15 @@ pub fn plain_key(b: int) -> int {
     }
     if b == 115 || b == 83 {
         return KEY_SAVE
+    }
+    if b == 114 || b == 82 {
+        return KEY_RESTART
+    }
+    if b == 112 || b == 80 {
+        return KEY_PLAY
+    }
+    if b == 47 {
+        return KEY_PROMPT
     }
     KEY_NONE
 }
@@ -177,7 +240,7 @@ pub fn feed(mut d: Decoder, b: byte, now_ms: int, mut keys: List[int]) {
                 d.esc_at_ms = now_ms
                 return
             }
-            let k = plain_key(v)
+            let k = if d.text then text_key(v) else plain_key(v)
             if k != KEY_NONE {
                 (mut keys).push(k)
             } else {

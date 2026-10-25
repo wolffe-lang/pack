@@ -171,3 +171,44 @@ fn test_key_names_round_trip() {
     let bad = key_of("sideways") else -1
     assert(bad == -1, "an unknown name is parse")
 }
+
+fn test_title_keys_and_text_mode() {
+    var d = new()
+    var keys = List[int]()
+    feed(mut d, 114 as byte, 0, mut keys)
+    feed(mut d, 80 as byte, 0, mut keys)
+    feed(mut d, 47 as byte, 0, mut keys)
+    assert(
+        keys.len == 3 && keys[0] == KEY_RESTART && keys[1] == KEY_PLAY && keys[2] == KEY_PROMPT,
+        "r, P and / are the title's keys: {keys}",
+    )
+    // Text mode: letters are characters, Enter and Backspace keys, Esc the
+    // quit (the cancel), an arrow still an arrow.
+    set_text(mut d, true)
+    (mut keys).reset()
+    for b in "aq/".bytes() {
+        feed(mut d, b, 0, mut keys)
+    }
+    feed(mut d, 127 as byte, 0, mut keys)
+    feed(mut d, 13 as byte, 0, mut keys)
+    assert(keys.len == 5, "five keys: {keys}")
+    assert(
+        char_of(keys[0]) == 97 && char_of(keys[1]) == 113 && char_of(keys[2]) == 47,
+        "the characters",
+    )
+    assert(keys[3] == KEY_BACKSPACE && keys[4] == KEY_ENTER, "backspace and enter")
+    assert(char_of(KEY_ENTER) == -1 && char_of(KEY_UP) == -1, "a key is no character")
+    (mut keys).reset()
+    for b in "\x1b[A".bytes() {
+        feed(mut d, b, 0, mut keys)
+    }
+    assert(keys.len == 1 && keys[0] == KEY_UP, "an arrow in text mode")
+    (mut keys).reset()
+    feed(mut d, 27 as byte, 0, mut keys)
+    flush(mut d, ESC_TIMEOUT_MS + 1, mut keys)
+    assert(keys.len == 1 && keys[0] == KEY_QUIT, "a lone Esc in text mode is the quit")
+    set_text(mut d, false)
+    (mut keys).reset()
+    feed(mut d, 97 as byte, 0, mut keys)
+    assert(keys.len == 0, "out of text mode a letter is dropped")
+}
