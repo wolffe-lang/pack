@@ -280,7 +280,7 @@ fn draw_sim_shadow(s: sim.Sim, t: int, p: sprites.Palette, k: int, mut g: grid.G
                 col,
                 sim.shadow_crouching(sh),
                 sh.dir > 0,
-                sim.shadow_eyes(sh, s.tick),
+                sim.shadow_eyes(sh, if s.dead then s.died_tick else s.tick),
             )
         }
         if sh.state == sim.LURKING && sh.face_x != 0 {

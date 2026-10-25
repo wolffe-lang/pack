@@ -436,3 +436,27 @@ fn test_pk04_shadow_crouch_and_lunge_are_distinct_on_both_tiers() {
         t += 1
     }
 }
+
+fn test_pk04_death_freezes_attack_tail_eyes_and_every_style() {
+    var s = sim.new(5, 80, 24)
+    var sh = chaser(s, -15, 14)
+    sh.attack_age = 7
+    (mut s.shadows).push(sh)
+    s.dead = true
+    s.died_tick = 1
+    s.tick = 1
+    var t = tier.PLAIN
+    while t <= tier.RICH {
+        var before = grid.new(24, 80)
+        var after = grid.new(24, 80)
+        art.render(s, t, mut before)
+        var i = 0
+        while i < 5 { sim.step(mut s, List[int](), 0); i += 1 }
+        art.render(s, t, mut after)
+        assert(
+            frames_equal(before, after),
+            "death freezes every glyph and style, including the settling lunge",
+        )
+        t += 1
+    }
+}
