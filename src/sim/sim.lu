@@ -586,6 +586,8 @@ pub struct Sim {
     leap_left: int,
     leap_aim: Aim,
     leap_tell: bool,
+    leap_held: int,
+    leap_tick: int,
     leap_group: int,
     leap_next_group: int,
     leap_landing: bool,
@@ -704,6 +706,8 @@ pub fn new_at(seed: int, cols: int, rows: int, start: int) -> Sim {
         leap_left: 0,
         leap_aim: leap_aim(0),
         leap_tell: false,
+        leap_held: 0,
+        leap_tick: -1,
         leap_group: 0,
         leap_next_group: 0,
         leap_landing: false,
@@ -1790,7 +1794,9 @@ fn leap(mut s: Sim) {
     s.stamina -= LEAP_STAMINA
     s.leap_ready_at = s.tick + LEAP_COOLDOWN
     s.leap_left = LEAP_TICKS
-    s.leap_aim = leap_aim(held_arrows(s))
+    s.leap_held = held_arrows(s)
+    s.leap_tick = s.tick
+    s.leap_aim = leap_aim(s.leap_held)
     s.leap_tell = true
     s.leap_group = s.leap_next_group
     s.leap_next_group = 1 - s.leap_next_group

@@ -885,7 +885,7 @@ fn play(
             sim.step(mut s, tick_keys, health)
             if o.trace {
                 eprint(
-                    "trace tick {s.tick} in {trace_bytes} keys {tick_keys.len} queue {keys.len} steer {sim.steer_target(s)} heading {sim.steer_heading(s)} x {sim.steer_x(s)} y {sim.steer_y(s)} stamina {s.stamina} health {s.health} down {s.down} spawn {sim.spawn_rate(s)} shadows {sim.shadows_alive(s)} landed {s.landed} deer {sim.deer_alive(s)} fed {s.fed} dead {if s.dead then 1 else 0} wall_us {(clock.now_ns() - t0_ns) / 1000}",
+                    "trace tick {s.tick} in {trace_bytes} keys {tick_keys.len} queue {keys.len} steer {sim.steer_target(s)} heading {sim.steer_heading(s)} x {sim.steer_x(s)} y {sim.steer_y(s)} stamina {s.stamina} health {s.health} down {s.down} spawn {sim.spawn_rate(s)} shadows {sim.shadows_alive(s)} landed {s.landed} deer {sim.deer_alive(s)} fed {s.fed} dead {if s.dead then 1 else 0} leap_tick {s.leap_tick} leap_held {s.leap_held} aim_x {s.leap_aim.x} aim_y {s.leap_aim.y} tell {if s.leap_tell then 1 else 0} up_at {s.hold_up.last} down_at {s.hold_down.last} left_at {s.hold_left.last} right_at {s.hold_right.last} wall_us {(clock.now_ns() - t0_ns) / 1000}",
                 )
                 trace_bytes = 0
             }

@@ -333,4 +333,62 @@ def row_directional_chords(bin, ctx):
     return s, problems
 
 
-ROWS = {"held-run": row_held_run, "card": row_card, "title": row_title, "directional-chords": row_directional_chords}
+def row_aim_window(bin, ctx):
+    """One key repeats at a time: first arrow, then only the second, Space."""
+    arrows = {"up": b"\x1b[A", "down": b"\x1b[B", "left": b"\x1b[D", "right": b"\x1b[C"}
+    cases = [("up", "right", 1, 1), ("right", "up", 1, 1),
+             ("up", "left", -1, 1), ("left", "up", -1, 1),
+             ("down", "right", 1, -1), ("right", "down", 1, -1),
+             ("down", "left", -1, -1), ("left", "down", -1, -1)]
+    cases = [(a, b, x, y, delay) for a, b, x, y in cases for delay in (0.2, 0.3, 0.4)]
+    cases += [(None, name, x, y, 0.3) for name, x, y in
+              [("up", 0, 1), ("down", 0, -1), ("left", -1, 0), ("right", 1, 0)]]
+    cases += [(None, None, 0, 1, 0.3)]
+    problems, evidence = [], []
+    for tier in ("rich", "plain"):
+        for first, second, x, y, delay in cases:
+            s = ctx.Session([bin, "--seed", "7", "--tier", tier, "--trace", "--no-title"],
+                            24, 80, ctx.env_for())
+            if first:
+                # Initial delay, then autorepeat. After this there are NO
+                # more bytes from the first arrow (last-key-only repeat).
+                s.type(arrows[first], settle=0.25)
+                for _ in range(5):
+                    s.type(arrows[first], settle=0.05)
+            second_at = time.monotonic()
+            if second:
+                # Absolute deadlines avoid accumulating select's rounding
+                # at each repeat into a longer-than-requested chord delay.
+                for n in range(round(delay / 0.05)):
+                    s.type(arrows[second], settle=0)
+                    s.pump(max(0, second_at + (n + 1) * 0.05 - time.monotonic()))
+            else:
+                s.pump(delay)
+            elapsed_ms = round((time.monotonic() - second_at) * 1000)
+            s.type(b" ", settle=0.12)
+            accepted = [r for r in trace_ticks(s.err) if r.get("tell") == 1]
+            tag = "%s %s>%s delay=%dms actual=%dms" % (tier, first, second, round(delay * 1000), elapsed_ms)
+            if len(accepted) != 1:
+                problems.append("%s: accepted Space rows %r" % (tag, accepted))
+            else:
+                r = accepted[0]
+                raw = r.get("leap_held")
+                actual = (r.get("aim_x"), r.get("aim_y"))
+                row = "%s Space=%s held=%s aim=%s,%s up_at=%s down_at=%s left_at=%s right_at=%s" % (
+                    tag, r.get("leap_tick"), raw, *actual, r.get("up_at"), r.get("down_at"),
+                    r.get("left_at"), r.get("right_at"))
+                evidence.append(row)
+                if actual != (x, y):
+                    problems.append("%s expected=%s,%s" % (row, x, y))
+            s.type(b"q")
+            s.finish()
+            ctx.common_checks(s, 0, problems)
+    path = os.path.join(ctx.ROOT, "target", "pty", "aim-window.txt")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(evidence) + "\n")
+    s.evidence = "%d timed sessions; accepted Space/held/aim rows at %s" % (len(evidence), path)
+    return s, problems
+
+
+ROWS = {"held-run": row_held_run, "card": row_card, "title": row_title, "directional-chords": row_directional_chords, "aim-window": row_aim_window}
