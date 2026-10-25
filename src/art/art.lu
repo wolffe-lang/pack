@@ -87,6 +87,23 @@ pub fn draw_wolf(
     tick: int,
     dim: bool,
 ) {
+    if posture == sim.POSTURE_LEAP {
+        let fur = if dim then p.fur_dim else p.fur
+        if t == tier.RICH {
+            // A long low body, tucked legs and ears out: not the trot or
+            // the sprint. All blocks already belong to GLYPHS.md.
+            grid.put(mut g, row - 1, col - 1, grid.cell(9629, fur, p.path, 0))
+            grid.put(mut g, row - 1, col, grid.cell(9600, fur, p.path, 0))
+            grid.put(mut g, row - 1, col + 1, grid.cell(9624, fur, p.path, 0))
+            grid.put(mut g, row, col - 1, grid.cell(9604, fur, p.path, 0))
+            grid.put(mut g, row, col, grid.cell(9600, fur, p.path, 0))
+            grid.put(mut g, row, col + 1, grid.cell(9604, fur, p.path, 0))
+        } else {
+            grid.put(mut g, row, col, grid.cell(62, fur, p.path, grid.ATTR_BOLD))
+            grid.put(mut g, row, col + 1, grid.cell(87, fur, p.path, grid.ATTR_BOLD))
+        }
+        return
+    }
     let pant = posture == sim.POSTURE_PANT && tick / 8 % 2 == 1
     if t == tier.RICH {
         let body = if dim then sprites.SP_WOLF_BODY_DIM else sprites.SP_WOLF_BODY
@@ -260,8 +277,9 @@ fn draw_sim_deer(s: sim.Sim, t: int, p: sprites.Palette, k: int, mut g: grid.Gri
 /// Draw wolf `i` of the simulation where the alpha's eye puts it, if on
 /// the screen.
 fn draw_pack_wolf(s: sim.Sim, t: int, p: sprites.Palette, i: int, mut g: grid.Grid) {
-    let row = sim.screen_row(s, i)
-    let col = sim.screen_col(s, i)
+    let (x, y) = sim.wolf_draw_position(s, i)
+    let row = sim.wolf_row(s) - (y / world.FP - sim.alpha(s).y / world.FP)
+    let col = x / world.FP
     let w = copy s.wolves[i]
     if w.state == sim.FAINTED {
         if row >= 0 && row < s.rows {
@@ -333,6 +351,20 @@ pub fn render(s: sim.Sim, t: int, mut g: grid.Grid) {
         i += 1
     }
     draw_pack_wolf(s, t, p, sim.ALPHA, mut g)
+    if s.leap_landing {
+        var mark = 0
+        while mark < s.leap_marks_x.len {
+            let row = sim.wolf_row(s) -
+                (s.leap_marks_y[mark] / world.FP - sim.alpha(s).y / world.FP)
+            grid.put(
+                mut g,
+                row,
+                s.leap_marks_x[mark] / world.FP,
+                grid.cell(if t == tier.RICH then 183 else 42, p.fur, p.path, grid.ATTR_BOLD),
+            )
+            mark += 1
+        }
+    }
     if s.dead {
         card_with(s, t, mut g, "")
     }
@@ -460,6 +492,7 @@ pub fn sheet(t: int) -> grid.Grid {
     draw_wolf(mut g, t, p, 7, 40, 2, sim.POSTURE_TROT, sim.BAND_FRESH, 0, true)
     draw_wolf(mut g, t, p, 7, 45, 1, sim.POSTURE_TROT, sim.BAND_TIRED, 0, false)
     draw_wolf(mut g, t, p, 7, 50, 2, sim.POSTURE_TROT, sim.BAND_SPENT, 0, false)
+    draw_wolf(mut g, t, p, 3, 42, 0, sim.POSTURE_LEAP, sim.BAND_FRESH, 0, false)
     // The fainted wolf, the shadow wolf (two eye frames), the deer.
     draw_fainted(mut g, t, p, 11, 20)
     draw_shadow(mut g, t, p, 11, 27, 0, false, 0, sim.FADE_TICKS)

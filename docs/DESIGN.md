@@ -172,8 +172,8 @@ target is still in reach.
 |---|---|---|---|
 | `LEAP_REACH` | 4 | Space vanquishes every shadow within this many cells of a running wolf (the attack reach: a shadow that can bite can be leapt on) | 2026-10-25 proposed |
 | `LEAP_STAMINA` | 60 | a leap's cost, a fifth of the ceiling: about five leaps, then the pant; the spent pack cannot leap (the pant refuses, nothing happens) | 2026-10-25 proposed |
-| `LEAP_COOLDOWN` | 20 | the ticks between leaps | 2026-10-25 proposed |
-| `LEAP_TICKS` | 6 | the lunge: the pack at the sprint, the leap posture, for this long | 2026-10-25 proposed |
+| `LEAP_COOLDOWN` | 14 | accepted leaps alternate groups at up to 2.14/s while stamina lasts | 2026-10-25 the maintainer's word (rhythm proposed) |
+| `LEAP_TICKS` | 8 | two-cell out-and-back arc at half a cell/tick, leaders+left flanker then right flanker+alpha; other group holds, one-tick landing mark | 2026-10-25 the maintainer's word (duration proposed) |
 | `PARRY_WINDOW` | 9 | Shift+Down or `z` turns any attack that lands within this many ticks of the press (300 ms; R-pk02-3 A: a press, never a held stance) | 2026-10-25 proposed |
 | `PARRY_COOLDOWN` | 30 | the ticks between parries | 2026-10-25 proposed |
 | `PARRY_PUSH`, `PARRY_RECOIL` | 3, 6 | a turned shadow loses its speed and recoils three cells away from its target over six ticks (half a cell a tick: a visible knock-back, no teleport), eyes dim | 2026-10-25 proposed |
@@ -238,3 +238,8 @@ The speed change on 2026-10-25 leaves all deer wear-down timers and all shadow s
 Dusk distances stay 600/1200/1800 rows: at a flat full-health trot the times are
 111.3/222.6/333.9 seconds, formerly 128/256/384. A 15% faster trot arrives
 13.04% sooner in seconds (the informal "15% sooner" is not the reciprocal).
+
+The leap keeps its hit rule and reach: every in-range shadow is vanquished on the press.
+Only the visible group travels; a refused press does not alternate. The arc is a
+presentation offset, clipped in eighth-cell substeps against every live body;
+it never moves the camera, the hitbox or the other group. R-pk04-2 A is proposed.

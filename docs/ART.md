@@ -179,8 +179,17 @@ in GLYPHS.md. The three stamina bands are two numbers (`STAMINA_TIRED`, `STAMINA
 are two (`DENSITY_CLEARING`, `DENSITY_STAND`); the formation's slots, lags, wander and bump are the table in
 `docs/DESIGN.md`, each a named constant. The shadows' pulse is `EYE_PULSE` and its two reds are
 `PALETTE.md`'s; the fade is `FADE_TICKS`; the card's size is `CARD_COLS` by `CARD_ROWS` and its text is
-`art.card_with`'s six lines. The leap and the parry have no posture of their own beyond the lunge (the
-sprint's look for `LEAP_TICKS`): a parry stance for the window is one `draw_wolf` variant away if play wants
-one. The deer's shape and colour are `SP_DEER`'s three variants and `C_DEER`'s three keyframes; the dusk's
+`art.card_with`'s six lines. The leap now has a low stretched block pose (sheet row 3, column 42), plain `>W`.
+The leaders and left flanker travel first; the right flanker and alpha next.
+The non-leaping wolves hold formation; a one-tick bright dot (plain `*`) marks each
+vanquished target at landing. A parry stance remains a possible later change. The deer's shape and colour are `SP_DEER`'s three variants and `C_DEER`'s three keyframes; the dusk's
 keyframes are `tier.rich_key` and `tier.plain_key`, one line a role; the phase's distances are
 `DUSK_START`, `DUSK_FULL` and `NIGHT_FULL`.
+
+## Alternating leap
+
+Eight ticks out and back, at most two cells at half a cell per tick, toward the
+nearest in-range shadow (forward when there is none). Live bodies clip the arc
+before contact. The low, stretched pose is separate from sprinting on both tiers.
+A second accepted press after fourteen ticks launches the other group; the alpha
+is second, and its sprite never pulls the viewport away from the path.

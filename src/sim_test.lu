@@ -727,14 +727,18 @@ fn test_leap_vanquishes_in_reach_costs_stamina_and_fades() {
     assert(s.shadows[1].state == sim.LURKING, "the far one is not")
     assert(s.vanquished == 1, "counted")
     assert(s.stamina == st - sim.LEAP_STAMINA + sim.REGEN_TROT, "stamina paid: {s.stamina}")
-    assert(sim.posture(s) == sim.POSTURE_LEAP, "the lunge shows")
-    run(mut s, sim.FADE_TICKS)
-    assert(s.shadows.len == 1, "faded and gone after FADE_TICKS: {s.shadows.len} left")
+    assert(
+        sim.wolf_posture(s, 0) == sim.POSTURE_LEAP && sim.posture(s) != sim.POSTURE_LEAP,
+        "first group leaps; alpha holds",
+    )
+    run(mut s, sim.LEAP_COOLDOWN - 2)
     // Within the cooldown a second leap does nothing.
     (mut s.shadows).push(shadow_at(s, 0, sim.REACH, sim.CHASING))
     let st2 = s.stamina
     sim.step(mut s, one(sim.KEY_LEAP), 0)
     assert(s.vanquished == 1 && s.stamina == st2 + sim.REGEN_TROT, "the cooldown refuses")
+    run(mut s, sim.FADE_TICKS)
+    assert(s.shadows.len >= 1 && s.shadows[0].state != sim.VANQUISHED, "the first shadow faded")
 }
 
 fn test_the_spent_pack_cannot_leap() {
@@ -1208,4 +1212,48 @@ fn test_pk04_detection_considers_every_visible_wolf() {
     w.x = sh.x
     s.wolves[0] = w
     assert(sim.perceived_wolf(s, sh) >= 0, "a hidden nearest wolf cannot mask a visible one")
+}
+
+fn test_pk04_pack_leap_alternates_moves_and_holds_formation() {
+    var s = sim.new(7, 80, 24)
+    var control = sim.new(7, 80, 24)
+    sim.step(mut s, one(sim.KEY_LEAP), 0)
+    sim.step(mut control, none(), 0)
+    assert(s.leap_group == 0 && s.leap_next_group == 1, "leaders leap first")
+    assert(s.leap_x[3] == 0 && s.leap_y[3] == 0 && s.leap_y[4] == 0, "other group holds")
+    assert(s.leap_y[0] > 0, "a real travelling sprite, not only a posture")
+    assert(s.wolves[4].y == control.wolves[4].y && s.speed == control.speed, "no whole-pack sprint")
+    sim.step(mut s, one(sim.KEY_LEAP), 0)
+    assert(s.leap_group == 0 && s.leap_next_group == 1, "refused leap does not alternate")
+    run(mut s, sim.LEAP_COOLDOWN - 2)
+    sim.step(mut s, one(sim.KEY_LEAP), 0)
+    assert(s.leap_group == 1 && s.leap_next_group == 0, "alpha leaps second")
+    assert(sim.wolf_posture(s, sim.ALPHA) == sim.POSTURE_LEAP, "alpha's turn")
+    assert(s.leap_x[0] == 0 && s.leap_y[0] == 0, "leaders hold second time")
+    assert(sim.LEAP_COOLDOWN == 14 && sim.LEAP_TICKS == 8, "2.14 leaps/s burst rhythm")
+    var age = 1
+    while age < sim.LEAP_TICKS {
+        sim.step(mut s, none(), 0)
+        assert(!sim.any_pose_overlap(s), "animated bodies never overlap")
+        age += 1
+    }
+    assert(s.leap_landing && s.leap_y[4] == 0, "one-tick landing, back in formation")
+    sim.step(mut s, none(), 0)
+    assert(!s.leap_landing, "landing mark expires next tick")
+}
+
+fn test_pk04_shared_arc_is_bounded_out_and_back() {
+    var tick = 0
+    var prev = 0
+    while tick <= 8 {
+        let (x, y) = sim.leap_arc(0, 2000, tick, 8)
+        assert(x == 0 && y >= 0 && y <= 2 * world.FP, "two-cell apex")
+        let dy = if y > prev then y - prev else prev - y
+        assert(dy <= world.FP / 2, "half a cell a tick")
+        prev = y
+        tick += 1
+    }
+    assert(prev == 0, "returned")
+    let (x, y) = sim.leap_arc(-2000, 0, 6, 12)
+    assert(x == -3 * world.FP && y == 0, "same arc, shadow's three-cell apex")
 }

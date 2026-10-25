@@ -393,3 +393,20 @@ fn test_night_changes_the_colours_and_not_the_glyphs() {
     assert(grid.plain_ok(p), "the plain tier keeps its promise at night")
     assert(grid.at(p, row, col).bg == 8, "the plain path is bright black at night")
 }
+
+fn test_pk04_pack_leap_has_distinct_poses_on_both_tiers() {
+    var t = tier.PLAIN
+    while t <= tier.RICH {
+        var normal = grid.new(8, 12)
+        var leap = grid.new(8, 12)
+        let p = tier.palette_at(t, 0)
+        art.draw_wolf(mut normal, t, p, 4, 6, 0, sim.POSTURE_TROT, sim.BAND_FRESH, 0, false)
+        art.draw_wolf(mut leap, t, p, 4, 6, 0, sim.POSTURE_LEAP, sim.BAND_FRESH, 0, false)
+        assert(!frames_equal(normal, leap), "a leap is not the trot or sprint")
+        if t == tier.PLAIN {
+            assert(grid.plain_ok(leap), "plain leap keeps the tier promise")
+            assert(grid.at(leap, 4, 6).cp == 62 && grid.at(leap, 4, 7).cp == 87, "distinct >W pair")
+        }
+        t += 1
+    }
+}

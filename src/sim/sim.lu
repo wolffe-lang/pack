@@ -275,14 +275,14 @@ pub const COHESION_MAX: int = 8
 pub const LEAP_REACH: int = 4
 
 /// The ticks between leaps.
-pub const LEAP_COOLDOWN: int = 20
+pub const LEAP_COOLDOWN: int = 14
 
 /// Stamina a leap costs (a fifth of the ceiling: about five leaps, then
 /// the pant).
 pub const LEAP_STAMINA: int = 60
 
 /// The lunge: the pack at the sprint for this many ticks after a leap.
-pub const LEAP_TICKS: int = 6
+pub const LEAP_TICKS: int = 8
 
 /// A vanquished shadow's body fades over this many ticks, then is gone.
 pub const FADE_TICKS: int = 15
@@ -518,6 +518,15 @@ pub struct Sim {
     parries: int,
     shadows: List[Shadow],
     leap_left: int,
+    leap_group: int,
+    leap_next_group: int,
+    leap_landing: bool,
+    leap_dx: List[int],
+    leap_dy: List[int],
+    leap_x: List[int],
+    leap_y: List[int],
+    leap_marks_x: List[int],
+    leap_marks_y: List[int],
     leap_ready_at: int,
     parry_until: int,
     parry_ready_at: int,
@@ -625,6 +634,15 @@ pub fn new_at(seed: int, cols: int, rows: int, start: int) -> Sim {
         parries: 0,
         shadows: List[Shadow](),
         leap_left: 0,
+        leap_group: 0,
+        leap_next_group: 0,
+        leap_landing: false,
+        leap_dx: zero_slots(),
+        leap_dy: zero_slots(),
+        leap_x: zero_slots(),
+        leap_y: zero_slots(),
+        leap_marks_x: List[int](),
+        leap_marks_y: List[int](),
         leap_ready_at: 0,
         parry_until: 0,
         parry_ready_at: 0,
@@ -759,7 +777,7 @@ fn pack_target(s: Sim) -> int {
     var target = scaled(s, TROT_V)
     if s.stopping {
         target = 0
-    } else if s.sprint_left > 0 || s.leap_left > 0 {
+    } else if s.sprint_left > 0 {
         target = scaled(s, SPRINT_V)
     }
     target * (100 - HEALTH_SLOW * (HEALTH_MAX - s.health) / HEALTH_MAX) / 100
@@ -869,6 +887,7 @@ pub fn step(mut s: Sim, keys: List[int], health_delta: int) {
         s.tick += 1
         return
     }
+    s.leap_landing = false
     // A run of the same key in one tick is one press (autorepeat bytes
     // that arrived together); the hold decides how long it lasts.
     var left = false
@@ -920,9 +939,6 @@ pub fn step(mut s: Sim, keys: List[int], health_delta: int) {
     }
     s.health = clamp(s.health + health_delta - damage + feed, 0, HEALTH_MAX)
     health_step(mut s)
-    if s.leap_left > 0 {
-        s.leap_left -= 1
-    }
     // Steering: the heading target is the held steer (both held cancel),
     // and the reference's heading turns toward it at the turn rate;
     // released, it returns to straight at the same rate and the sideways
@@ -1032,6 +1048,7 @@ pub fn step(mut s: Sim, keys: List[int], health_delta: int) {
         }
         i += 1
     }
+    update_leap_poses(mut s)
     s.tick += 1
 }
 
@@ -1185,7 +1202,7 @@ pub fn wolf_posture(s: Sim, i: int) -> int {
     if w.speed == 0 {
         return POSTURE_STAND
     }
-    if s.leap_left > 0 && w.state == RUNNING {
+    if (s.leap_left > 0 || s.leap_landing) && leap_member(s.leap_group, i) && w.state == RUNNING {
         return POSTURE_LEAP
     }
     if w.state == RETURNING || s.sprint_left > 0 && w.speed > scaled(s, TROT_V) {
@@ -1480,6 +1497,124 @@ fn shadows_in_reach(s: Sim) -> int {
     n
 }
 
+fn zero_slots() -> List[int] {
+    var xs = List[int]()
+    var i = 0
+    while i < PACK_SIZE { (mut xs).push(0); i += 1 }
+    xs
+}
+
+/// Alternating groups: the leaders and left flanker, then right flanker
+/// and alpha. Only accepted leaps alternate; refusals do not.
+pub fn leap_member(group: int, slot: int) -> bool {
+    if group == 0 then slot < 3 else slot >= 3
+}
+
+/// One shared integer arc: out and back at at most half a cell per tick,
+/// pointing toward (dx, dy). Its apex is ticks/4 cells away (two for the
+/// pack's eight ticks, three for a twelve-tick shadow arc). No clock.
+pub fn leap_arc(dx: int, dy: int, age: int, ticks: int) -> (int, int) {
+    if age <= 0 || age >= ticks { return (0, 0) }
+    let n = if age <= ticks / 2 then age else ticks - age
+    let span = if abs(dx) > abs(dy) then abs(dx) else abs(dy)
+    if span == 0 { return (0, 0) }
+    let travel = n * world.FP / 2
+    (dx * travel / span, dy * travel / span)
+}
+
+/// A presented body's offset, separate from physics and the alpha's eye.
+fn pose_offset(s: Sim, k: int) -> (int, int) {
+    if k < PACK_SIZE { return (s.leap_x[k], s.leap_y[k]) }
+    (0, 0)
+}
+
+/// Clip every substep of an arc against live presented bodies. Sampling
+/// at 1/8 cell cannot tunnel across a two-cell footprint; stop before the
+/// first contact. The physical hit envelope and separation stay unchanged.
+fn safe_arc(s: Sim, k: int, dx: int, dy: int, age: int, ticks: int) -> (int, int) {
+    let (ox, oy) = leap_arc(dx, dy, age, ticks)
+    let span = if abs(ox) > abs(oy) then abs(ox) else abs(oy)
+    let steps = span / (world.FP / 8) + 1
+    let (x, y, _) = body(s, k)
+    var safe_x = 0
+    var safe_y = 0
+    var n = 1
+    while n <= steps {
+        let nx = ox * n / steps
+        let ny = oy * n / steps
+        if x + nx < 3 * world.FP / 2 || x + nx > s.cols * world.FP - 3 * world.FP / 2 { break }
+        var blocked = false
+        var j = 0
+        while j < body_count(s) {
+            let (bx, by, live) = body(s, j)
+            let (px, py) = pose_offset(s, j)
+            if j != k &&
+                live &&
+                abs(x + nx - bx - px) < BODY_W * world.FP &&
+                abs(y + ny - by - py) < BODY_H * world.FP {
+                blocked = true
+            }
+            j += 1
+        }
+        if blocked { break }
+        safe_x = nx
+        safe_y = ny
+        n += 1
+    }
+    (safe_x, safe_y)
+}
+
+fn update_leap_poses(mut s: Sim) {
+    var i = 0
+    while i < PACK_SIZE {
+        s.leap_x[i] = 0
+        s.leap_y[i] = 0
+        i += 1
+    }
+    if s.leap_left == 0 { return }
+    let age = LEAP_TICKS - s.leap_left + 1
+    i = 0
+    while i < PACK_SIZE {
+        if leap_member(s.leap_group, i) && s.wolves[i].state == RUNNING {
+            let (dx, dy) = safe_arc(s, i, s.leap_dx[i], s.leap_dy[i], age, LEAP_TICKS)
+            s.leap_x[i] = dx
+            s.leap_y[i] = dy
+        }
+        i += 1
+    }
+    s.leap_landing = s.leap_left == 1
+    s.leap_left -= 1
+}
+
+/// A wolf's animated world position. Physics and the viewport keep the
+/// formation position, so an alpha leap never moves the camera.
+pub fn wolf_draw_position(s: Sim, i: int) -> (int, int) {
+    (s.wolves[i].x + s.leap_x[i], s.wolves[i].y + s.leap_y[i])
+}
+
+/// Whether two presented live bodies overlap (both tiers use this bound).
+pub fn any_pose_overlap(s: Sim) -> bool {
+    var i = 0
+    while i < body_count(s) {
+        let (x, y, live) = body(s, i)
+        let (px, py) = pose_offset(s, i)
+        var j = i + 1
+        while j < body_count(s) {
+            let (bx, by, other) = body(s, j)
+            let (qx, qy) = pose_offset(s, j)
+            if live &&
+                other &&
+                abs(x + px - bx - qx) < BODY_W * world.FP &&
+                abs(y + py - by - qy) < BODY_H * world.FP {
+                return true
+            }
+            j += 1
+        }
+        i += 1
+    }
+    false
+}
+
 /// The leap: the pack together, paid in stamina; every shadow within
 /// `LEAP_REACH` of a running wolf is vanquished. The spent pack cannot
 /// leap: the pant refuses, nothing happens.
@@ -1490,6 +1625,28 @@ fn leap(mut s: Sim) {
     s.stamina -= LEAP_STAMINA
     s.leap_ready_at = s.tick + LEAP_COOLDOWN
     s.leap_left = LEAP_TICKS
+    s.leap_group = s.leap_next_group
+    s.leap_next_group = 1 - s.leap_next_group
+    s.leap_marks_x = List[int]()
+    s.leap_marks_y = List[int]()
+    var slot = 0
+    while slot < PACK_SIZE {
+        s.leap_dx[slot] = 0
+        s.leap_dy[slot] = 2 * world.FP
+        if leap_member(s.leap_group, slot) {
+            let w = copy s.wolves[slot]
+            var best = LEAP_REACH * world.FP + 1
+            for sh in s.shadows {
+                let d = reach_dist(w.x, w.y, sh.x, sh.y)
+                if shadow_alive(sh) && d < best {
+                    best = d
+                    s.leap_dx[slot] = sh.x - w.x
+                    s.leap_dy[slot] = sh.y - w.y
+                }
+            }
+        }
+        slot += 1
+    }
     s.stopping = false
     var k = 0
     while k < s.shadows.len {
@@ -1510,6 +1667,8 @@ fn leap(mut s: Sim) {
                 sh.speed = 0
                 s.shadows[k] = sh
                 s.vanquished += 1
+                (mut s.leap_marks_x).push(sh.x)
+                (mut s.leap_marks_y).push(sh.y)
             }
         }
         k += 1
