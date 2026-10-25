@@ -1,0 +1,35 @@
+//! member: false
+//! witness: os_term_restore_at_exit's bytes at a return from main.
+
+use std.env
+use std.fs
+use std.term
+
+fn main() -> int {
+    let tin = fs.stdin()
+    let saved = term.mode(tin) else |e| {
+        eprint("w1: mode: {e}")
+        return 3
+    }
+    var bytes = List[byte]()
+    for b in "LEAVE-BYTES\n".bytes() {
+        (mut bytes).push(b)
+    }
+    term.restore_at_exit(tin, saved, bytes) else |e| {
+        eprint("w1: restore_at_exit: {e}")
+        return 5
+    }
+    let args = env.args()
+    if args.len > 0 && args[0] == "raw" {
+        term.set_mode(tin, term.raw_bytes(saved)) else |e| {
+            eprint("w1: set_mode: {e}")
+            return 6
+        }
+    }
+    if args.len > 0 && args[0] == "exit" {
+        print("end by os_exit")
+        os_exit(0)
+    }
+    print("end by return")
+    0
+}

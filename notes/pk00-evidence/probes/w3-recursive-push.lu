@@ -1,0 +1,45 @@
+//! member: false
+//! witness: a function that pushes a constant onto a `mut` list and then
+//! calls itself answers the constant for every byte on the release tier.
+fn none_key() -> int {
+    0
+}
+
+fn plain(v: int) -> int {
+    if v == 32 {
+        return 6
+    }
+    if v == 113 {
+        return 7
+    }
+    0
+}
+
+fn feed(mut pending: List[byte], b: byte, mut keys: List[int]) {
+    let v = b as int
+    if pending.len == 0 {
+        if v == 27 {
+            (mut pending).push(b)
+            return
+        }
+        let k = plain(v)
+        if k != none_key() {
+            (mut keys).push(k)
+        }
+        return
+    }
+    (mut pending).reset()
+    (mut keys).push(7)
+    feed(mut pending, b, mut keys)
+}
+
+fn main() {
+    var pending = List[byte]()
+    var keys = List[int]()
+    feed(mut pending, 32 as byte, mut keys)
+    print("space alone: {keys} (want [6])")
+    var keys2 = List[int]()
+    feed(mut pending, 27 as byte, mut keys2)
+    feed(mut pending, 32 as byte, mut keys2)
+    print("esc then space: {keys2} (want [7, 6])")
+}

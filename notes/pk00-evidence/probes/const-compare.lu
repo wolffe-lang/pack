@@ -1,0 +1,29 @@
+//! member: false
+//! probe (not committed): a cross-module `pub const` compared on each tier.
+use input
+
+fn ended_for(k: int) -> str {
+    if k == input.KEY_QUIT || k == input.KEY_INTERRUPT then "quit" else "other"
+}
+
+fn is_quit(k: int) -> bool {
+    k == input.KEY_QUIT
+}
+
+fn main() {
+    var k = 1
+    while k <= 8 {
+        var keys = List[int]()
+        (mut keys).push(k)
+        var ended = "none"
+        for x in keys {
+            if x == input.KEY_QUIT || x == input.KEY_INTERRUPT {
+                ended = if x == input.KEY_QUIT then "the quit key" else "Ctrl-C as a byte"
+            } else {
+                ended = "pushed {x}"
+            }
+        }
+        print("k {k}: ended_for {ended_for(k)} is_quit {is_quit(k)} loop {ended}")
+        k += 1
+    }
+}

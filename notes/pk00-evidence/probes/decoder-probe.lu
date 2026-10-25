@@ -1,0 +1,26 @@
+//! member: false
+//! probe: the decoder on each tier (placed at src/decoder_probe.lu to
+//! build; the release tier with the mid-end on and the FIRST, recursive
+//! `feed` answered `space: keys [7]`, native and checked `[6]`).
+use input
+
+fn show(label: str, bytes: List[byte]) {
+    var d = input.new()
+    var keys = List[int]()
+    input.feed_all(mut d, bytes, 1000, mut keys)
+    input.flush(mut d, 1100, mut keys)
+    print("{label}: keys {keys} pending {d.pending.len} dropped {d.dropped} ignored {d.ignored}")
+}
+
+fn main() {
+    print("consts up {input.KEY_UP} down {input.KEY_DOWN} parry {input.KEY_PARRY} leap {input.KEY_LEAP} quit {input.KEY_QUIT} interrupt {input.KEY_INTERRUPT}")
+    print("plain_key 32 {input.plain_key(32)} 122 {input.plain_key(122)} 113 {input.plain_key(113)} 3 {input.plain_key(3)} 65 {input.plain_key(65)}")
+    var sp = List[byte]()
+    (mut sp).push(32 as byte)
+    show("space", sp)
+    var down = List[byte]()
+    (mut down).push(27 as byte)
+    (mut down).push(91 as byte)
+    (mut down).push(66 as byte)
+    show("down", down)
+}

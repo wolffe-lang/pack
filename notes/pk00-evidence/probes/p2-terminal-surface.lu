@@ -1,0 +1,115 @@
+//! member: false
+//! probe: the os surface pack stands on — raw mode, restore_at_exit,
+//! wait_fds with a deadline, read_into, write_chunk, size, monotonic_ns.
+
+use std.env
+use std.fs
+use std.io
+use std.signal
+use std.term
+use std.time
+
+fn main() -> int {
+    var tin = fs.stdin()
+    var tout = fs.stdout()
+    let is_tty = io.is_terminal(tin) else false
+    if !is_tty {
+        eprint("p2: stdin is not a terminal")
+        return 2
+    }
+    let saved = term.mode(tin) else |e| {
+        eprint("p2: mode: {e}")
+        return 3
+    }
+    let size = term.size(tout) else |e| {
+        eprint("p2: size: {e}")
+        return 4
+    }
+    eprint(
+        "p2: size {size.rows}x{size.columns} mode {term.pack(saved)} TERM={env.get("TERM") else "?"}",
+    )
+    var leave = List[byte]()
+    for b in "\x1b[?1049l\x1b[?25h".bytes() {
+        (mut leave).push(b)
+    }
+    term.restore_at_exit(tin, saved, leave) else |e| {
+        eprint("p2: restore_at_exit: {e}")
+        return 5
+    }
+    var raw = term.raw_bytes(saved)
+    raw.signals = true
+    term.set_mode(tin, raw) else |e| {
+        eprint("p2: set_mode: {e}")
+        return 6
+    }
+    let set = signal.resize() | signal.interrupt() | signal.terminate()
+    signal.listen(set) else |e| {
+        eprint("p2: listen: {e}")
+        return 7
+    }
+    var enter = List[byte]()
+    for b in "\x1b[?1049h\x1b[?25l\x1b[H\x1b[2Jhello pty\r\n".bytes() {
+        (mut enter).push(b)
+    }
+    fs.write_chunk(mut tout, enter) else |_| {}
+    var files = List[fs.File]()
+    (mut files).push(fs.stdin())
+    var waits = 0
+    var ticks = 0
+    var keys = 0
+    var meanings = 0
+    let t0 = time.monotonic_ns()
+    var deadline = t0 + 33333333
+    loop {
+        let now = time.monotonic_ns()
+        let left = if deadline > now then (deadline - now + 999999) / 1000000 else 0
+        let w = signal.wait_fds(files, set, left) else |e| {
+            eprint("p2: wait_fds: {e}")
+            return 8
+        }
+        waits += 1
+        if w.meaning != 0 {
+            meanings += 1
+            eprint("p2: meaning {w.meaning}")
+            if w.meaning == signal.interrupt() || w.meaning == signal.terminate() {
+                break
+            }
+            if w.meaning == signal.resize() {
+                let s2 = term.size(tout) else |_| { term.Size { rows: 0, columns: 0 } }
+                eprint("p2: resize {s2.rows}x{s2.columns}")
+            }
+        } else if w.ready == 0 {
+            var quit = false
+            region turn {
+                let got = fs.read_chunk(mut tin, 64) else |e| {
+                    eprint("p2: read_chunk: {e}")
+                    quit = true
+                    List[byte]()
+                }
+                keys += got.len
+                var line = "p2: bytes"
+                for b in got {
+                    line = "{line} {b as int}"
+                    if b as int == 113 {
+                        quit = true
+                    }
+                }
+                eprint(line)
+            }
+            if quit {
+                break
+            }
+        } else {
+            ticks += 1
+            deadline += 33333333
+            if ticks >= 90 {
+                break
+            }
+        }
+    }
+    let t1 = time.monotonic_ns()
+    eprint(
+        "p2: waits {waits} ticks {ticks} key bytes {keys} meanings {meanings} elapsed_ms {(t1 - t0) / 1000000}",
+    )
+    0
+}
