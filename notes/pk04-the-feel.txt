@@ -149,7 +149,7 @@ gate, then run it. It adds IDs/traces only to a scratch sim, not gameplay.
 Census B/D/M rows are births/detections/dusk milestones. Summaries, fixture
 inputs and exact named plant reds are under notes/pk04-evidence/.
 
-## Plants (left open, intentionally red)
+## Plants (red by name, since closed by the coordinator)
 speed       PR 21 run 40187356155 test_pk04_speed_preserves_the_maintainers_ticks_and_wear_down
 detection   PR 22 run 40187361026 test_pk04_detection_cone_contact_and_outward_spawn_bands
 pack leap   PR 23 run 40187364545 test_pk04_pack_leap_alternates_moves_and_holds_formation
@@ -164,14 +164,14 @@ the stamina economy still need play. No new compiler issue was found.
 The earlier macOS font-width/key reports and idle counter remain owed.
 The PAX pass is pk05. Coordinate rebasing with cb00's engine extraction.
 README read and refreshed in its own commit. No merge, label, tag, release
-or issue action. The four plant PRs remain open for the orchestrator.
+or issue action. The four plant PRs were subsequently closed by the coordinator after their named reds.
 
 This session cannot write a Markdown report file. The full note is included
 under Note in the PR body; this .txt copy preserves the committed prediction
 and evidence in the codebase without editing the private planning repo.
 
 ## Host gauntlets and performance
-The complete code at bc136a3 passed tools/check on macOS and
+Before the extraction/rebase, complete code at bc136a3 passed tools/check on macOS and
 PACK_CPUS=4-7 tools/in-container tools/check-linux on kasumi under
 flock ~/lanes/kasumi-cores-4-7.lock. Both built native and LLVM release,
 ran 142 checked tests (0 SKIP), selftest, all 43 golden directories and
@@ -195,3 +195,32 @@ runs exactly. The release binary is target/pack in the pk04 Mac worktree.
 The contract's phrase "dusk 15% sooner" is arithmetically approximate:
 15% more speed means 13.04% less time; the note and DESIGN state that
 rather than changing the dusk row constants. No planning file was edited.
+
+## Rebase onto the extracted engine
+Rebased onto pack trunk 59cef807 (PR 25), which pins lair
+ aa6c4dc0bc5071d3c07121451d913a8837cd2a6a. Staged it with tools/fetch-lair
+and .lair/tools/fetch-toolchain before building; never used an unpinned
+engine. The new gate commands are .lair/tools/check and
+.lair/tools/in-container .lair/tools/check-linux.
+
+Resolved sim against trail.path and input.Hold. Art now takes its palette
+and semantic sprites from sprites, retaining the engine's tier identifiers
+and draw routines for the cards. The new replay regression passes
+controls.vocab() to the engine reader. Portable census/parry fixtures stage
+input/trail as needed and use the same mappings; their complete current
+B/D/M and PARRY outputs match the pre-extraction outputs byte for byte.
+
+Compatibility build: 148 checked tests (pack 87, engine 61), zero SKIPs.
+All 43 golden directories compare unchanged: no golden moved, so no
+regeneration or new golden reason is required. Gameplay, fixed scores,
+detection, cadence and dusk measurements above are unchanged. The final
+both-host gauntlets and new head are recorded in the updated PR evidence.
+README read: shared-engine setup, tool paths and 148-test count current.
+Only pack sim/art/tests, docs/notes and the existing feel goldens differ
+from the new trunk; no engine, pin, CI, tool or engine symlink was edited.
+
+Rebased feature provenance: speed 0269638, sensing ff74292, pack leap
+47654c5, shadow lunge 8323875, frozen eyes a4f008f, replay/tick tests
+2c6233a. Earlier head/hash references above describe pre-extraction
+measurements, not a green run claimed at the rebased head. Plants 21–24
+are closed red by name; no new plants, labels or merges were performed.

@@ -48,6 +48,13 @@ else:
     if 'face_y: int' not in s:
         main = main.replace('                        face_x: 0, face_y: -2, attack_age: 0,\n', '')
         main = main.replace('                        attack_dx: 0, attack_dy: -768, pose_x: 0, pose_y: 0,\n', '')
+if 'use trail' in s:
+    s = s.replace('world.path(', 'trail.path(')
+    if 'world.path(' in main:
+        main = main.replace('use world', 'use world\nuse trail').replace('world.path(', 'trail.path(')
+    for module in ('input', 'trail'):
+        (out / module).mkdir(parents=True, exist_ok=True)
+        (out / module / (module + '.lu')).write_text(source('src/' + module + '/' + module + '.lu'))
 for module in ('sim', 'world'):
     (out / module).mkdir(parents=True, exist_ok=True)
 (out / 'sim/sim.lu').write_text(s)

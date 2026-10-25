@@ -1355,7 +1355,7 @@ fn test_pk04_re_recorded_terminal_replays_verify_their_scores() {
             assert(false, "recorded terminal replay must exist")
             ""
         }
-        let rp = replay.from_text(text) else |_| {
+        let rp = replay.from_text(text, controls.vocab()) else |_| {
             assert(false, "recorded terminal replay must parse")
             replay.new(16, 1, 80, 24)
         }

@@ -404,7 +404,7 @@ fn test_pk04_pack_leap_has_distinct_poses_on_both_tiers() {
     while t <= tier.RICH {
         var normal = grid.new(8, 12)
         var leap = grid.new(8, 12)
-        let p = tier.palette_at(t, 0)
+        let p = sprites.palette_at(t, 0)
         art.draw_wolf(mut normal, t, p, 4, 6, 0, sim.POSTURE_TROT, sim.BAND_FRESH, 0, false)
         art.draw_wolf(mut leap, t, p, 4, 6, 0, sim.POSTURE_LEAP, sim.BAND_FRESH, 0, false)
         assert(!frames_equal(normal, leap), "a leap is not the trot or sprint")
@@ -422,7 +422,7 @@ fn test_pk04_shadow_crouch_and_lunge_are_distinct_on_both_tiers() {
         var normal = grid.new(8, 12)
         var crouch = grid.new(8, 12)
         var lunge = grid.new(8, 12)
-        let p = tier.palette_at(t, 0)
+        let p = sprites.palette_at(t, 0)
         art.draw_shadow(mut normal, t, p, 4, 6, 0, false, 0, sim.FADE_TICKS)
         art.draw_shadow_attack(mut crouch, t, p, 4, 6, true, false, 0)
         art.draw_shadow_attack(mut lunge, t, p, 4, 6, false, false, 0)
