@@ -1,11 +1,9 @@
-# frames 230 every 3 from 198
-# Seed 16 from row 600, parry at tick 203. The twelve-tick press window
-# turns a landing in range; the shadow recoils with dim eyes. pk04 items
-# 1, 2 and 4 changed the timeline. The dedicated unit fixture measures a
-# fixed press offset independently of this seeded fight.
+# frames 926 every 3 from 888
+# pk08: the first lone lurker is scheduled at tick801, not tick87.
+# Parry at895 turns the landing at896, one tick later.
 pk 1
 seed 16
 tier rich
 size 80x24
 start 600
-t 203 parry
+t 895 parry

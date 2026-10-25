@@ -1,11 +1,9 @@
-# frames 220 every 4 from 196
-# Seed 16 from row 600, Space at tick 200. The first group (leaders and
-# left flanker) commits forward; the other group holds formation.
-# pk06's aimed reach vanquishes targets at the press; the one-tick tell,
-# collision-clipped arc, fading targets and landing marks are captured.
+# frames 910 every 4 from 876
+# pk08: the first lone lurker is scheduled at tick801, not tick87.
+# Forward leap at884 into the first shadow windup; tell, arc and fade.
 pk 1
 seed 16
 tier rich
 size 80x24
 start 600
-t 200 leap
+t 884 leap

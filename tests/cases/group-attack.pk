@@ -1,7 +1,6 @@
-# frames 260 every 10 from 180
-# Seed 16 from row 600: several shadows meet the pack and bite on their
-# landing ticks. pk04 items 1, 2 and 4 changed the timeline; fainted wolves
-# lie where they fell while the surviving pack slows.
+# frames 1120 every 10 from 900
+# pk08: the first lone lurker is scheduled at tick801, not tick87.
+# Several paced lone births converge; this captures their combined attacks.
 pk 1
 seed 16
 tier rich

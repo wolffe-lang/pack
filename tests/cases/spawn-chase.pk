@@ -1,7 +1,6 @@
-# frames 200 every 10 from 80
-# Seed 16 from row 600: seeded outward facings and edge/verge/shoulder
-# columns. A detected shadow stalks, brakes to turn after the pack, chases
-# and winds up. pk04 item 2 changed sensing; item 4 changed the attack.
+# frames 960 every 10 from 790
+# pk08: the first lone lurker is scheduled at tick801, not tick87.
+# Spawn, perception, stalk and turn after the first paced birth.
 pk 1
 seed 16
 tier rich

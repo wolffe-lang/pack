@@ -1,6 +1,6 @@
-# frames 170 every 1 from 148
-# pk04 item 4: six crouch beats, six lunge beats, landing and settle.
-# Seed 16 from row 600 starts the windup at tick 148, lands at 160.
+# frames 906 every 1 from 882
+# pk08: the first lone lurker is scheduled at tick801, not tick87.
+# First windup at884; crouch, lunge, landing at896, and settle.
 pk 1
 seed 16
 tier rich

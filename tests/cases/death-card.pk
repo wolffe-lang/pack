@@ -1,12 +1,6 @@
-# frames 300 every 10 from 200
-# A death and its card (pk02; re-timed by pk03's curve): seed 16 from row
-# 600 with health taken to zero at tick 1 (the alpha alone from tick 5,
-# the four others fainted where they stood), so the first landed attack
-# ends the run. The card is drawn over the field from the same cell model
-# on both tiers: shadows vanquished, seconds survived, the distance in
-# cells (from row 600), the score, the offer (s saves, q leaves). The
-# world stands still under it; the first numbers the player sees are the
-# card's.
+# frames 1150 every 10 from 1020
+# pk08: the first lone lurker is scheduled at tick801, not tick87.
+# Zero health from tick1; the first bite ends the run, card held still.
 pk 1
 seed 16
 tier rich
