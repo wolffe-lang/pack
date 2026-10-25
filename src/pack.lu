@@ -33,6 +33,7 @@ struct Options {
     script: str,
     frames: int,
     every: int,
+    from_tick: int,
     tier: int,
     cols: int,
     rows: int,
@@ -59,7 +60,7 @@ fn usage_text() -> str {
     "pack — lead a pack of wolves up an endless forest path\n\n" +
         "  pack [--seed N] [--tier rich|plain] [--record FILE]\n" +
         "  pack --replay FILE                reproduce a recorded run\n" +
-        "  pack --headless --seed N [--script FILE] --frames N [--every K]\n" +
+        "  pack --headless --seed N [--script FILE] --frames N [--every K] [--from T]\n" +
         "       --tier T --size WxH --dump DIR\n" +
         "  pack --apply CAPTURE --size WxH   a captured byte stream as a frame\n" +
         "  pack --art-study --dump DIR       the sprite sheets, both tiers\n" +
@@ -84,6 +85,7 @@ fn options_default() -> Options {
         script: "",
         frames: 60,
         every: 1,
+        from_tick: 0,
         tier: -1,
         cols: 0,
         rows: 0,
@@ -150,6 +152,9 @@ fn parse_args(args: List[str]) -> Options ! {usage, parse} {
         } else if more && a == "--every" {
             i += 1
             o.every = args[i].to_int()?
+        } else if more && a == "--from" {
+            i += 1
+            o.from_tick = args[i].to_int()?
         } else if more && a == "--trap-at" {
             i += 1
             o.trap_at = args[i].to_int()?
@@ -188,7 +193,7 @@ fn parse_args(args: List[str]) -> Options ! {usage, parse} {
         }
         i += 1
     }
-    if o.frames < 1 || o.every < 1 || o.speed_scale < 1 || o.bench_shadows < 0 {
+    if o.frames < 1 || o.every < 1 || o.from_tick < 0 || o.speed_scale < 1 || o.bench_shadows < 0 {
         return usage
     }
     o
@@ -264,7 +269,8 @@ fn seed_given(args: List[str]) -> bool {
 }
 
 /// The headless run: `frames` ticks from the script, every `every`th
-/// frame and the final one written to `dump` as cell text and styles.
+/// frame from tick `from_tick` on and the final one written to `dump` as
+/// cell text and styles.
 fn run_headless(o: Options, args: List[str]) -> int {
     var r = load_replay(
         o,
@@ -298,7 +304,7 @@ fn run_headless(o: Options, args: List[str]) -> int {
             g = grid.new(rows, c)
         }
         sim.step(mut s, keys, health)
-        if (k + 1) % o.every == 0 && k + 1 < o.frames {
+        if k + 1 >= o.from_tick && (k + 1) % o.every == 0 && k + 1 < o.frames {
             art.render(s, r.tier, mut g)
             write_frame(o.dump, "frame-{pad4(k + 1)}", g) else |_| {
                 eprint("pack: cannot write into {o.dump}")

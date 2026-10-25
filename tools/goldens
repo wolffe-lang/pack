@@ -7,7 +7,8 @@
 #   tools/goldens --update [--bin BIN] write tests/goldens/ afresh
 #
 # A case is tests/cases/<case>.pk (a replay with a `# frames N every K`
-# line the runner reads); the art study's sheets are the case `art`.
+# line the runner reads, `# frames N every K from T` to start the written
+# frames at tick T); the art study's sheets are the case `art`.
 # BIN defaults to target/release/pack. Determinism is the oracle: a golden
 # differs only when the simulation, the world, the tiers or the renderer
 # changed, and the diff says exactly where.
@@ -35,9 +36,10 @@ for case_file in tests/cases/*.pk; do
     name=$(basename "$case_file" .pk)
     frames=$(sed -n 's/^# frames \([0-9]*\).*/\1/p' "$case_file" | head -1)
     every=$(sed -n 's/^# frames [0-9]* every \([0-9]*\).*/\1/p' "$case_file" | head -1)
+    from=$(sed -n 's/^# frames [0-9]* every [0-9]* from \([0-9]*\).*/\1/p' "$case_file" | head -1)
     for tier in rich plain; do
         dir="$out/$name-$tier"
-        "$bin" --headless --script "$case_file" --frames "${frames:-60}" --every "${every:-10}" --tier "$tier" --dump "$dir"
+        "$bin" --headless --script "$case_file" --frames "${frames:-60}" --every "${every:-10}" --from "${from:-0}" --tier "$tier" --dump "$dir"
         if [ "$update" = 1 ]; then
             rm -rf "tests/goldens/$name-$tier"
             mkdir -p tests/goldens
