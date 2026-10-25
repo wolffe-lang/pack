@@ -279,3 +279,39 @@ pub fn format(r: Replay, mut out: List[byte]) {
         }
     }
 }
+
+/// The score a `.pk` text carries in its `# score N` comment (pk03: the
+/// card writes it when `s` saves; the title reads it and a re-run
+/// verifies it, R-pk03-2 A), or `none` when the file has no such line.
+pub fn score_of(text: str) -> int ! {none} {
+    for raw in text.lines() {
+        let line = raw.trim()
+        if line.starts_with("# score ") {
+            let words = line.words()
+            if words.len >= 3 {
+                return words[2].to_int() else {
+                    return none
+                }
+            }
+        }
+    }
+    none
+}
+
+/// The `.pk` text of `r` with a `# score N` comment after the header (a
+/// reader ignores the comment; `score_of` reads it).
+pub fn format_scored(r: Replay, score: int, mut out: List[byte]) {
+    var head = new(r.seed, r.tier, r.cols, r.rows)
+    head.start = r.start
+    format(head, mut out)
+    push_str(mut out, "# score {score}\n")
+    for e in r.events {
+        if e.key == EV_SIZE {
+            push_str(mut out, "t {e.tick} size {e.cols}x{e.rows}\n")
+        } else if e.key == EV_HEALTH {
+            push_str(mut out, "t {e.tick} health {e.arg}\n")
+        } else {
+            push_str(mut out, "t {e.tick} {key_name(e.key)}\n")
+        }
+    }
+}

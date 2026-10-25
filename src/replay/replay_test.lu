@@ -100,3 +100,19 @@ fn test_start_is_read_written_and_defaults_to_zero() {
     }
     assert(false, "a negative start is a parse failure: {bad.start}")
 }
+
+fn test_the_score_comment_is_written_read_and_optional() {
+    let r = from_text(sample()) else new(0, 0, 0, 0)
+    var out = List[byte]()
+    format_scored(r, 1234, mut out)
+    let text = text_of(out)
+    assert(text.contains("\n# score 1234\n"), "the comment after the header: {text}")
+    assert((score_of(text) else -1) == 1234, "read back")
+    let again = from_text(text) else new(0, 0, 0, 0)
+    assert(
+        again.events.len == r.events.len && again.seed == 42,
+        "the comment is ignored by the parser",
+    )
+    assert((score_of(sample()) else -1) == -1, "no comment, none")
+    assert((score_of("# score x\n") else -1) == -1, "a bad number, none")
+}
