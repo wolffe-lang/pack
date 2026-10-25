@@ -1,0 +1,29 @@
+# pk06 — the directional leap
+
+## Prediction (2026-10-25, before the first behavior change)
+The engine's input.Hold already answers held(h, tick) independently for
+any key. Pack currently owns only left/right Holds and presses them after
+processing Space; adding up/down Holds and sampling in event order in pack
+should suffice without an engine change. Duplicate presses in one tick
+must still count only once for each Hold.
+
+An isolated active leaper, with one stationary target at four cells in each
+of eight compass sectors, should hit 20/20 before in every sector. After,
+a forward leap should hit N/NE/NW 20/20 and the other sectors 0/20;
+matching the aim should hit 20/20 in each sector. At the alpha's six with
+the alpha in the active second group, backward should hit 20/20 both
+before and after; forward should miss after beyond the contact radius.
+A backward arc should lose zero trail rows relative to an otherwise equal
+forward leap: presentation offsets must not change physics or camera.
+Cadence stays 30/14 = 2.14 accepted leaps/s while stamina lasts.
+The verified pk04-card/title scores (51 each) should hold (no leap events).
+Goldens with leaps should move: leap-lands, alternating-leap, and combat
+cases whose hit selection changes; new eight-aim cases show tell and arc
+on both tiers. Unrelated terrain, title, and art study sheets should hold.
+
+## Recommendations (not rulings)
+R-pk06-1 A: ±45 degrees, six-cell aimed reach, two-cell contact.
+R-pk06-2 A: ordinary stamina/cooldown. Implement these recommendations.
+Keep the arc as a collision-clipped presentation offset, now six cells
+out and back over eight ticks with one preceding tell tick; no change to
+trail physics, camera, separation, or the alternating groups.
