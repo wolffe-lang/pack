@@ -8,30 +8,30 @@ you.
 A terminal game written in wolf, the first of the lair, the wolf games collection, on the collection's
 shared engine (`wolffe-lang/lair`, pinned in `lair.pin`).
 
-**What is in this build:** the game as designed — the title card, the pack, the forest, the shadows, the
+## Where it runs
+
+| machine | tier | state |
+|---|---|---|
+| macOS, Terminal.app or iTerm2 (arm64) | rich: block elements, braille, 256 colours, true colour where `COLORTERM` says so | playtested; the pty rows run on every push to trunk |
+| Linux, any UTF-8 terminal emulator (x86-64) | rich | the pty rows run on every pull request, inside a container |
+| a Linux virtual terminal (`TERM=linux`) | plain: code points 0-255 and the sixteen colours | detected from `TERM`; untested on a VT itself |
+| PAX's console | plain today; rich once PAX's font draws `docs/GLYPHS.md` | the installer row and the font row are the next PAX pass's |
+
+The terminal must be at least 80 columns by 24 rows; the field grows to fill a larger one.
+
+**What is in this build:** the game, with alternating leap attacks — the title card, the pack, the forest, the shadows, the
 deer, dusk, the death card and replays verified. Deer graze the path and bolt up it at one and a half
 times the trot when a wolf comes close; they tire, slow below the trot and are run down, and each one
 brought down feeds the pack (the first thing that raises health, so a fainted wolf can return). The
 difficulty curve is gentle for the first minute, brings groups in the second and reaches its ceiling in
 the third or fourth, with more deer where there are more shadows and in clearings. The afternoon turns to
-dusk after two minutes of path and to night after six, on both tiers, the shadows' red eyes unchanged so
+dusk after about 111 seconds at a flat trot and to night after about 334, on both tiers, the shadows' red eyes unchanged so
 they come with the dark. The title card holds the seed, the last score and the best (kept in
 `~/.pack/best`), runs the same seed again on `r`, the next on any key, and plays a saved replay (`p` the
 last, `/` one by name) with its score verified by a headless re-run — a mismatch is shown, never accepted.
-Every number is in `docs/DESIGN.md` and is the maintainer's to tune by play; `--start N` shows any part
+Every number is in `docs/DESIGN.md` and can be tuned by play; `--start N` shows any part
 of the curve or the dusk at once. The PAX font row, the installer row and the equal-experience proof are
-the next lane's (pk04).
-
-## Where it runs
-
-| machine | tier | state |
-|---|---|---|
-| macOS, Terminal.app or iTerm2 (arm64) | rich: block elements, braille, 256 colours, true colour where `COLORTERM` says so | the maintainer's play; the pty rows run on every push to trunk |
-| Linux, any UTF-8 terminal emulator (x86-64) | rich | the pty rows run on every pull request, inside a container |
-| a Linux virtual terminal (`TERM=linux`) | plain: code points 0-255 and the sixteen colours | detected from `TERM`; untested on a VT itself |
-| PAX's console | plain today; rich once PAX's font draws `docs/GLYPHS.md` | the installer row and the font row are the pk04 lane's |
-
-The terminal must be at least 80 columns by 24 rows; the field grows to fill a larger one.
+next.
 
 ## Controls
 
@@ -40,8 +40,8 @@ The terminal must be at least 80 columns by 24 rows; the field grows to fill a l
 | Left, Right | steer the pack; hold to keep turning, release to straighten; the forest edge slows and scratches |
 | Up | a sprint burst, while stamina lasts |
 | Down | stop; stamina returns fastest standing |
-| Space | leap, the pack together: every shadow within reach of a wolf is vanquished; costs stamina, and the spent pack cannot leap |
-| Shift+Down, or `z` | parry: an attack that lands within 300 ms of the press is turned and the shadow knocked back; a press, never a held stance |
+| Space | leap: leaders and one flanker, then the other flanker and alpha; accepted attacks alternate at up to 2.14/s while stamina lasts; every in-range shadow is vanquished |
+| Shift+Down, or `z` | parry: an attack that lands within 400 ms of the press is turned and the shadow knocked back; a press, never a held stance |
 | `s` | on the death card: save the replay as `pack-SEED-SCORE.pk` in the working directory (or at `--record`'s path), with its score |
 | `q` or Esc | leave: a run or the death card for the title, the title for the shell (under `--no-title`, the program quits at once); the terminal is restored on every exit |
 | on the title | any key runs the next seed; `r` runs the same seed again; `p` plays the last saved replay; `/` asks for a replay's name (type it, Enter plays, Esc cancels); `q` leaves |
@@ -50,7 +50,10 @@ The pack moves at a migrating trot, not a run. An exhausted pack pants and canno
 has recovered; a tired pack's ears go back and its tails drop. Posture is the only gauge: there are no bars,
 and the first numbers you see are the card's. As health falls, wolves faint and are left behind; as it
 recovers they sprint back up from the bottom of the screen to their places. A shadow's eyes tell its mind:
-dim while it lurks, pulsing while it chases, steady while it winds up to bite — that is the moment to parry.
+dim while it lurks, pulsing while it chases, steady while it gathers in a low crouch
+and lunges toward a wolf — parry at the end of the crouch or during the lunge.
+Shadows look out from the forest in varied directions and wait across the verge
+and shoulder; passing close behind one still wakes it.
 A deer (the pale antlered shape) bolts when you come within ten cells and outruns the trot; keep after it
 and it tires and slows, then a sprint runs it down and the pack eats.
 
@@ -83,17 +86,17 @@ dense stand, and `--seed 16 --start 600` puts a group of three shadows on you wi
 ## Tests
 
 Determinism is the oracle. A run is a pure function of the seed, the inputs, the tier and the size, so
-`tests/cases/*.pk` (nineteen cases: a standstill, a trot, a steer into the forest, a sprint to exhaustion, a
+`tests/cases/*.pk` (twenty-one cases: a standstill, a trot, a steer into the forest, a sprint to exhaustion, a
 formation turn with a bump, a faint and a return, a clearing, a dense stand, a resize mid-run, the wide
 field, the shadows' five — a spawn and a chase with the turn, a group attack, a leap that lands and the
 fade, a parry that turns an attack, a death and its card, all from row 600 where the curve has groups — a
-deer fleeing and run down, and dusk coming, dusk and night) are run headless on both tiers and diffed
-against `tests/goldens/` cell for cell (the engine's `.lair/tools/goldens`), with the art study's sheets and the title card.
+deer fleeing and run down, dusk coming, dusk and night, alternating pack leaps, and a shadow
+windup captured every tick) are run headless on both tiers and diffed
+against `tests/goldens/` cell for cell (`.lair/tools/goldens`), with the art study's sheets and the title card.
 Shadows and deer are the seed's, never a replay event, so the same file meets the same on every machine.
-The unit tests (`.lair/tools/test`, 135 of them: pack's 74 and the pinned engine's 61, run through the
-symlinked module directories) cover the diff renderer with a terminal model, the key decoder with every
-sequence split at every byte and pack's mapping of its keys with the prompt's text mode, the clock, the
-world's noise and density, the path, the curve and the deer's rate, the simulation's bars (the speeds, the turn rate, the held key, the
+The unit tests (`.lair/tools/test`, 148 of them (pack 87, pinned engine 61)) cover the diff renderer with a terminal model, the key decoder
+with every sequence split at every byte and the prompt's text mode, the clock, the world's noise and
+density, the curve and the deer's rate, the simulation's bars (the speeds, the turn rate, the held key, the
 formation's lag, the wander and the bumps, health's floors and returns, the shadows' roll, perception, the
 turn at rest and the chase, the sprint that shakes, bodies never overlapping, group and lone damage, the
 leap and its refusals, the parry's window and recoil, death and the score, the deer's roll, walk, flight,
