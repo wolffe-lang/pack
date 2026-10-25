@@ -1,0 +1,39 @@
+//! The tick arithmetic: due ticks, dropped frames, the rounded-up wait.
+
+fn test_no_tick_before_its_time() {
+    var c = new(1000)
+    assert(advance(mut c, 1000 + TICK_NS - 1) == 0, "not yet")
+    assert(c.ticks == 0 && c.dropped == 0, "nothing moved")
+}
+
+fn test_one_tick_on_time() {
+    var c = new(0)
+    assert(advance(mut c, TICK_NS) == 1, "one due")
+    assert(next_due_ns(c) == 2 * TICK_NS, "the next is the second")
+}
+
+fn test_late_frames_drop_renders_not_ticks() {
+    var c = new(0)
+    let due = advance(mut c, 3 * TICK_NS + 5)
+    assert(due == 3, "three ticks due, all stepped: {due}")
+    assert(c.ticks == 3 && c.dropped == 2, "two frames dropped")
+    assert(advance(mut c, 3 * TICK_NS + 6) == 0, "none more")
+}
+
+fn test_ms_until_rounds_up() {
+    assert(ms_until(0, 1) == 1, "1 ns is 1 ms")
+    assert(ms_until(0, 1000000) == 1, "exactly 1 ms")
+    assert(ms_until(0, 1000001) == 2, "just over")
+    assert(ms_until(5, 5) == 0 && ms_until(9, 5) == 0, "past is 0")
+}
+
+fn test_thirty_ticks_a_second() {
+    var c = new(0)
+    var n = 0
+    var t = 0
+    while t <= 1000000000 {
+        n += advance(mut c, t)
+        t += 1000000
+    }
+    assert(n == 30, "{n} ticks in a second")
+}

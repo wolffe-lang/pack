@@ -1,0 +1,89 @@
+//! clock — the fixed 30 Hz tick, and the one wait the game sleeps in.
+//!
+//! The simulation never reads a clock: it is stepped once per tick, and
+//! this module decides how many ticks are due from the monotonic clock
+//! (`std.time.monotonic_ns`). A late frame drops renders, never ticks: if
+//! three ticks are due the simulation steps three times and the screen is
+//! drawn once. The wait is `std.signal.wait_fds` on standard input with
+//! the next deadline (input, a signal, or the tick, never a spin), so an
+//! idle game wakes once a tick and not otherwise.
+
+use std.fs
+use std.signal
+use std.time
+
+/// Ticks a second.
+pub const TICK_HZ: int = 30
+
+/// Nanoseconds a tick (1 s / 30, rounded down; the drift is 10 ns a tick
+/// and corrected by the `ticks` count, never accumulated).
+pub const TICK_NS: int = 33333333
+
+/// The tick clock: when the next tick is due and how many have been
+/// stepped and dropped.
+pub struct Clock {
+    start_ns: int,
+    ticks: int,
+    dropped: int,
+    waits: int,
+}
+
+/// A clock whose first tick is due `TICK_NS` after `now_ns`.
+pub fn new(now_ns: int) -> Clock {
+    Clock { start_ns: now_ns, ticks: 0, dropped: 0, waits: 0 }
+}
+
+/// When tick number `ticks + 1` is due, in ns.
+pub fn next_due_ns(c: Clock) -> int {
+    c.start_ns + (c.ticks + 1) * TICK_NS
+}
+
+/// The ticks due at `now_ns`: 0 when the next tick is still ahead, else
+/// how many have fallen due. The clock advances by that many; any beyond
+/// the first count as dropped frames.
+pub fn advance(mut c: Clock, now_ns: int) -> int {
+    var due = 0
+    while now_ns >= next_due_ns(c) {
+        c.ticks += 1
+        due += 1
+    }
+    if due > 1 {
+        c.dropped += due - 1
+    }
+    due
+}
+
+/// Milliseconds from `now_ns` until `deadline_ns`, rounded UP so the wait
+/// never answers early, and never below 0.
+pub fn ms_until(now_ns: int, deadline_ns: int) -> int {
+    if deadline_ns <= now_ns {
+        return 0
+    }
+    (deadline_ns - now_ns + 999999) / 1000000
+}
+
+/// What one wait answered.
+pub struct Wake {
+    meaning: int,
+    input_ready: bool,
+    timed_out: bool,
+}
+
+/// Wait until standard input has a byte, a meaning in `set` arrives, or
+/// `deadline_ns` passes on the monotonic clock — `os_signal_wait_fds`,
+/// never a spin. The wait is counted. `io` when the wait itself fails.
+pub fn wait_until(mut c: Clock, deadline_ns: int, set: int) -> Wake ! {io} {
+    c.waits += 1
+    let left = ms_until(time.monotonic_ns(), deadline_ns)
+    var files = List[fs.File]()
+    (mut files).push(fs.stdin())
+    let w = signal.wait_fds(files, set, left) else |_| {
+        return io
+    }
+    Wake { meaning: w.meaning, input_ready: w.ready == 0, timed_out: w.meaning == 0 && w.ready < 0 }
+}
+
+/// The monotonic clock in ns (the one place the loop reads time).
+pub fn now_ns() -> int {
+    time.monotonic_ns()
+}
