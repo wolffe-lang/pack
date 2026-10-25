@@ -11,7 +11,8 @@
 //! read as the bare arrow; Space the leap; `z`/`Z` the parry alias; `q`/`Q`
 //! quit; Esc quit, once `ESC_TIMEOUT_MS` passes with nothing after it;
 //! Ctrl-C the interrupt (when the terminal passes it as a byte). The
-//! debug keys `-`/`_` and `=`/`+` (health down and up, `--debug` only). The
+//! debug keys `-`/`_` and `=`/`+` (health down and up, `--debug` only);
+//! `s`/`S` saves the replay on the death card (pk02). The
 //! kitty/CSI-u form `ESC [ code ; mods u` and the tilde form `ESC [ n ~`
 //! are recognised and ignored; an unknown CSI is consumed; any other byte
 //! is dropped and counted in `dropped`.
@@ -50,6 +51,10 @@ pub const KEY_HEALTH_DOWN: int = 9
 /// `=` or `+`: health up (the same).
 pub const KEY_HEALTH_UP: int = 10
 
+/// `s` or `S`: save the replay, on the death card alone (pk02); never
+/// recorded, dropped in play.
+pub const KEY_SAVE: int = 11
+
 /// The milliseconds after which a lone ESC is Esc.
 pub const ESC_TIMEOUT_MS: int = 50
 
@@ -86,6 +91,9 @@ pub fn plain_key(b: int) -> int {
     }
     if b == 61 || b == 43 {
         return KEY_HEALTH_UP
+    }
+    if b == 115 || b == 83 {
+        return KEY_SAVE
     }
     KEY_NONE
 }
