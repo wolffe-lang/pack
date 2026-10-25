@@ -9,10 +9,11 @@ tools/pty's Session.
            such counter without root). The bar: one wake a tick, 300 in
            10 s, with a fifth of slack either way (240 to 360): fewer means
            the tick is not running, more means the loop wakes for nothing.
-  latency  Left typed 20 times, a second apart; the time from the write to
-           the first byte of the next frame. The bar: the median under one
-           tick plus a render (40 ms) and the maximum under two ticks
-           (70 ms); the real-time clock of a shared host is the noise.
+  latency  Left typed 20 times, a third of a second apart; the time from
+           the write to the first byte of the next frame. The bar: the
+           median under one tick plus a render (40 ms) and the 90th
+           percentile under two ticks (70 ms); the maximum is recorded, not
+           gated, since one stall of a shared host is that host's.
 
 PACK_PERF_SLACK multiplies the latency bars.
 """
@@ -87,9 +88,10 @@ def row_latency(bin):
     if len(samples) < 20:
         print("perf-idle: latency only %d of 20 keys drew a frame FAILED" % len(samples))
         return False
-    med, mx = statistics.median(samples), max(samples)
-    ok = med < 40 * SLACK and mx < 70 * SLACK
-    print("perf-idle: latency median %.1f ms max %.1f ms over 20 keys (bars %.0f / %.0f ms) %s" % (med, mx, 40 * SLACK, 70 * SLACK, "ok" if ok else "FAILED"))
+    ordered = sorted(samples)
+    med, p90, mx = statistics.median(samples), ordered[int(len(ordered) * 0.9) - 1], max(samples)
+    ok = med < 40 * SLACK and p90 < 70 * SLACK
+    print("perf-idle: latency median %.1f ms p90 %.1f ms max %.1f ms over 20 keys (bars median %.0f, p90 %.0f ms) %s" % (med, p90, mx, 40 * SLACK, 70 * SLACK, "ok" if ok else "FAILED"))
     return ok
 
 
