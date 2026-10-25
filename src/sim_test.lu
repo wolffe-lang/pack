@@ -1022,3 +1022,68 @@ fn test_a_deer_far_behind_or_far_ahead_is_gone() {
     sim.step(mut s, none(), 0)
     assert(s.deer.len == 0, "both dropped: {s.deer.len} left")
 }
+
+fn test_the_curve_is_gentle_first_then_groups_then_a_ceiling() {
+    // Whatever the forest, the first SPAWN_RAMP_ROWS rows are a single
+    // thousandth; groups (above GROUP_RATE) come only after the ramp has
+    // climbed to them (the first forty-five seconds at the trot); the
+    // ceiling holds far out, and the second minute is a fight.
+    let groups_from = (sim.GROUP_RATE - world.SPAWN_RAMP_BASE + 1) * world.SPAWN_RAMP_ROWS
+    var seed = 1
+    while seed <= 20 {
+        var r = 0
+        while r < world.SPAWN_RAMP_ROWS {
+            assert(
+                world.spawn_rate(seed, r) <= 1,
+                "seed {seed} row {r}: {world.spawn_rate(seed, r)}",
+            )
+            r += 7
+        }
+        r = 0
+        while r < groups_from {
+            assert(
+                world.spawn_rate(seed, r) <= sim.GROUP_RATE,
+                "no groups before row {groups_from}",
+            )
+            r += 10
+        }
+        assert(world.spawn_rate(seed, 5000) == world.SPAWN_CEILING, "the ceiling at 5000 rows")
+        assert(
+            world.spawn_rate(seed, 560) >= 4,
+            "the second minute is a fight: {world.spawn_rate(seed, 560)}",
+        )
+        seed += 1
+    }
+    assert(groups_from >= 200, "groups no sooner than forty seconds: row {groups_from}")
+    // Seed 16 (a stand) reaches groups within two minutes.
+    assert(world.spawn_rate(16, 560) > sim.GROUP_RATE, "groups by the second minute in a stand")
+}
+
+fn test_deer_rate_follows_the_curve_and_the_clearings() {
+    assert(world.deer_rate(11, 0) > world.deer_rate(16, 0), "more deer in a clearing than a stand")
+    assert(world.deer_rate(7, 5000) > world.deer_rate(7, 0), "more deer as the shadows come")
+    assert(world.deer_rate(7, 0) >= 1, "never none")
+}
+
+fn test_a_spawn_lurks_on_the_outside_of_the_bend() {
+    // Search a seed and a row where the path bends more than a cell over
+    // the screen's height; the side is the outside (the centre moving
+    // right puts the group on the left).
+    var found = false
+    var seed = 1
+    while seed <= 40 && !found {
+        var s = sim.new(seed, 80, 24)
+        let top = sim.world_row(s, 0) + 1
+        let (here, _) = world.path(seed, 80, 0)
+        let (there, _) = world.path(seed, 80, top)
+        if there - here > world.FP {
+            assert(sim.spawn_side(s, top) == -1, "seed {seed}: bending right, the left verge")
+            found = true
+        } else if here - there > world.FP {
+            assert(sim.spawn_side(s, top) == 1, "seed {seed}: bending left, the right verge")
+            found = true
+        }
+        seed += 1
+    }
+    assert(found, "some seed of forty bends at its start")
+}

@@ -139,25 +139,67 @@ pub fn forest_kind(seed: int, row: int, col: int, dist_cells: int, density: int)
     if h < 6 + trunk then 1 else if h < 60 then 2 else 3
 }
 
-/// The spawn-rate input pk02 reads, in thousandths of a shadow a tick: a
-/// base that rises with the distance travelled (one more thousandth every
-/// `SPAWN_DISTANCE` rows) and with the forest's density at the row (up to
-/// `SPAWN_DENSITY` more in a dense stand). Computed and logged under
-/// `--trace`; nothing spawns yet.
+/// The shadows' spawn rate at `row`, in thousandths of a shadow a tick:
+/// the difficulty curve (pk03). A base that rises with the distance
+/// travelled (one more thousandth every `SPAWN_DISTANCE` rows) and with
+/// the forest's density at the row (up to `SPAWN_DENSITY` more in a dense
+/// stand), held under a ramp from the start (`SPAWN_RAMP_BASE` plus one
+/// every `SPAWN_RAMP_ROWS` rows: a gentle first minute whatever the
+/// forest) and under `SPAWN_CEILING`. Groups come above `sim.GROUP_RATE`.
+/// Logged under `--trace` as `spawn`; rolled each tick against the
+/// world's hash of the tick (pk02).
 pub fn spawn_rate(seed: int, row: int) -> int {
-    SPAWN_BASE +
-        (if row > 0 then row / SPAWN_DISTANCE else 0) +
-        density(seed, row) * SPAWN_DENSITY / FP
+    let ahead = if row > 0 then row else 0
+    var rate = SPAWN_BASE + ahead / SPAWN_DISTANCE + density(seed, row) * SPAWN_DENSITY / FP
+    let ramp = SPAWN_RAMP_BASE + ahead / SPAWN_RAMP_ROWS
+    if rate > ramp {
+        rate = ramp
+    }
+    if rate > SPAWN_CEILING {
+        rate = SPAWN_CEILING
+    }
+    rate
 }
 
 /// The spawn rate at the start, thousandths a tick.
-pub const SPAWN_BASE: int = 2
+pub const SPAWN_BASE: int = 1
 
 /// Rows per added thousandth.
-pub const SPAWN_DISTANCE: int = 200
+pub const SPAWN_DISTANCE: int = 120
 
 /// The density's whole contribution, thousandths a tick.
 pub const SPAWN_DENSITY: int = 6
+
+/// The ramp's start: the rate can be no more than this at row 0, however
+/// dense the forest.
+pub const SPAWN_RAMP_BASE: int = 1
+
+/// Rows per added thousandth of the ramp: 70 is fifteen seconds at the
+/// trot, so a dense start reaches groups (above `sim.GROUP_RATE`) after
+/// the first minute and a clearing later.
+pub const SPAWN_RAMP_ROWS: int = 50
+
+/// The curve's ceiling, thousandths a tick: a shadow every 2.8 s on
+/// average, in groups.
+pub const SPAWN_CEILING: int = 12
+
+/// The deer's rate at `row`, thousandths of a deer a tick (pk03): a base,
+/// a share of the shadows' rate (so a long run is survivable with deer and
+/// not without), and more in a clearing, where deer graze.
+pub fn deer_rate(seed: int, row: int) -> int {
+    DEER_BASE +
+        spawn_rate(seed, row) / DEER_PER_SHADOW +
+        (FP - density(seed, row)) * DEER_CLEARING / FP
+}
+
+/// The deer rate's base, thousandths a tick.
+pub const DEER_BASE: int = 2
+
+/// The shadows' rate over this is added to the deer's.
+pub const DEER_PER_SHADOW: int = 4
+
+/// The clearing's whole contribution to the deer rate, thousandths a tick.
+pub const DEER_CLEARING: int = 3
 
 /// A variant for a cell's texture, in `[0, n)`.
 pub fn variant(seed: int, row: int, col: int, n: int) -> int {

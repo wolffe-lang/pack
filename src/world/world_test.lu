@@ -145,3 +145,16 @@ fn test_hash_range() {
         i += 1
     }
 }
+
+fn test_the_curve_holds_the_ramp_and_the_ceiling() {
+    var r = 0
+    while r < 3000 {
+        let rate = spawn_rate(16, r)
+        assert(rate >= SPAWN_BASE && rate <= SPAWN_CEILING, "rate {rate} at {r}")
+        assert(rate <= SPAWN_RAMP_BASE + r / SPAWN_RAMP_ROWS, "under the ramp at {r}: {rate}")
+        assert(deer_rate(16, r) >= DEER_BASE, "deer at {r}")
+        r += 50
+    }
+    assert(spawn_rate(16, 0) == SPAWN_RAMP_BASE, "a stand starts at the ramp's base")
+    assert(spawn_rate(16, 3000) == SPAWN_CEILING, "and ends at the ceiling")
+}

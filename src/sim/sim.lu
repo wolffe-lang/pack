@@ -1334,16 +1334,36 @@ fn lurker(s: Sim, row: int, side: int) -> Shadow {
     }
 }
 
+/// The side a spawn lurks on, by the path's bend between the alpha's row
+/// and the spawn row (pk03): the OUTSIDE of the bend, where a pack that
+/// steers late drifts (a path bending right as it climbs puts the pack on
+/// its left verge), so a group waits where the pack will be and not across
+/// a wide path from it; on a straight (under a cell of bend) the seed's
+/// coin.
+pub fn spawn_side(s: Sim, top: int) -> int {
+    let (here, _) = world.path(s.seed, s.cols, alpha(s).y / world.FP)
+    let (there, _) = world.path(s.seed, s.cols, top)
+    let bend = there - here
+    if bend > world.FP {
+        return -1
+    }
+    if bend < 0 - world.FP {
+        return 1
+    }
+    if world.hash(s.seed + 5000, s.tick, 3, 2) == 0 then -1 else 1
+}
+
 /// Spawn: roll the tick; a shadow (or a group spaced three rows apart,
 /// the same side) appears at the forest edge one row above the top of the
-/// screen, while fewer than `SHADOW_MAX` are alive.
+/// screen, on the side the bend names, while fewer than `SHADOW_MAX` are
+/// alive.
 fn spawn_shadows(mut s: Sim) {
     let n = spawn_roll(s.seed, s.tick, spawn_rate(s))
     if n == 0 {
         return
     }
-    let side = if world.hash(s.seed + 5000, s.tick, 3, 2) == 0 then -1 else 1
     let top = world_row(s, 0) + 1
+    let side = spawn_side(s, top)
     var k = 0
     while k < n && shadows_alive(s) < SHADOW_MAX {
         (mut s.shadows).push(lurker(s, top + 3 * k, side))
