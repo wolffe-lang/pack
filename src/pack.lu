@@ -1,0 +1,624 @@
+//! member: false
+//!
+//! pack — lead a pack of wolves up an endless forest path. The entry: the
+//! command line, the live loop (one wait a tick on the terminal and the
+//! signals, the simulation stepped once a tick, the screen diffed once a
+//! frame), the headless run that writes frames for the goldens, the
+//! replay and record paths, and the two tools the pty runner and the art
+//! study need (`--apply`, `--probe-glyphs`).
+//!
+//! Track 19 of the wolffe-lang planning repo; this is M-PK0, the engine:
+//! one wolf trotting up a scrolling path. The pack, the shadows, the deer
+//! and the card are pk01-pk03's.
+
+use art
+use clock
+use grid
+use input
+use replay
+use sim
+use std.env
+use std.fs
+use term
+use tier
+
+/// What the command line asked for.
+struct Options {
+    headless: bool,
+    seed: int,
+    script: str,
+    frames: int,
+    every: int,
+    tier: int,
+    cols: int,
+    rows: int,
+    dump: str,
+    replay_path: str,
+    record_path: str,
+    trap_at: int,
+    ticks: int,
+    truecolor: int,
+    apply_path: str,
+    art_study: bool,
+    probe_glyphs: bool,
+    help: bool,
+    version: bool,
+}
+
+fn usage_text() -> str {
+    "pack — lead a pack of wolves up an endless forest path\n\n" +
+        "  pack [--seed N] [--tier rich|plain] [--record FILE]\n" +
+        "  pack --replay FILE                reproduce a recorded run\n" +
+        "  pack --headless --seed N [--script FILE] --frames N [--every K]\n" +
+        "       --tier T --size WxH --dump DIR\n" +
+        "  pack --apply CAPTURE --size WxH   a captured byte stream as a frame\n" +
+        "  pack --art-study --dump DIR       the sprite sheets, both tiers\n" +
+        "  pack --probe-glyphs               measure the rich glyphs' widths here\n\n" +
+        "  keys: arrows steer, Up sprints, Down stops, Space leaps,\n" +
+        "        Shift+Down or z parries, q or Esc quits\n" +
+        "  --truecolor / --no-truecolor      override COLORTERM\n" +
+        "  --ticks N                         quit after N ticks\n"
+}
+
+fn options_default() -> Options {
+    Options {
+        headless: false,
+        seed: 1,
+        script: "",
+        frames: 60,
+        every: 1,
+        tier: -1,
+        cols: 0,
+        rows: 0,
+        dump: "",
+        replay_path: "",
+        record_path: "",
+        trap_at: 0,
+        ticks: 0,
+        truecolor: -1,
+        apply_path: "",
+        art_study: false,
+        probe_glyphs: false,
+        help: false,
+        version: false,
+    }
+}
+
+fn parse_args(args: List[str]) -> Options ! {usage, parse} {
+    var o = options_default()
+    var i = 0
+    while i < args.len {
+        let a = args[i]
+        let more = i + 1 < args.len
+        if a == "--headless" {
+            o.headless = true
+        } else if a == "--help" || a == "-h" {
+            o.help = true
+        } else if a == "--version" {
+            o.version = true
+        } else if a == "--art-study" {
+            o.art_study = true
+        } else if a == "--probe-glyphs" {
+            o.probe_glyphs = true
+        } else if a == "--truecolor" {
+            o.truecolor = 1
+        } else if a == "--no-truecolor" {
+            o.truecolor = 0
+        } else if more && a == "--seed" {
+            i += 1
+            o.seed = args[i].to_int()?
+        } else if more && a == "--frames" {
+            i += 1
+            o.frames = args[i].to_int()?
+        } else if more && a == "--every" {
+            i += 1
+            o.every = args[i].to_int()?
+        } else if more && a == "--trap-at" {
+            i += 1
+            o.trap_at = args[i].to_int()?
+        } else if more && a == "--ticks" {
+            i += 1
+            o.ticks = args[i].to_int()?
+        } else if more && a == "--tier" {
+            i += 1
+            o.tier = tier.of_name(args[i]) else |_| {
+                return usage
+            }
+        } else if more && a == "--size" {
+            i += 1
+            let (c, r) = replay.parse_size(args[i]) else |_| {
+                return usage
+            }
+            o.cols = c
+            o.rows = r
+        } else if more && a == "--script" {
+            i += 1
+            o.script = args[i]
+        } else if more && a == "--dump" {
+            i += 1
+            o.dump = args[i]
+        } else if more && a == "--replay" {
+            i += 1
+            o.replay_path = args[i]
+        } else if more && a == "--record" {
+            i += 1
+            o.record_path = args[i]
+        } else if more && a == "--apply" {
+            i += 1
+            o.apply_path = args[i]
+        } else {
+            return usage
+        }
+        i += 1
+    }
+    if o.frames < 1 || o.every < 1 {
+        return usage
+    }
+    o
+}
+
+fn pad4(n: int) -> str {
+    if n < 10 {
+        return "000{n}"
+    }
+    if n < 100 {
+        return "00{n}"
+    }
+    if n < 1000 {
+        return "0{n}"
+    }
+    "{n}"
+}
+
+fn write_frame(dir: str, name: str, g: grid.Grid) -> () ! {io} {
+    var text = List[byte]()
+    grid.dump_text(g, mut text)
+    fs.write_bytes("{dir}/{name}.txt", text) else |_| {
+        return io
+    }
+    var sty = List[byte]()
+    grid.dump_styles(g, mut sty)
+    fs.write_bytes("{dir}/{name}.sty", sty) else |_| {
+        return io
+    }
+}
+
+/// The replay a run follows: the file named by `--script` or `--replay`,
+/// or an empty one from the options. Flags given on the command line
+/// override the file's header.
+fn load_replay(o: Options, want_cols: int, want_rows: int) -> replay.Replay ! {parse, io} {
+    let path = if o.script != "" then o.script else o.replay_path
+    var r = replay.new(o.seed, if o.tier < 0 then tier.RICH else o.tier, want_cols, want_rows)
+    if path != "" {
+        let text = fs.read_text(path) else |_| {
+            return io
+        }
+        r = replay.from_text(text)?
+        if o.cols > 0 {
+            r.cols = o.cols
+            r.rows = o.rows
+        }
+        if o.tier >= 0 {
+            r.tier = o.tier
+        }
+    }
+    r
+}
+
+fn seed_given(args: List[str]) -> bool {
+    for a in args {
+        if a == "--seed" {
+            return true
+        }
+    }
+    false
+}
+
+/// The headless run: `frames` ticks from the script, every `every`th
+/// frame and the final one written to `dump` as cell text and styles.
+fn run_headless(o: Options, args: List[str]) -> int {
+    var r = load_replay(
+        o,
+        if o.cols > 0 then o.cols else 80,
+        if o.rows > 0 then o.rows else 24,
+    ) else |e| {
+        eprint("pack: the script could not be read ({e})")
+        return 2
+    }
+    if seed_given(args) {
+        r.seed = o.seed
+    }
+    if o.dump == "" {
+        eprint("pack: --headless needs --dump DIR")
+        return 2
+    }
+    fs.create_dir_all(o.dump) else |_| {
+        eprint("pack: cannot create {o.dump}")
+        return 2
+    }
+    var s = sim.new(r.seed, r.cols, r.rows)
+    var g = grid.new(r.rows, r.cols)
+    var keys = List[int]()
+    var k = 0
+    while k < o.frames {
+        (mut keys).reset()
+        let (c, rows) = replay.at(r, k, mut keys)
+        if c > 0 {
+            sim.resize(mut s, c, rows)
+            g = grid.new(rows, c)
+        }
+        sim.step(mut s, keys)
+        if (k + 1) % o.every == 0 && k + 1 < o.frames {
+            art.render(s, r.tier, mut g)
+            write_frame(o.dump, "frame-{pad4(k + 1)}", g) else |_| {
+                eprint("pack: cannot write into {o.dump}")
+                return 2
+            }
+        }
+        k += 1
+    }
+    // The last frame is always `final` (the pty runner compares it).
+    art.render(s, r.tier, mut g)
+    write_frame(o.dump, "final", g) else |_| {
+        eprint("pack: cannot write into {o.dump}")
+        return 2
+    }
+    0
+}
+
+/// `--apply`: a captured byte stream through the terminal model, the
+/// resulting screen written to standard output as text then styles (the
+/// pty runner compares it with the headless `final`).
+fn run_apply(o: Options) -> int {
+    if o.cols == 0 {
+        eprint("pack: --apply needs --size WxH")
+        return 2
+    }
+    let bytes = fs.read_bytes(o.apply_path) else |_| {
+        eprint("pack: cannot read {o.apply_path}")
+        return 2
+    }
+    var m = grid.model_new(o.rows, o.cols)
+    grid.model_feed(mut m, bytes)
+    var out = List[byte]()
+    grid.dump_text(m.grid, mut out)
+    grid.push_str(mut out, "--\n")
+    grid.dump_styles(m.grid, mut out)
+    grid.push_str(
+        mut out,
+        "--\nalt_enters {m.alt_enters} alt_leaves {m.alt_leaves} cursor_visible {m.cursor_visible} unknown {m.unknown}\n",
+    )
+    var tout = fs.stdout()
+    fs.write_chunk(mut tout, out) else |_| {
+        return 2
+    }
+    0
+}
+
+/// `--art-study`: the sprite sheets on both tiers into `dump`.
+fn run_art_study(o: Options) -> int {
+    if o.dump == "" {
+        eprint("pack: --art-study needs --dump DIR")
+        return 2
+    }
+    fs.create_dir_all(o.dump) else |_| {
+        eprint("pack: cannot create {o.dump}")
+        return 2
+    }
+    write_frame(o.dump, "sheet-rich", art.sheet(tier.RICH)) else |_| {
+        return 2
+    }
+    write_frame(o.dump, "sheet-plain", art.sheet(tier.PLAIN)) else |_| {
+        return 2
+    }
+    0
+}
+
+/// The environment's tier and colour depth, where the flags left them.
+fn pick_tier(o: Options) -> (int, bool) {
+    var t = o.tier
+    if t < 0 {
+        let lang = env.get("LC_ALL") else (env.get("LANG") else "")
+        t = tier.detect(env.get("TERM") else "", lang)
+    }
+    var truecolor = o.truecolor == 1
+    if o.truecolor < 0 {
+        truecolor = tier.truecolor_of(env.get("COLORTERM") else "")
+    }
+    (t, truecolor)
+}
+
+/// `--probe-glyphs`: each rich code point written to the terminal and the
+/// cursor asked where it landed (`CSI 6 n`), the width it took printed
+/// as a table after the terminal is restored. The measurement
+/// `docs/GLYPHS.md` records per terminal; a photo is not evidence.
+fn run_probe(o: Options) -> int {
+    var t = term.open() else |e| {
+        eprint(term.message("{e}"))
+        return 2
+    }
+    term.enter(mut t) else |_| {
+        eprint(term.message("io"))
+        return 3
+    }
+    let cps = tier.rich_code_points()
+    var widths = List[int]()
+    var buf = List[byte]()
+    for cp in cps {
+        var probe = List[byte]()
+        grid.push_str(mut probe, "\x1b[2;1H\x1b[2K")
+        grid.push_utf8(mut probe, cp)
+        grid.push_str(mut probe, "\x1b[6n")
+        term.write(probe) else |_| {}
+        // The reply: ESC [ row ; col R, within 200 ms.
+        var col = -1
+        var waited = 0
+        var reply = List[byte]()
+        while col < 0 && waited < 10 {
+            var c = clock.new(clock.now_ns())
+            let w = clock.wait_until(mut c, clock.now_ns() + 20000000, term.signal_set()) else |_| {
+                break
+            }
+            if w.input_ready {
+                term.read_keys(mut buf, 64) else |_| {
+                    break
+                }
+                for b in buf {
+                    (mut reply).push(b)
+                }
+                col = cpr_col(reply)
+            }
+            waited += 1
+        }
+        (mut widths).push(if col < 0 then -1 else col - 1)
+    }
+    term.leave(mut t)
+    print("code point | width | terminal {t.term_name}")
+    var i = 0
+    while i < cps.len {
+        print("U+{hex4(cps[i])} | {widths[i]} | {string_of(cps[i])}")
+        i += 1
+    }
+    0
+}
+
+fn string_of(cp: int) -> str {
+    var v = List[byte]()
+    grid.push_utf8(mut v, cp)
+    str_from_utf8(v) else "?"
+}
+
+fn hex4(n: int) -> str {
+    let digits = "0123456789ABCDEF"
+    var s = ""
+    var p = 4096
+    while p >= 1 {
+        let d = n / p % 16
+        s = s + digits[d..d + 1]
+        p /= 16
+    }
+    s
+}
+
+/// The column of a cursor position report `ESC [ row ; col R` in `v`, or
+/// -1 when none is complete.
+fn cpr_col(v: List[byte]) -> int {
+    var i = 0
+    while i + 3 < v.len {
+        if v[i] as int == 27 && v[i + 1] as int == 91 {
+            var j = i + 2
+            var row = 0
+            var col = 0
+            var second = false
+            while j < v.len {
+                let b = v[j] as int
+                if b >= 48 && b <= 57 {
+                    if second {
+                        col = col * 10 + b - 48
+                    } else {
+                        row = row * 10 + b - 48
+                    }
+                } else if b == 59 {
+                    second = true
+                } else if b == 82 {
+                    return col
+                } else {
+                    break
+                }
+                j += 1
+            }
+        }
+        i += 1
+    }
+    -1
+}
+
+/// The live game.
+fn run_live(o: Options, args: List[str]) -> int {
+    var t = term.open() else |e| {
+        eprint(term.message("{e}"))
+        return 2
+    }
+    let (tr, truecolor) = pick_tier(o)
+    var rp = load_replay(o, t.cols, t.rows) else |e| {
+        eprint("pack: the replay could not be read ({e})")
+        return 2
+    }
+    let replaying = o.replay_path != ""
+    if !replaying {
+        rp.tier = tr
+        if seed_given(args) {
+            rp.seed = o.seed
+        }
+    }
+    var cols = t.cols
+    var rows = t.rows
+    if replaying {
+        // The replay's size is the field's; the terminal must be at least
+        // that (the pty runner sizes it so).
+        cols = rp.cols
+        rows = rp.rows
+    }
+    var rec = replay.new(rp.seed, rp.tier, cols, rows)
+    let dialect = tier.dialect(rp.tier, truecolor)
+    var s = sim.new(rp.seed, cols, rows)
+    var front = grid.new(rows, cols)
+    var back = grid.new(rows, cols)
+    var pen = grid.pen_new()
+    var out = List[byte]()
+    var buf = List[byte]()
+    var keys = List[int]()
+    var tick_keys = List[int]()
+    var d = input.new()
+    term.enter(mut t) else |_| {
+        eprint(term.message("io"))
+        return 3
+    }
+    var c = clock.new(clock.now_ns())
+    var full = true
+    var quit = false
+    var frames = 0
+    var render_ns = 0
+    var render_max_ns = 0
+    loop {
+        var deadline = clock.next_due_ns(c)
+        if input.esc_pending(d) {
+            let esc = input.esc_deadline_ms(d) * 1000000
+            if esc < deadline {
+                deadline = esc
+            }
+        }
+        let w = clock.wait_until(mut c, deadline, term.signal_set()) else |_| {
+            quit = true
+            break
+        }
+        let now = clock.now_ns()
+        let now_ms = now / 1000000
+        if w.meaning != 0 {
+            if w.meaning == 16384 {
+                if term.resize(mut t) && !replaying {
+                    cols = t.cols
+                    rows = t.rows
+                    sim.resize(mut s, cols, rows)
+                    front = grid.new(rows, cols)
+                    back = grid.new(rows, cols)
+                    pen = grid.pen_new()
+                    full = true
+                    replay.push_size(mut rec, s.tick, cols, rows)
+                }
+            } else {
+                quit = true
+            }
+        }
+        if w.input_ready {
+            term.read_keys(mut buf, 64) else |_| {
+                quit = true
+                (mut buf).reset()
+            }
+            input.feed_all(mut d, buf, now_ms, mut keys)
+        }
+        input.flush(mut d, now_ms, mut keys)
+        let due = clock.advance(mut c, now)
+        var n = 0
+        while n < due {
+            (mut tick_keys).reset()
+            if replaying {
+                let (rc, rr) = replay.at(rp, s.tick, mut tick_keys)
+                if rc > 0 {
+                    sim.resize(mut s, rc, rr)
+                    front = grid.new(rr, rc)
+                    back = grid.new(rr, rc)
+                    pen = grid.pen_new()
+                    full = true
+                }
+                if s.tick > replay.last_tick(rp) && o.ticks == 0 {
+                    quit = true
+                }
+            } else if n == 0 {
+                for k in keys {
+                    if k == input.KEY_QUIT || k == input.KEY_INTERRUPT {
+                        quit = true
+                    } else {
+                        (mut tick_keys).push(k)
+                        replay.push_key(mut rec, s.tick, k)
+                    }
+                }
+            }
+            sim.step(mut s, tick_keys)
+            if o.trap_at > 0 && s.tick == o.trap_at {
+                // The planted trap: a broken contract, as any trap would be.
+                // The runtime restores the terminal (`[os.term.restore]`).
+                assert(false, "pack: --trap-at {o.trap_at} (a planted trap)")
+            }
+            if o.ticks > 0 && s.tick >= o.ticks {
+                quit = true
+            }
+            n += 1
+        }
+        (mut keys).reset()
+        if due > 0 {
+            let r0 = clock.now_ns()
+            art.render(s, rp.tier, mut back)
+            grid.diff(front, back, full, mut pen, mut out, dialect)
+            let r1 = clock.now_ns()
+            render_ns += r1 - r0
+            if r1 - r0 > render_max_ns {
+                render_max_ns = r1 - r0
+            }
+            term.write(out) else |_| {
+                quit = true
+            }
+            (mut out).reset()
+            let tmp = front
+            front = back
+            back = tmp
+            full = false
+            frames += 1
+        }
+        if quit {
+            break
+        }
+    }
+    term.leave(mut t)
+    if o.record_path != "" {
+        var text = List[byte]()
+        replay.format(rec, mut text)
+        fs.write_bytes(o.record_path, text) else |_| {
+            eprint("pack: cannot write {o.record_path}")
+        }
+    }
+    let avg_us = if frames > 0 then render_ns / frames / 1000 else 0
+    eprint(
+        "pack: {s.tick} ticks, {frames} frames, {c.dropped} dropped, {c.waits} waits, {sim.distance_cells(s)} cells; render avg {avg_us} us max {render_max_ns / 1000} us; seed {rp.seed} tier {tier.name(rp.tier)} {cols}x{rows}",
+    )
+    0
+}
+
+fn main() -> int {
+    let args = env.args()
+    let o = parse_args(args) else |_| {
+        eprint(usage_text())
+        return 2
+    }
+    if o.help {
+        print(usage_text())
+        return 0
+    }
+    if o.version {
+        print("pack 0.0.0 (pk00: the engine)")
+        return 0
+    }
+    if o.apply_path != "" {
+        return run_apply(o)
+    }
+    if o.art_study {
+        return run_art_study(o)
+    }
+    if o.probe_glyphs {
+        return run_probe(o)
+    }
+    if o.headless {
+        return run_headless(o, args)
+    }
+    run_live(o, args)
+}
