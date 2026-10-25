@@ -1,0 +1,211 @@
+//! member: false
+//! Held chords, sectors, tell, the arc and backward trail progress.
+
+use sim
+use input
+use world
+use art
+use grid
+use tier
+
+fn chord(mask: int) -> List[int] {
+    var keys = List[int]()
+    if mask % 2 == 1 { (mut keys).push(sim.KEY_UP) }
+    if mask / 2 % 2 == 1 { (mut keys).push(sim.KEY_DOWN) }
+    if mask / 4 % 2 == 1 { (mut keys).push(sim.KEY_LEFT) }
+    if mask / 8 % 2 == 1 { (mut keys).push(sim.KEY_RIGHT) }
+    (mut keys).push(sim.KEY_LEAP)
+    keys
+}
+
+fn solo(seed: int) -> sim.Sim {
+    var s = sim.new(seed, 80, 24)
+    s.leap_next_group = 1
+    var i = 0
+    while i < sim.PACK_SIZE {
+        if i != sim.ALPHA { s.wolves[i].state = sim.FAINTED }
+        i += 1
+    }
+    s
+}
+
+fn target(s: sim.Sim, dx: int, dy: int) -> sim.Shadow {
+    let w = sim.alpha(s)
+    sim.Shadow {
+        face_x: 0,
+        face_y: 2,
+        attack_age: 0,
+        attack_dx: 0,
+        attack_dy: 0,
+        pose_x: 0,
+        pose_y: 0,
+        x: w.x + dx,
+        y: w.y + dy,
+        heading: 0,
+        speed: 0,
+        dir: 1,
+        state: sim.CHASING,
+        target: sim.ALPHA,
+        windup: 0,
+        cooldown: 30,
+        recoil: 0,
+        fade: 0,
+    }
+}
+
+fn test_pk06_aim_table_all_sixteen_subsets() {
+    // Indexed by U=1 D=2 L=4 R=8, including every contradiction.
+    let xs = [0, 0, 0, 0, -1, -1, -1, 0, 1, 1, 1, 0, 0, 0, 0, 0]
+    let ys = [1, 1, -1, 1, 0, 1, -1, 1, 0, 1, -1, 1, 1, 1, 1, 1]
+    var held = 0
+    while held < 16 {
+        let a = sim.leap_aim(held)
+        assert(a.x == xs[held] && a.y == ys[held], "held subset {held}")
+        held += 1
+    }
+}
+
+fn test_pk06_hold_at_space_uses_event_order_and_repeat_expiry() {
+    var s = sim.new(7, 80, 24)
+    let keys = [sim.KEY_UP, sim.KEY_RIGHT, sim.KEY_RIGHT, sim.KEY_LEAP, sim.KEY_DOWN]
+    sim.step(mut s, keys, 0)
+    assert(s.leap_aim.x == 1 && s.leap_aim.y == 1, "arrows before Space, not after")
+    assert(s.hold_right.until == input.HOLD_TAP_TICKS, "duplicate byte not a repeat")
+    // An actual repeated run releases at measured interval plus margin.
+    var r = sim.new(7, 80, 24)
+    var tick = 0
+    while tick < 9 {
+        let ks = if tick % 2 == 0 then [sim.KEY_LEFT] else List[int]()
+        sim.step(mut r, ks, 0)
+        tick += 1
+    }
+    sim.step(mut r, [sim.KEY_LEAP], 0)
+    assert(r.leap_aim.x == -1 && r.leap_aim.y == 0, "held across ticks")
+    sim.step(mut r, List[int](), 0)
+    assert(sim.held_arrows(r) == 0, "expires at last repeat plus interval and margin")
+    while r.tick < 24 { sim.step(mut r, List[int](), 0) }
+    sim.step(mut r, [sim.KEY_LEAP], 0)
+    assert(r.leap_aim.x == 0 && r.leap_aim.y == 1, "expired arrows default")
+    var after = sim.new(7, 80, 24)
+    sim.step(mut after, [sim.KEY_LEAP, sim.KEY_LEFT], 0)
+    assert(after.leap_aim.x == 0, "a later arrow cannot re-aim an accepted press")
+    sim.step(mut after, [sim.KEY_DOWN, sim.KEY_LEAP], 0)
+    assert(after.leap_aim.y == 1 && after.leap_next_group == 1, "refusal preserves commitment")
+}
+
+fn test_pk06_sector_contact_and_boundaries_for_every_aim() {
+    for mask in [0, 1, 2, 4, 5, 6, 8, 9, 10] {
+        let a = sim.leap_aim(mask)
+        let reach = sim.LEAP_REACH_AIM * world.FP
+        assert(sim.leap_hits(a, a.x * reach, a.y * reach), "at aimed range")
+        assert(!sim.leap_hits(a, a.x * (reach + 1), a.y * (reach + 1)), "past range")
+        assert(!sim.leap_hits(a, 0 - a.x * reach, 0 - a.y * reach), "behind")
+        let edge_x = a.x - a.y
+        let edge_y = a.y + a.x
+        assert(sim.leap_hits(a, edge_x * 700, edge_y * 700), "inclusive +45 edge")
+        assert(!sim.leap_hits(a, edge_x * 700 - a.y, edge_y * 700 + a.x), "one FP beyond edge")
+        assert(sim.leap_hits(a, 0 - a.x * 512, 0 - a.y * 512), "two-cell contact")
+        assert(!sim.leap_hits(a, 0 - a.x * 513, 0 - a.y * 513), "past contact behind")
+    }
+}
+
+fn test_pk06_sideways_hit_outside_sector_is_not_vanquished() {
+    var s = solo(1)
+    (mut s.shadows).push(target(s, 4 * world.FP, 0))
+    (mut s.shadows).push(target(s, 0, -4 * world.FP))
+    sim.step(mut s, chord(sim.HELD_RIGHT), 0)
+    assert(s.shadows[0].state == sim.VANQUISHED, "east target hit")
+    assert(s.shadows[1].state != sim.VANQUISHED, "south target outside east sector survives")
+}
+
+fn test_pk06_backward_resumes_forward_and_hits_only_its_sector() {
+    var s = solo(1)
+    (mut s.shadows).push(target(s, 0, -4 * world.FP))
+    (mut s.shadows).push(target(s, 4 * world.FP, 0))
+    sim.step(mut s, chord(sim.HELD_DOWN), 0)
+    assert(s.shadows[0].state == sim.VANQUISHED, "chaser on the heels hit")
+    assert(s.shadows[1].state != sim.VANQUISHED, "flank outside backward sector survives")
+    assert(!s.stopping && s.sprint_left == 0, "backward leap is not a stop or reversal")
+    var back = sim.new(7, 80, 24)
+    var forward = sim.new(7, 80, 24)
+    sim.step(mut back, chord(sim.HELD_DOWN), 0)
+    sim.step(mut forward, chord(0), 0)
+    var tick = 0
+    while tick < 30 {
+        sim.step(mut back, List[int](), 0)
+        sim.step(mut forward, List[int](), 0)
+        assert(
+            back.py == forward.py && sim.alpha(back).y == sim.alpha(forward).y,
+            "zero trail rows lost",
+        )
+        tick += 1
+    }
+    assert(back.py > 0 && back.speed > 0 && !back.stopping, "forward motion resumes")
+}
+
+fn test_pk06_only_running_members_of_the_leaping_group_hit() {
+    var s = solo(1)
+    s.leap_next_group = 0
+    (mut s.shadows).push(target(s, 0, world.FP))
+    sim.step(mut s, chord(0), 0)
+    assert(s.vanquished == 0, "holding alpha cannot hit for fainted leaders")
+}
+
+fn test_pk06_tell_precedes_each_arc_and_camera_stays_anchored() {
+    for mask in [0, 1, 2, 4, 5, 6, 8, 9, 10] {
+        var s = sim.new(7, 80, 24)
+        sim.step(mut s, chord(mask), 0)
+        assert(s.leap_tell && s.leap_left == sim.LEAP_TICKS, "one-tick tell")
+        assert(s.leap_x[0] == 0 && s.leap_y[0] == 0, "no arc during tell")
+        for t in [tier.PLAIN, tier.RICH] {
+            var g = grid.new(24, 80)
+            art.render(s, t, mut g)
+            assert(grid.at(g, 0, 2).cp == 76, "Latin L for Leap on both tiers")
+            if t == tier.PLAIN { assert(grid.plain_ok(g), "plain glyph contract") }
+        }
+        var age = 0
+        while age < sim.LEAP_TICKS {
+            sim.step(mut s, List[int](), 0)
+            assert(!s.leap_tell && !sim.any_pose_overlap(s), "clipped arc, no overlap")
+            assert(sim.screen_row(s, sim.ALPHA) == sim.wolf_row(s), "alpha camera row unchanged")
+            age += 1
+        }
+        assert(s.leap_landing && s.leap_x[0] == 0 && s.leap_y[0] == 0, "lands back in formation")
+    }
+}
+
+fn test_pk06_default_and_up_choose_identical_aim_not_identical_gait() {
+    let a = sim.leap_aim(0)
+    let b = sim.leap_aim(sim.HELD_UP)
+    assert(a.x == b.x && a.y == b.y, "Space and Up+Space have the same forward aim")
+    assert(sim.LEAP_COOLDOWN == 14 && sim.LEAP_STAMINA == 60, "unchanged 2.14/s burst and cost")
+}
+
+fn test_pk06_six_cell_arc_and_resize_preserve_all_compass_aims() {
+    for mask in [0, 2, 4, 5, 6, 8, 9, 10] {
+        let a = sim.leap_aim(mask)
+        let (x, y) = sim.leap_displacement(a, sim.LEAP_TICKS / 2)
+        assert(x == a.x * 6 * world.FP && y == a.y * 6 * world.FP, "six-cell apex")
+        let (end_x, end_y) = sim.leap_displacement(a, sim.LEAP_TICKS)
+        assert(end_x == 0 && end_y == 0, "out and back")
+        var s = sim.new(7, 160, 40)
+        sim.step(mut s, chord(mask), 0)
+        sim.resize(mut s, 80, 24)
+        sim.step(mut s, List[int](), 0)
+        assert(s.leap_aim.x == a.x && s.leap_aim.y == a.y, "resize cannot scale a compass vector")
+        assert(!sim.any_pose_overlap(s), "resize keeps presented bodies separate")
+    }
+}
+
+fn test_pk06_all_directions_stay_separate_through_both_groups() {
+    for mask in [0, 2, 4, 5, 6, 8, 9, 10] {
+        var s = sim.new(7, 80, 24)
+        var tick = 0
+        while tick < 48 {
+            let ks = if tick == 0 || tick == 14 then chord(mask) else List[int]()
+            sim.step(mut s, ks, 0)
+            assert(!sim.any_pose_overlap(s) && !sim.any_overlap(s), "all bodies separate")
+            tick += 1
+        }
+    }
+}

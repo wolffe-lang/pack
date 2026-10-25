@@ -1,0 +1,71 @@
+use sim
+use world
+
+fn keys(x: int, y: int) -> List[int] {
+    var ks = List[int]()
+    if y > 0 { (mut ks).push(sim.KEY_UP) }
+    if y < 0 { (mut ks).push(sim.KEY_DOWN) }
+    if x < 0 { (mut ks).push(sim.KEY_LEFT) }
+    if x > 0 { (mut ks).push(sim.KEY_RIGHT) }
+    (mut ks).push(sim.KEY_LEAP)
+    ks
+}
+
+fn fixture(seed: int, x: int, y: int, distance: int) -> sim.Sim {
+    var s = sim.new(seed, 80, 24)
+    s.leap_next_group = 1
+    var i = 0
+    while i < sim.PACK_SIZE {
+        s.wolves[i].state = if i == sim.ALPHA then sim.RUNNING else sim.FAINTED
+        i += 1
+    }
+    let a = sim.alpha(s)
+    (mut s.shadows).push(sim.Shadow {
+        face_x: 0, face_y: 2, attack_age: 0, attack_dx: 0, attack_dy: 0,
+        pose_x: 0, pose_y: 0, x: a.x + x * distance * world.FP,
+        y: a.y + y * distance * world.FP, heading: 0, speed: 0,
+        dir: 1, state: sim.CHASING, target: sim.ALPHA, windup: 0,
+        cooldown: 30, recoil: 0, fade: 0,
+    })
+    s
+}
+
+fn main() {
+    let xs = [0, 1, 1, 1, 0, -1, -1, -1]
+    let ys = [1, 1, 0, -1, -1, -1, 0, 1]
+    var sector = 0
+    while sector < 8 {
+        var forward = 0
+        var aimed = 0
+        var seed = 1
+        while seed <= 20 {
+            var a = fixture(seed, xs[sector], ys[sector], 4)
+            var b = fixture(seed, xs[sector], ys[sector], 4)
+            sim.step(mut a, keys(0, 0), 0)
+            sim.step(mut b, keys(xs[sector], ys[sector]), 0)
+            forward += a.vanquished
+            aimed += b.vanquished
+            seed += 1
+        }
+        print("SECTOR {sector} forward {forward}/20 aimed {aimed}/20")
+        sector += 1
+    }
+    var rows_lost = 0
+    var seed = 1
+    while seed <= 20 {
+        var a = fixture(seed, 0, -1, 4)
+        var b = fixture(seed, 0, -1, 4)
+        sim.step(mut a, keys(0, 0), 0)
+        sim.step(mut b, keys(0, -1), 0)
+        var tick = 0
+        while tick < 30 {
+            sim.step(mut a, List[int](), 0)
+            sim.step(mut b, List[int](), 0)
+            tick += 1
+        }
+        rows_lost += a.py - b.py
+        seed += 1
+    }
+    print("BACKWARD total trail loss FP {rows_lost} over 20 leaps")
+    print("CADENCE 30/{sim.LEAP_COOLDOWN} ticks")
+}

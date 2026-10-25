@@ -725,7 +725,7 @@ fn test_group_attack_lands_damage_per_shadow_a_lone_one_less() {
 fn test_leap_vanquishes_in_reach_costs_stamina_and_fades() {
     var s = sim.new(1, 80, 24)
     no_spawn(mut s)
-    var near = shadow_at(s, 0, sim.REACH, sim.CHASING)
+    var near = shadow_at(s, 5, 0, sim.CHASING)
     near.dir = 1
     (mut s.shadows).push(near)
     (mut s.shadows).push(shadow_at(s, sim.PERCEIVE + sim.LEAP_REACH + 9, 0, sim.LURKING))
@@ -1229,7 +1229,7 @@ fn test_pk04_pack_leap_alternates_moves_and_holds_formation() {
     sim.step(mut control, none(), 0)
     assert(s.leap_group == 0 && s.leap_next_group == 1, "leaders leap first")
     assert(s.leap_x[3] == 0 && s.leap_y[3] == 0 && s.leap_y[4] == 0, "other group holds")
-    assert(s.leap_y[0] > 0, "a real travelling sprite, not only a posture")
+    assert(s.leap_tell && s.leap_y[0] == 0, "a compass tell before travel")
     assert(s.wolves[4].y == control.wolves[4].y && s.speed == control.speed, "no whole-pack sprint")
     sim.step(mut s, one(sim.KEY_LEAP), 0)
     assert(s.leap_group == 0 && s.leap_next_group == 1, "refused leap does not alternate")
@@ -1239,7 +1239,7 @@ fn test_pk04_pack_leap_alternates_moves_and_holds_formation() {
     assert(sim.wolf_posture(s, sim.ALPHA) == sim.POSTURE_LEAP, "alpha's turn")
     assert(s.leap_x[0] == 0 && s.leap_y[0] == 0, "leaders hold second time")
     assert(sim.LEAP_COOLDOWN == 14 && sim.LEAP_TICKS == 8, "2.14 leaps/s burst rhythm")
-    var age = 1
+    var age = 0
     while age < sim.LEAP_TICKS {
         sim.step(mut s, none(), 0)
         assert(!sim.any_pose_overlap(s), "animated bodies never overlap")

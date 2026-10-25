@@ -171,10 +171,13 @@ target is still in reach.
 
 | constant | value | meaning | set |
 |---|---|---|---|
-| `LEAP_REACH` | 4 | Space vanquishes every shadow within this many cells of a running wolf (the attack reach: a shadow that can bite can be leapt on) | 2026-10-25 proposed |
+| `LEAP_REACH` | 2 | all-round contact reach from an active running leaper | 2026-10-25 proposed, R-pk06-1 A |
+| `LEAP_REACH_AIM` | 6 | Chebyshev cell reach within an inclusive ±45-degree sector along the held aim, from an active running leaper | 2026-10-25 proposed, R-pk06-1 A |
+| `LEAP_RANGE` | 6 | out-and-back presentation arc's apex in grid cells along the aim (diagonals advance each coordinate six); body collision can shorten it | 2026-10-25 proposed |
 | `LEAP_STAMINA` | 60 | a leap's cost, a fifth of the ceiling: about five leaps, then the pant; the spent pack cannot leap (the pant refuses, nothing happens) | 2026-10-25 proposed |
 | `LEAP_COOLDOWN` | 14 | accepted leaps alternate groups at up to 2.14/s while stamina lasts | 2026-10-25 the maintainer's word (rhythm proposed) |
-| `LEAP_TICKS` | 8 | two-cell out-and-back arc at half a cell/tick, leaders+left flanker then right flanker+alpha; other group holds, one-tick landing mark | 2026-10-25 the maintainer's word (duration proposed) |
+| `LEAP_TICKS` | 8 | one compass-tell tick before an eight-tick six-cell arc (1.5 grid cells/tick), leaders+left flanker then right flanker+alpha; other group holds, one-tick landing mark | 2026-10-25 the maintainer's word (aim); duration/range proposed |
+| `leap_aim(held)` | eight compass aims | Space alone/Up forward; Left/Right sideways; diagonals from two arrows; Down backward then resume forward; any contradictory pair defaults forward | 2026-10-25 the maintainer's word |
 | `PARRY_WINDOW` | 12 | Shift+Down or `z` turns a landing within 400 ms; covers the entire lunge, still a press and never a held stance | 2026-10-25 proposed |
 | `PARRY_COOLDOWN` | 30 | the ticks between parries | 2026-10-25 proposed |
 | `PARRY_PUSH`, `PARRY_RECOIL` | 3, 6 | a turned shadow loses its speed and recoils three cells away from its target over six ticks (half a cell a tick: a visible knock-back, no teleport), eyes dim | 2026-10-25 proposed |
@@ -240,10 +243,19 @@ Dusk distances stay 600/1200/1800 rows: at a flat full-health trot the times are
 111.3/222.6/333.9 seconds, formerly 128/256/384. A 15% faster trot arrives
 13.04% sooner in seconds (the informal "15% sooner" is not the reciprocal).
 
-The leap keeps its hit rule and reach: every in-range shadow is vanquished on the press.
-Only the visible group travels; a refused press does not alternate. The arc is a
-presentation offset, clipped in eighth-cell substeps against every live body;
-it never moves the camera, the hitbox or the other group. R-pk04-2 A is proposed.
+The arrows inferred held at Space choose the leap's compass aim (`docs/KEYS.md`).
+The active group alone hits: at the accepted press, from its formation
+positions, within six grid cells and ±45 degrees (integer dot >= absolute
+cross), or within two cells all round. Fainted/returning wolves cannot hit.
+The old four-cell all-round envelope from every living wolf is retired.
+The visible group follows a one-tick `Leap NE`-style tell with a six-cell
+out-and-back arc, clipped in eighth-cell substeps against every live body.
+It never moves the camera, physical hitboxes, gait or other group. A refused
+press changes neither aim nor group. R-pk06-1 A (sector/contact) and
+R-pk06-2 A (ordinary cost) are recommendations, not settled rulings.
+Backward has zero added trail cost relative to the same forward leap:
+Down stops normally, but an accepted Space clears the stop. An existing
+sprint is cancelled by Down as before; Space does not start a new sprint.
 
 The shadow gathers back at half a cell/tick for three ticks and holds for three,
 then crosses that gap in six lunge ticks. After landing it settles over six

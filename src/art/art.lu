@@ -401,6 +401,15 @@ pub fn render(s: sim.Sim, t: int, mut g: grid.Grid) {
         i += 1
     }
     draw_pack_wolf(s, t, p, sim.ALPHA, mut g)
+    if s.leap_tell {
+        let a = copy s.leap_aim
+        let name = if a.y > 0 {
+            if a.x < 0 then "NW" else if a.x > 0 then "NE" else "N"
+        } else if a.y < 0 {
+            if a.x < 0 then "SW" else if a.x > 0 then "SE" else "S"
+        } else if a.x < 0 then "W" else "E"
+        put_text(mut g, t, p, 0, 2, "Leap {name}", true)
+    }
     if s.leap_landing {
         var mark = 0
         while mark < s.leap_marks_x.len {

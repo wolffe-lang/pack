@@ -15,7 +15,7 @@ measure it. The decoder's unit tests feed every sequence here whole and split at
 | Shift+Down | `ESC [ 1 ; 2 B` | parry (campaign R-PK-3) |
 | Shift+Up, Shift+Left, Shift+Right | `ESC [ 1 ; 2 A`, `D`, `C` | the bare arrow |
 | Alt, Ctrl, Shift+Ctrl, Shift+Alt with an arrow | `ESC [ 1 ; m X`, m = 1 + Shift + 2 Alt + 4 Ctrl | the bare arrow |
-| Space | `20` | leap |
+| Space | `20` | leap along the arrows held at the press (table below) |
 | `z`, `Z` | `7A`, `5A` | parry (the alias) |
 | `q`, `Q` | `71`, `51` | quit: a run or the death card returns to the title, the title leaves (pk03; under `--no-title` the program leaves as before) |
 | `s`, `S` | `73`, `53` | save the replay, on the death card alone (pk02); dropped in play, never recorded |
@@ -36,6 +36,33 @@ repeat delay (about 225 to 500 ms on macOS, 250 ms on the Linux VT), then at the
 paragraph): a lone press steers for 400 ms, a run of repeats steers until one repeat interval plus a tick
 passes with none, and the heading then returns at the turn rate. The pty row `held-run` types such a run and
 measures the release.
+
+## Aimed leap (2026-10-25)
+
+The arrows held when Space arrives choose the aim. This is the existing
+inferred hold, not a key-up protocol: a recent tap can still be held for
+400 ms; repeat runs expire after their measured interval plus one tick.
+Only arrows already received at the Space press count. Release an old
+arrow's inferred hold before changing to a contradictory chord.
+
+| held arrows + Space | aim |
+|---|---|
+| none, or Up | N (forward, the default) |
+| Up + Right | NE |
+| Right | E |
+| Down + Right | SE |
+| Down | S (backward, then forward travel resumes) |
+| Down + Left | SW |
+| Left | W |
+| Up + Left | NW |
+| any Up+Down or Left+Right pair | N (the whole chord defaults) |
+
+The top row says `Leap N`, `Leap NE`, etc. for one tick before the group
+travels. The alternating groups, stamina cost and cooldown are unchanged.
+Arrow presses still steer, sprint or stop normally; Space resumes the
+trot after Down. Up+Space and Space alone choose the identical forward
+aim; Up still starts its ordinary sprint burst. Shift+Down remains parry,
+not a Down hold. All other Shift+arrows follow the bare-arrow mapping.
 
 ## Measured
 

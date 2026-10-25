@@ -1,0 +1,10 @@
+# frames 24 every 1
+# pk06: held aim, one tell tick then arc; both alternating groups.
+pk 1
+seed 7
+tier rich
+size 80x24
+t 0 up
+t 0 leap
+t 14 up
+t 14 leap

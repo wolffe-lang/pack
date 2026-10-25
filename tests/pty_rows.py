@@ -308,4 +308,29 @@ def row_title(bin, ctx):
     return s, problems
 
 
-ROWS = {"held-run": row_held_run, "card": row_card, "title": row_title}
+def row_directional_chords(bin, ctx):
+    """Real decoder -> held chord -> one-tick tell on each tier, restored."""
+    problems = []
+    cases = [(b"", "N"), (b"\x1b[A", "N"),
+             (b"\x1b[A\x1b[C", "NE"), (b"\x1b[C", "E"),
+             (b"\x1b[B\x1b[C", "SE"), (b"\x1b[B", "S"),
+             (b"\x1b[B\x1b[D", "SW"), (b"\x1b[D", "W"),
+             (b"\x1b[A\x1b[D", "NW")]
+    count = 0
+    for tier in ("rich", "plain"):
+        for arrows, name in cases:
+            s = ctx.Session([bin, "--seed", "7", "--tier", tier, "--no-title"],
+                            24, 80, ctx.env_for())
+            s.type(arrows + b" ", settle=0.4)
+            # The tell is gone after one tick; its bytes remain in the capture.
+            if ("Leap " + name).encode() not in s.out:
+                problems.append("%s %s: no aimed tell in the live output" % (tier, name))
+            s.type(b"q")
+            s.finish()
+            ctx.common_checks(s, 0, problems)
+            count += 1
+    s.evidence = "%d fresh terminal sessions: default plus eight held aims, both tiers" % count
+    return s, problems
+
+
+ROWS = {"held-run": row_held_run, "card": row_card, "title": row_title, "directional-chords": row_directional_chords}

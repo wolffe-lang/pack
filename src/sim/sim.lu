@@ -50,10 +50,11 @@
 //! shadow in it, R-pk02-2 A), `DAMAGE_LONE` alone; then `ATTACK_COOLDOWN`.
 //! A shadow more than `GONE_ROWS` behind the alpha is gone.
 //!
-//! **The leap** (Space) takes the pack together: `LEAP_STAMINA` paid, a
-//! lunge of `LEAP_TICKS` at the sprint, and every shadow within
-//! `LEAP_REACH` cells of a running wolf is vanquished (its eyes go out and
-//! its body fades over `FADE_TICKS`); the spent pack cannot leap — the
+//! **The leap** (Space) aims the alternating group with the held arrows:
+//! `LEAP_STAMINA` paid, a one-tick compass tell, then an eight-tick arc.
+//! Targets within `LEAP_REACH_AIM` in its ±45-degree sector or within
+//! `LEAP_REACH` all round are vanquished (fading over `FADE_TICKS`). The
+//! arc changes no physics, camera or gait; the spent pack cannot leap — the
 //! pant refuses and nothing happens. **The parry** (Shift+Down or `z`) is
 //! a press, never a stance: for `PARRY_WINDOW` ticks any attack that lands
 //! is turned (no damage; the shadow recoils `PARRY_PUSH` cells over
@@ -273,9 +274,64 @@ pub const COHESION: int = 32
 /// The cohesion's bound, FP units a tick.
 pub const COHESION_MAX: int = 8
 
-/// The leap's reach, cells from any running wolf: the attack reach, so a
-/// shadow that can bite can be leapt on.
-pub const LEAP_REACH: int = 4
+/// Contact reach around an active leaper, cells (R-pk06-1 A proposed).
+pub const LEAP_REACH: int = 2
+
+/// Directional reach and the presentation arc's apex, grid cells.
+pub const LEAP_REACH_AIM: int = 6
+
+/// The pack arc's apex in grid cells, before collision clipping.
+pub const LEAP_RANGE: int = 6
+
+/// The held-arrow set's bits; a contradictory pair chooses forward.
+pub const HELD_UP: int = 1
+
+/// Down in the held-arrow set.
+pub const HELD_DOWN: int = 2
+
+/// Left in the held-arrow set.
+pub const HELD_LEFT: int = 4
+
+/// Right in the held-arrow set.
+pub const HELD_RIGHT: int = 8
+
+/// A compass aim in world coordinates: positive y is up the screen.
+pub struct Aim { x: int, y: int }
+
+/// The arrows held at the Space press. None and Up are identical;
+/// either contradictory pair defaults the entire chord to forward.
+pub fn leap_aim(held: int) -> Aim {
+    let up = held % 2 == 1
+    let down = held / 2 % 2 == 1
+    let left = held / 4 % 2 == 1
+    let right = held / 8 % 2 == 1
+    if up && down || left && right { return Aim { x: 0, y: 1 } }
+    let x = if left then -1 else if right then 1 else 0
+    let y = if down then -1 else if up || x == 0 then 1 else 0
+    Aim { x: x, y: y }
+}
+
+/// Inclusive ±45-degree sector plus the short all-round contact reach.
+/// Chebyshev distance matches the game's cell reach; dot >= |cross|
+/// describes exactly the sector without floating point or an angle table.
+pub fn leap_hits(aim: Aim, dx: int, dy: int) -> bool {
+    let distance = if abs(dx) > abs(dy) then abs(dx) else abs(dy)
+    if distance <= LEAP_REACH * world.FP { return true }
+    if distance > LEAP_REACH_AIM * world.FP { return false }
+    let dot = aim.x * dx + aim.y * dy
+    let cross = aim.x * dy - aim.y * dx
+    dot > 0 && dot >= abs(cross)
+}
+
+/// The current inferred chord, including only arrow presses already seen.
+pub fn held_arrows(s: Sim) -> int {
+    var held = 0
+    if input.held(s.hold_up, s.tick) { held += HELD_UP }
+    if input.held(s.hold_down, s.tick) { held += HELD_DOWN }
+    if input.held(s.hold_left, s.tick) { held += HELD_LEFT }
+    if input.held(s.hold_right, s.tick) { held += HELD_RIGHT }
+    held
+}
 
 /// The ticks between leaps.
 pub const LEAP_COOLDOWN: int = 14
@@ -519,6 +575,8 @@ pub struct Sim {
     health: int,
     down: int,
     bumps: int,
+    hold_up: input.Hold,
+    hold_down: input.Hold,
     hold_left: input.Hold,
     hold_right: input.Hold,
     speed_scale: int,
@@ -526,11 +584,11 @@ pub struct Sim {
     parries: int,
     shadows: List[Shadow],
     leap_left: int,
+    leap_aim: Aim,
+    leap_tell: bool,
     leap_group: int,
     leap_next_group: int,
     leap_landing: bool,
-    leap_dx: List[int],
-    leap_dy: List[int],
     leap_x: List[int],
     leap_y: List[int],
     leap_marks_x: List[int],
@@ -635,6 +693,8 @@ pub fn new_at(seed: int, cols: int, rows: int, start: int) -> Sim {
         health: HEALTH_MAX,
         down: 0,
         bumps: 0,
+        hold_up: input.hold_new(),
+        hold_down: input.hold_new(),
         hold_left: input.hold_new(),
         hold_right: input.hold_new(),
         speed_scale: 100,
@@ -642,11 +702,11 @@ pub fn new_at(seed: int, cols: int, rows: int, start: int) -> Sim {
         parries: 0,
         shadows: List[Shadow](),
         leap_left: 0,
+        leap_aim: leap_aim(0),
+        leap_tell: false,
         leap_group: 0,
         leap_next_group: 0,
         leap_landing: false,
-        leap_dx: zero_slots(),
-        leap_dy: zero_slots(),
         leap_x: zero_slots(),
         leap_y: zero_slots(),
         leap_marks_x: List[int](),
@@ -687,7 +747,6 @@ pub fn resize(mut s: Sim, cols: int, rows: int) {
         }
         var slot = 0
         while slot < PACK_SIZE {
-            s.leap_dx[slot] = s.leap_dx[slot] * cols / s.cols
             s.leap_x[slot] = s.leap_x[slot] * cols / s.cols
             slot += 1
         }
@@ -909,23 +968,32 @@ pub fn step(mut s: Sim, keys: List[int], health_delta: int) {
         return
     }
     s.leap_landing = false
+    s.leap_tell = false
     // A run of the same key in one tick is one press (autorepeat bytes
     // that arrived together); the hold decides how long it lasts.
     var left = false
     var right = false
+    var up = false
+    var down = false
     for k in keys {
         if k == KEY_LEFT {
+            if !left { input.hold_press(mut s.hold_left, s.tick) }
             left = true
             s.stopping = false
         } else if k == KEY_RIGHT {
+            if !right { input.hold_press(mut s.hold_right, s.tick) }
             right = true
             s.stopping = false
         } else if k == KEY_UP {
+            if !up { input.hold_press(mut s.hold_up, s.tick) }
+            up = true
             s.stopping = false
             if !s.exhausted && s.stamina >= SPRINT_MIN {
                 s.sprint_left = SPRINT_BURST_TICKS
             }
         } else if k == KEY_DOWN {
+            if !down { input.hold_press(mut s.hold_down, s.tick) }
+            down = true
             s.stopping = true
             s.sprint_left = 0
         } else if k == KEY_LEAP {
@@ -938,12 +1006,6 @@ pub fn step(mut s: Sim, keys: List[int], health_delta: int) {
                 s.parry_ready_at = s.tick + PARRY_COOLDOWN
             }
         }
-    }
-    if left {
-        input.hold_press(mut s.hold_left, s.tick)
-    }
-    if right {
-        input.hold_press(mut s.hold_right, s.tick)
     }
     // The shadows: spawn, perceive, chase, flock, attack. Their landed
     // attacks join the replay's and the debug keys' channel into health;
@@ -1562,11 +1624,6 @@ fn pose_offset(s: Sim, k: int) -> (int, int) {
 /// Clip every substep of an arc against live presented bodies. Sampling
 /// at 1/8 cell cannot tunnel across a two-cell footprint; stop before the
 /// first contact. The physical hit envelope and separation stay unchanged.
-fn safe_arc(s: Sim, k: int, dx: int, dy: int, age: int, ticks: int) -> (int, int) {
-    let (ox, oy) = leap_arc(dx, dy, age, ticks)
-    safe_displacement(s, k, ox, oy)
-}
-
 fn safe_displacement(s: Sim, k: int, ox: int, oy: int) -> (int, int) {
     let span = if abs(ox) > abs(oy) then abs(ox) else abs(oy)
     let steps = span / (world.FP / 8) + 1
@@ -1599,14 +1656,24 @@ fn safe_displacement(s: Sim, k: int, ox: int, oy: int) -> (int, int) {
     (safe_x, safe_y)
 }
 
+/// The pack's six-grid-cell out-and-back arc, before body clipping.
+/// Its eight ticks follow the tell; no physics or camera position changes.
+pub fn leap_displacement(aim: Aim, age: int) -> (int, int) {
+    if age <= 0 || age >= LEAP_TICKS { return (0, 0) }
+    let n = if age <= LEAP_TICKS / 2 then age else LEAP_TICKS - age
+    let travel = LEAP_RANGE * world.FP * n / (LEAP_TICKS / 2)
+    (aim.x * travel, aim.y * travel)
+}
+
 fn update_leap_poses(mut s: Sim) {
     var i = 0
-    if s.leap_left == 0 { return }
+    if s.leap_left == 0 || s.leap_tell { return }
     let age = LEAP_TICKS - s.leap_left + 1
     i = 0
     while i < PACK_SIZE {
         if leap_member(s.leap_group, i) && s.wolves[i].state == RUNNING {
-            let (dx, dy) = safe_arc(s, i, s.leap_dx[i], s.leap_dy[i], age, LEAP_TICKS)
+            let (ox, oy) = leap_displacement(s.leap_aim, age)
+            let (dx, dy) = safe_displacement(s, i, ox, oy)
             s.leap_x[i] = dx
             s.leap_y[i] = dy
         }
@@ -1713,9 +1780,9 @@ pub fn any_pose_overlap(s: Sim) -> bool {
     false
 }
 
-/// The leap: the pack together, paid in stamina; every shadow within
-/// `LEAP_REACH` of a running wolf is vanquished. The spent pack cannot
-/// leap: the pant refuses, nothing happens.
+/// The active alternating group commits to the held compass aim. The
+/// tell precedes its eight-tick collision-clipped arc; vanquishes resolve
+/// at the press from that group's formation positions, never the camera.
 fn leap(mut s: Sim) {
     if s.exhausted || s.stamina < LEAP_STAMINA || s.leap_ready_at > s.tick {
         return
@@ -1723,28 +1790,12 @@ fn leap(mut s: Sim) {
     s.stamina -= LEAP_STAMINA
     s.leap_ready_at = s.tick + LEAP_COOLDOWN
     s.leap_left = LEAP_TICKS
+    s.leap_aim = leap_aim(held_arrows(s))
+    s.leap_tell = true
     s.leap_group = s.leap_next_group
     s.leap_next_group = 1 - s.leap_next_group
     s.leap_marks_x = List[int]()
     s.leap_marks_y = List[int]()
-    var slot = 0
-    while slot < PACK_SIZE {
-        s.leap_dx[slot] = 0
-        s.leap_dy[slot] = 2 * world.FP
-        if leap_member(s.leap_group, slot) {
-            let w = copy s.wolves[slot]
-            var best = LEAP_REACH * world.FP + 1
-            for sh in s.shadows {
-                let d = reach_dist(w.x, w.y, sh.x, sh.y)
-                if shadow_alive(sh) && d < best {
-                    best = d
-                    s.leap_dx[slot] = sh.x - w.x
-                    s.leap_dy[slot] = sh.y - w.y
-                }
-            }
-        }
-        slot += 1
-    }
     s.stopping = false
     var k = 0
     while k < s.shadows.len {
@@ -1754,7 +1805,9 @@ fn leap(mut s: Sim) {
             var i = 0
             while i < PACK_SIZE {
                 let w = copy s.wolves[i]
-                if w.state != FAINTED && reach_dist(sh.x, sh.y, w.x, w.y) <= LEAP_REACH * world.FP {
+                if w.state == RUNNING &&
+                    leap_member(s.leap_group, i) &&
+                    leap_hits(s.leap_aim, sh.x - w.x, sh.y - w.y) {
                     hit = true
                 }
                 i += 1
