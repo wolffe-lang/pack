@@ -138,7 +138,7 @@ pub fn render(s: sim.Sim, t: int, mut g: grid.Grid) {
         terrain_row(s, t, row, mut g)
         row += 1
     }
-    let col = s.wolf.x / world.FP + 1
+    let col = s.wolf.x / world.FP
     draw_wolf(
         mut g,
         t,
