@@ -1,6 +1,6 @@
 # The palette
 
-Colours are named by role in `src/tier/tier.lu` (`palette`), one number per role per tier. The rich tier
+Colours are named by role in `src/sprites/sprites.lu` (`palette`), one number per role per tier. The rich tier
 indexes the 256-colour cube (`38;5;n`), upgraded to the cube's own RGB (`38;2;r;g;b`) when `COLORTERM` says
 `truecolor` or `24bit`; the plain tier uses the sixteen VT colours only (SGR 30-37 and 90-97, 40-47 and
 100-107), which is what PAX's console and a Linux VT draw, and what their themes recolour.

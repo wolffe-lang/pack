@@ -5,7 +5,7 @@ row (pk04): once PAX's font draws each of these at one cell, PAX runs the rich t
 tier uses nothing above U+00FF, so it needs no row.
 
 The list is held to the code by a test: `src/glyphs_test.lu` reads this file and compares the `U+` entries
-with `tier.rich_code_points()`, both ways. Add a glyph to `src/tier/tier.lu` and this table must gain it in
+with `sprites.rich_code_points()`, both ways. Add a glyph to `src/sprites/sprites.lu` and this table must gain it in
 the same commit.
 
 ## How a width is measured

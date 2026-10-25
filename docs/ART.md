@@ -2,7 +2,7 @@
 
 What pack draws, on both tiers, and why. Every sprite here is a mock frame committed as a golden:
 `tests/goldens/art/sheet-rich.txt` and `sheet-plain.txt` (with their `.sty` style files) are the sheets
-`pack --art-study --dump DIR` writes, and `tools/goldens` keeps them current. Change a sprite and the
+`pack --art-study --dump DIR` writes, and the engine's `.lair/tools/goldens` keeps them current. Change a sprite and the
 sheet's golden moves with it; the diff shows exactly which cells.
 
 The rule for the tiers (campaign R-PK-4): one cell model, two glyph sets. The rich tier may use any code

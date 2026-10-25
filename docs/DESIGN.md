@@ -1,6 +1,6 @@
 # Design constants
 
-Every tuning number in pack is a named constant in `src/sim/sim.lu` or `src/world/world.lu`, mirrored here
+Every tuning number in pack is a named constant in `src/sim/sim.lu` or `src/trail/trail.lu` (the path and the rates over the engine's noise), mirrored here
 with its meaning and the date it was last set. The numbers are the maintainer's to tune by play (campaign
 ruling R-PK-7); a change here is a change there in the same commit, and the goldens move with it. The rows
 marked "the maintainer's word" were set from the maintainer's play of the pk00 and pk01 builds on 2026-10-25;
@@ -31,9 +31,9 @@ turn off the path's axis. Stamina and health are in points.
 | `HEADING_MAX` | 64 | the heading's reference: 45 degrees; the small-angle split is written against it | 2026-10-25 pk00 |
 | `STEER_HEADING` | 48 | the heading a held steer key turns toward, 34 degrees: enough to follow the path's steepest bend at the trot | 2026-10-25 proposed |
 | `TURN_RATE` | 12 | the maximum turn rate, heading units a tick: full steer in 4 ticks, straight again in 4 (133 ms) on release; the whole of the residual motion after a release | 2026-10-25 the maintainer's word |
-| `HOLD_TAP_TICKS` | 12 | a lone press is held this long (400 ms, a keyboard's initial repeat delay): a tap is a readable swerve | 2026-10-25 proposed |
-| `HOLD_RATE_MAX` | 5 | a gap between presses at most this long is the autorepeat rate; longer is the initial delay or a new tap | 2026-10-25 proposed |
-| `HOLD_MARGIN` | 1 | the hold outlives the last repeat by the measured interval plus this | 2026-10-25 proposed |
+| `HOLD_TAP_TICKS` (the engine's `input`) | 12 | a lone press is held this long (400 ms, a keyboard's initial repeat delay): a tap is a readable swerve | 2026-10-25 proposed |
+| `HOLD_RATE_MAX` (the engine's `input`) | 5 | a gap between presses at most this long is the autorepeat rate; longer is the initial delay or a new tap | 2026-10-25 proposed |
+| `HOLD_MARGIN` (the engine's `input`) | 1 | the hold outlives the last repeat by the measured interval plus this | 2026-10-25 proposed |
 | `WOLF_ROW_FROM_BOTTOM` | 5 | the alpha's screen row, counted from the bottom (the alpha's eye) | 2026-10-25 pk00 |
 
 How the steering works, in one paragraph: a terminal has no key-up, so a held key arrives as its first byte
@@ -180,7 +180,7 @@ target is still in reach.
 | `CARD_COLS` x `CARD_ROWS` | 44 x 10 | the card's size, centred over the field on both tiers; the first numbers the player sees (shadows vanquished, seconds survived, the distance in cells, the score) with the offer `s saves the replay, q leaves` (R-pk02-4 A: nothing else on it) | 2026-10-25 proposed |
 | the score | `shadows × 100 + seconds × 2 + distance_cells` | the campaign's formula; seconds are the death's tick over 30 | 2026-10-25 campaign |
 
-## Dusk (`src/sim/sim.lu`, `src/tier/tier.lu`; pk03, innovation 4)
+## Dusk (`src/sim/sim.lu`, `src/sprites/sprites.lu`; pk03, innovation 4)
 
 | constant | value | meaning | set |
 |---|---|---|---|
@@ -204,7 +204,7 @@ step at the midpoints. The red eyes are the same at every phase, so shadows come
 | the next seed | the seed + 1 after a run; `r` keeps it | R-pk03-4 A: deterministic, no clock, `--seed` stays meaningful; the title shows the seed | 2026-10-25 proposed |
 | `~/.pack/best` | one file | the best and the last score with seed, date and the replay's name, and the last saved replay's path (R-pk03-1 A) | 2026-10-25 proposed |
 
-## The world (`src/world/world.lu`)
+## The world (`src/trail/trail.lu` over the engine's `world`)
 
 | constant | value | meaning | set |
 |---|---|---|---|
@@ -221,7 +221,7 @@ step at the midpoints. The red eyes are the same at every phase, so shadows come
 | `DEER_BASE`, `DEER_PER_SHADOW`, `DEER_CLEARING` | 2, 4, 3 | the deer's rate, thousandths a tick: a base, a quarter of the shadows' rate (so a long run is survivable with deer and not without), and up to 3 more in a clearing, where deer graze: 2 to 5 at the start, 5 to 8 at the ceiling | 2026-10-25 proposed |
 | the spawn side | the outside of the bend | a group lurks on the verge an unsteered pack drifts to: the side the path's centre moves away from between the alpha's row and the spawn row (over a cell of bend); a straight takes the seed's coin (pk03, from pk02's issue) | 2026-10-25 proposed |
 
-## The engine (`src/clock`, `src/term`, `src/input`)
+## The engine (lair's `clock`, `term`, `input`, pinned by `lair.pin`)
 
 | constant | value | meaning | set |
 |---|---|---|---|
