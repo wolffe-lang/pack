@@ -83,7 +83,7 @@ pub fn arrow_key(final: int, m: int) -> int {
         return KEY_UP
     }
     if final == 66 {
-        return if m == 2 then KEY_PARRY else KEY_DOWN
+        return KEY_DOWN
     }
     if final == 67 {
         return KEY_RIGHT
