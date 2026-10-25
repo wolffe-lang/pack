@@ -1,4 +1,4 @@
-b13831add7c21999125d31dbee02e68aecae27c8
+4d0805be333f3b5d8a7e770163dddc64c85a94fb
 # lair.pin — the engine's commit (wolffe-lang/lair), the first line, forty
 # hex digits. tools/fetch-lair stages that tree into .lair/ and the engine's
 # tools (.lair/tools/*) refuse any other; src/<module> symlinks point into
