@@ -259,7 +259,7 @@ pub const FLANK: int = 4
 
 /// The ticks an attack winds up before it lands (300 ms: the lunge the
 /// player reads and parries).
-pub const ATTACK_WINDUP: int = 12
+pub const ATTACK_WINDUP: int = 9
 
 /// The windup's final six ticks: the body lunges, landing on the last.
 pub const ATTACK_LUNGE_TICKS: int = 6
