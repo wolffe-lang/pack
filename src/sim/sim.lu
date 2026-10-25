@@ -1,0 +1,309 @@
+//! sim — the simulation skeleton: one wolf on the path, stepped once a
+//! tick from the keys that arrived, and nothing else. No clock, no
+//! randomness but the seed (the world's), integer arithmetic only, so a
+//! run is a pure function of (seed, inputs, size) and the same bytes on
+//! every machine (campaign rule 3).
+//!
+//! Every creature has a position, a heading, a speed, an acceleration and
+//! a maximum turn rate (the realism bars): nothing teleports, nothing
+//! pivots. The numbers are the named constants below, mirrored in
+//! `docs/DESIGN.md` with the date they were last tuned (R-PK-7: tuning is
+//! the maintainer's, by play). Units: positions and speeds in `world.FP`
+//! units a cell (a tick), headings in `HEADING_MAX`ths of a 45-degree
+//! turn, stamina in points.
+//!
+//! The alpha's eye (innovation 2): the wolf sits `WOLF_ROW_FROM_BOTTOM`
+//! rows above the bottom of the screen, and the screen shows the path
+//! ahead; `world_row` maps a screen row to a world row.
+
+use world
+
+/// Trot speed `v` in FP units a tick (0.375 cells a tick, 11.25 a second).
+pub const TROT_V: int = 96
+
+/// Sprint speed, 1.8 v (the campaign's bar).
+pub const SPRINT_V: int = 172
+
+/// The speed cap in the forest edge, v/2.
+pub const FOREST_V: int = 48
+
+/// Acceleration, FP units a tick each tick.
+pub const ACCEL: int = 8
+
+/// Braking, FP units a tick each tick (a wolf stops faster than it starts).
+pub const BRAKE: int = 16
+
+/// One steering tap moves the heading target this much.
+pub const TURN_STEP: int = 24
+
+/// The heading's bound: 64 is 45 degrees off the path's axis.
+pub const HEADING_MAX: int = 64
+
+/// The maximum turn rate: heading units a tick toward the target.
+pub const TURN_RATE: int = 6
+
+/// The heading target relaxes toward straight this much a tick.
+pub const RETURN_RATE: int = 1
+
+/// Stamina's ceiling.
+pub const STAMINA_MAX: int = 300
+
+/// A sprint burst's length in ticks (0.8 s): a tap starts one, since a
+/// terminal has no key-up.
+pub const SPRINT_BURST_TICKS: int = 24
+
+/// Stamina a sprinting tick costs.
+pub const SPRINT_DRAIN: int = 6
+
+/// Stamina a standing tick returns.
+pub const REGEN_STAND: int = 3
+
+/// Stamina a trotting tick returns.
+pub const REGEN_TROT: int = 1
+
+/// Stamina needed to start a burst.
+pub const SPRINT_MIN: int = 60
+
+/// Stamina that ends the pant.
+pub const EXHAUST_RECOVER: int = 90
+
+/// The wolf's screen row, counted from the bottom.
+pub const WOLF_ROW_FROM_BOTTOM: int = 5
+
+/// Postures (the HUD is posture, innovation 5).
+pub const POSTURE_TROT: int = 0
+
+/// Standing.
+pub const POSTURE_STAND: int = 1
+
+/// Sprinting.
+pub const POSTURE_SPRINT: int = 2
+
+/// Panting: exhausted, no sprint until `EXHAUST_RECOVER`.
+pub const POSTURE_PANT: int = 3
+
+/// One wolf.
+pub struct Wolf {
+    x: int,
+    y: int,
+    heading: int,
+    heading_target: int,
+    speed: int,
+    stopping: bool,
+    sprint_left: int,
+    stamina: int,
+    exhausted: bool,
+    in_forest: bool,
+    scratches: int,
+}
+
+/// The simulation: the seed, the screen's size, the tick count, the wolf,
+/// and counts of the keys the engine does not yet act on (pk02's).
+pub struct Sim {
+    seed: int,
+    cols: int,
+    rows: int,
+    tick: int,
+    wolf: Wolf,
+    leaps: int,
+    parries: int,
+}
+
+/// A new simulation: the wolf at the path's centre on world row 0, at
+/// trot, full stamina.
+pub fn new(seed: int, cols: int, rows: int) -> Sim {
+    let (centre, _) = world.path(seed, cols, 0)
+    Sim {
+        seed: seed,
+        cols: cols,
+        rows: rows,
+        tick: 0,
+        wolf: Wolf {
+            x: centre,
+            y: 0,
+            heading: 0,
+            heading_target: 0,
+            speed: TROT_V,
+            stopping: false,
+            sprint_left: 0,
+            stamina: STAMINA_MAX,
+            exhausted: false,
+            in_forest: false,
+            scratches: 0,
+        },
+        leaps: 0,
+        parries: 0,
+    }
+}
+
+/// The screen changed size: the field scales to it (never below the
+/// minimum, which the terminal layer refuses). The wolf keeps its world
+/// position; its lateral position is rescaled to the new width so it
+/// stays on the same part of the path.
+pub fn resize(mut s: Sim, cols: int, rows: int) {
+    if cols > 0 && s.cols > 0 {
+        s.wolf.x = s.wolf.x * cols / s.cols
+    }
+    s.cols = cols
+    s.rows = rows
+}
+
+/// The screen row the wolf is drawn on.
+pub fn wolf_row(s: Sim) -> int {
+    s.rows - WOLF_ROW_FROM_BOTTOM
+}
+
+/// The world row a screen row shows: the wolf's row shows the wolf's
+/// world row, and rows above show rows ahead.
+pub fn world_row(s: Sim, screen_row: int) -> int {
+    s.wolf.y / world.FP + (wolf_row(s) - screen_row)
+}
+
+/// Keys, as `input` names them; the simulation knows them by number so it
+/// imports nothing that touches a terminal.
+pub const KEY_UP: int = 1
+
+/// Down.
+pub const KEY_DOWN: int = 2
+
+/// Left.
+pub const KEY_LEFT: int = 3
+
+/// Right.
+pub const KEY_RIGHT: int = 4
+
+/// Parry.
+pub const KEY_PARRY: int = 5
+
+/// Leap.
+pub const KEY_LEAP: int = 6
+
+fn clamp(v: int, lo: int, hi: int) -> int {
+    if v < lo {
+        return lo
+    }
+    if v > hi {
+        return hi
+    }
+    v
+}
+
+fn toward(v: int, target: int, step: int) -> int {
+    if v < target {
+        return if v + step > target then target else v + step
+    }
+    if v > target {
+        return if v - step < target then target else v - step
+    }
+    v
+}
+
+fn abs(v: int) -> int {
+    if v < 0 then 0 - v else v
+}
+
+/// One tick: apply `keys` (in order), then move the wolf.
+pub fn step(mut s: Sim, keys: List[int]) {
+    for k in keys {
+        if k == KEY_LEFT {
+            s.wolf.heading_target = clamp(
+                s.wolf.heading_target - TURN_STEP,
+                0 - HEADING_MAX,
+                HEADING_MAX,
+            )
+            s.wolf.stopping = false
+        } else if k == KEY_RIGHT {
+            s.wolf.heading_target = clamp(
+                s.wolf.heading_target + TURN_STEP,
+                0 - HEADING_MAX,
+                HEADING_MAX,
+            )
+            s.wolf.stopping = false
+        } else if k == KEY_UP {
+            s.wolf.stopping = false
+            if !s.wolf.exhausted && s.wolf.stamina >= SPRINT_MIN {
+                s.wolf.sprint_left = SPRINT_BURST_TICKS
+            }
+        } else if k == KEY_DOWN {
+            s.wolf.stopping = true
+            s.wolf.sprint_left = 0
+        } else if k == KEY_LEAP {
+            s.leaps += 1
+        } else if k == KEY_PARRY {
+            s.parries += 1
+        }
+    }
+    // Steering: the target relaxes toward straight, the heading turns
+    // toward the target at the turn rate.
+    s.wolf.heading_target = toward(s.wolf.heading_target, 0, RETURN_RATE)
+    s.wolf.heading = toward(s.wolf.heading, s.wolf.heading_target, TURN_RATE)
+    // Speed: toward the target the posture names, capped in the forest.
+    var target = TROT_V
+    if s.wolf.stopping {
+        target = 0
+    } else if s.wolf.sprint_left > 0 {
+        target = SPRINT_V
+    }
+    if s.wolf.in_forest && target > FOREST_V {
+        target = FOREST_V
+    }
+    s.wolf.speed = toward(s.wolf.speed, target, if target < s.wolf.speed then BRAKE else ACCEL)
+    // Stamina: a sprint drains, standing and trotting regenerate.
+    if s.wolf.sprint_left > 0 {
+        s.wolf.sprint_left -= 1
+        s.wolf.stamina -= SPRINT_DRAIN
+        if s.wolf.stamina <= 0 {
+            s.wolf.stamina = 0
+            s.wolf.exhausted = true
+            s.wolf.sprint_left = 0
+        }
+    } else if s.wolf.speed == 0 {
+        s.wolf.stamina = clamp(s.wolf.stamina + REGEN_STAND, 0, STAMINA_MAX)
+    } else {
+        s.wolf.stamina = clamp(s.wolf.stamina + REGEN_TROT, 0, STAMINA_MAX)
+    }
+    if s.wolf.exhausted && s.wolf.stamina >= EXHAUST_RECOVER {
+        s.wolf.exhausted = false
+    }
+    // Motion: the heading's small-angle split of the speed.
+    let h = s.wolf.heading
+    let vx = s.wolf.speed * h / HEADING_MAX
+    let vy = s.wolf.speed - s.wolf.speed * h * h / (2 * HEADING_MAX * HEADING_MAX)
+    s.wolf.x = clamp(s.wolf.x + vx, world.FP / 2, s.cols * world.FP - world.FP / 2)
+    s.wolf.y += vy
+    // The forest edge slows and scratches.
+    let (centre, half) = world.path(s.seed, s.cols, s.wolf.y / world.FP)
+    s.wolf.in_forest = abs(s.wolf.x - centre) > half
+    if s.wolf.in_forest {
+        s.wolf.scratches += 1
+    }
+    s.tick += 1
+}
+
+/// The wolf's posture now.
+pub fn posture(s: Sim) -> int {
+    if s.wolf.exhausted {
+        return POSTURE_PANT
+    }
+    if s.wolf.speed == 0 {
+        return POSTURE_STAND
+    }
+    if s.wolf.sprint_left > 0 && s.wolf.speed > TROT_V {
+        return POSTURE_SPRINT
+    }
+    POSTURE_TROT
+}
+
+/// The trot frame (0-3), advancing with distance so the gait matches the
+/// speed; a standing wolf holds frame 0.
+pub fn trot_frame(s: Sim) -> int {
+    if s.wolf.speed == 0 {
+        return 0
+    }
+    s.wolf.y / (world.FP / 2) % 4
+}
+
+/// Distance travelled, in cells.
+pub fn distance_cells(s: Sim) -> int {
+    s.wolf.y / world.FP
+}
