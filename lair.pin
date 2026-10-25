@@ -1,0 +1,8 @@
+7690e1f5ad5d69e083722fd548498a5d40ed2177
+# lair.pin — the engine's commit (wolffe-lang/lair), the first line, forty
+# hex digits. tools/fetch-lair stages that tree into .lair/ and the engine's
+# tools (.lair/tools/*) refuse any other; src/<module> symlinks point into
+# it. Moved by a lane that re-pins, with the goldens re-run on both hosts.
+#
+# cb00 (2026-10-25): the first pin, the engine as extracted from pack at
+# 91d93ac; every golden byte-identical across the move.
