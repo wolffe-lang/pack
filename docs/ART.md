@@ -54,9 +54,19 @@ Rich `▄░▄`: a low shape with a pale head, in the fainted grey 243; plain `
 
 ## The shadow wolf
 
-Rich, two rows: a body row of three shadow cells `███` (236) and a near row `▪█▪`, the two `▪` in red 196
-on the shadow — the eyes, facing down the path. Plain `W:` in bright black with a bright red `:`. Sheet
-row 11, middle, twice (the second with the eye variant pk02 will blink).
+Rich, two rows: a body row of three shadow cells `███` (236) and a near row `▪█▪`, the two `▪` in red
+on the shadow — the eyes, on the row toward the pack: below the body while the shadow faces down the path
+(lurking ahead, stalking), above it once it has turned and chases from behind. Red is the one colour both
+tiers share for the eyes, and the eyes carry the shadow's state: dim (124; plain red) while it lurks in the
+verge or is knocked back by a parry, pulsing bright (196) and dim every `EYE_PULSE` ticks while it chases,
+steady bright through an attack's windup — the lunge the player parries. Plain `W:` in bright black with the
+`:` bright red or red the same way. A shadow comes out of the forest half a cell into the verge, so it is
+drawn over the foliage there; it leaves the dark for the earth as it chases.
+
+A vanquished shadow (a leap landed) fades where it stands: the eyes go out and the body thins from `█` to
+`▓` to `░` over `FADE_TICKS`, then it is gone; plain `W`, `w`, `.`. The fading are drawn under the live, so
+a shadow passing over one is whole. Sheet row 11: a shadow with bright eyes facing down the path, one with
+dim eyes facing up it, and one fading.
 
 ## The deer
 
@@ -85,6 +95,18 @@ sprites: the same seed is the same forest, and a clearing sits in the bend it ca
 the three bands top to bottom (rows 0-7 a clearing, 8-15 woods, 16-23 a stand); the goldens `clearing`
 (seed 11) and `dense-stand` (seed 16) show each on both tiers.
 
+## The death card
+
+At health 0 the alpha is alone and the next landed attack ends the run: the world stands still (the eyes
+stop pulsing, the gaits hold) and the card is drawn over the field from the same cell model on both tiers,
+`CARD_COLS` by `CARD_ROWS` centred. Its frame is the upper and lower half blocks and the full block in dim
+fur on the forest floor (plain `-` and `|`); its text is ASCII in fur on the floor, the title and the score
+bold. The lines: `the pack is gone`; `shadows vanquished`, `seconds survived`, `distance, cells`, `score`
+with their numbers at the right; and the offer `s saves the replay, q leaves`, which becomes `saved NAME; q
+leaves` once `s` has written the file. These are the first numbers the player sees (innovation 5): a test
+scans every frame before the card for a digit. The golden `death-card` (seed 16, health taken to zero at
+tick 1) shows it on both tiers.
+
 ## The pack in formation
 
 Sheet rows 16-21: five wolves, two leading, two flanking, the alpha trailing at the centre, each with its
@@ -103,10 +125,25 @@ fainted wolf returns: from where it lies if that is still on the screen, else fr
 edge, sprinting (the sprint posture) up to its slot. The golden `faint-return` (seed 7) shows two faints and
 two returns on both tiers.
 
+## The shadows in the game
+
+The goldens `spawn-chase`, `group-attack`, `leap-lands` and `parry-turns` (all seed 16, which starts in a
+dense stand where the spawn rate is above `GROUP_RATE`) show a group of three appearing at the forest edge
+above the top of the screen, lurking with dim eyes, one turning onto the path as a leader comes within
+`PERCEIVE` and stalking down it with pulsing eyes, biting the leader as it passes (eyes steady through the
+windup), braking to rest and turning up the path after the pack (the direction change is what the eye
+catches, as pk01's bump was), the three riding the pack's left flank and landing together, a leap taking two
+of them (the pack's lunge, the fade), and a parry turning a landing attack (the shadow knocked back half a
+cell a tick, eyes dim, then chasing again).
+
 ## What the maintainer may want to change first
 
 The wolf's ears read best at a large font; at 12 points the quadrant blocks are small. A variant with
 `▞█▚` (U+259E, U+259A) for the fresh ears is one glyph change in `tier.rich`'s `SP_WOLF_EAR` and two rows
 in GLYPHS.md. The three stamina bands are two numbers (`STAMINA_TIRED`, `STAMINA_SPENT`); the density bands
 are two (`DENSITY_CLEARING`, `DENSITY_STAND`); the formation's slots, lags, wander and bump are the table in
-`docs/DESIGN.md`, each a named constant.
+`docs/DESIGN.md`, each a named constant. The shadows' pulse is `EYE_PULSE` and its two reds are
+`PALETTE.md`'s; the fade is `FADE_TICKS`; the card's size is `CARD_COLS` by `CARD_ROWS` and its text is
+`art.card_with`'s six lines. The leap and the parry have no posture of their own beyond the lunge (the
+sprint's look for `LEAP_TICKS`): a parry stance for the window is one `draw_wolf` variant away if play wants
+one.

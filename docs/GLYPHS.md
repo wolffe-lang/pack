@@ -49,5 +49,9 @@ that is the expectation the columns above measure against.
 
 Eighteen code points in five blocks: two already inside Latin-1 (PAX draws them today), one from General
 Punctuation, one from Box Drawing, nine from Block Elements, one from Geometric Shapes and five from
-Braille Patterns. The dusk shift (pk03) changes colours, not glyphs; the pack, the shadows and the deer
-(pk01, pk02) reuse these cells, so the row for PAX is expected to stay this size.
+Braille Patterns. The pack (pk01) and the shadows (pk02) reuse these cells: the shadow's fade is the full
+block, the dark shade and the light shade, its eyes pulse by colour, and the death card's frame is the two
+half blocks and the full block, all already here. The card's text is ASCII (U+0020 to U+007E), inside
+PAX's font today, so it adds no row (`tier.card_text`; `test_card_cells_need_no_font_row` holds it). The
+dusk shift (pk03) changes colours, not glyphs, and the deer reuses these cells, so the row for PAX is
+expected to stay this size.

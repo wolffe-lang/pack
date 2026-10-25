@@ -18,6 +18,7 @@ measure it. The decoder's unit tests feed every sequence here whole and split at
 | Space | `20` | leap |
 | `z`, `Z` | `7A`, `5A` | parry (the alias) |
 | `q`, `Q` | `71`, `51` | quit |
+| `s`, `S` | `73`, `53` | save the replay, on the death card alone (pk02); dropped in play, never recorded |
 | `-`, `_` and `=`, `+` | `2D`, `5F`, `3D`, `2B` | the debug keys: the pack's health down and up by ten, acted on only under `--debug` (otherwise dropped) |
 | Esc | `1B` alone, nothing after it for 50 ms | quit |
 | Ctrl-C | the terminal's interrupt signal (raw mode keeps `signals` on); as the byte `03` where a terminal passes it | quit, the terminal restored |

@@ -19,9 +19,11 @@ indexes the 256-colour cube (`38;5;n`), upgraded to the cube's own RGB (`38;2;r;
 | fur | 250 (188,188,188) | 15 bright white, bold | the wolf |
 | fur, dim | 245 (138,138,138) | 7 white | the wolf in the forest edge |
 | shadow | 236 (48,48,48) | 8 bright black | a shadow wolf's body |
-| red eye | 196 (255,0,0) | 9 bright red | a shadow's eyes |
+| red eye | 196 (255,0,0) | 9 bright red | a shadow's eyes: bright while it attacks, one phase of the pulse while it chases |
+| red eye, dim | 124 (175,0,0) | 1 red | a shadow's eyes while it lurks or recoils, the pulse's other phase (pk02) |
 | deer | 173 (215,135,95) | 11 bright yellow, bold | the deer |
 | the fainted | 243 (118,118,118) | 8 bright black | a fainted wolf |
+| the card's text | fur 250 on the floor 234 | 15 bright white, bold, on 0 black | the death card (pk02); its frame in dim fur 245 (plain 7 white) |
 
 The RGB values are the xterm cube's for each index (`grid.rgb_of`), so a true-colour terminal shows exactly
 what a 256-colour one approximates. The plain column is a VT colour number; its RGB is the terminal's

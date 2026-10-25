@@ -3,8 +3,8 @@
 Every tuning number in pack is a named constant in `src/sim/sim.lu` or `src/world/world.lu`, mirrored here
 with its meaning and the date it was last set. The numbers are the maintainer's to tune by play (campaign
 ruling R-PK-7); a change here is a change there in the same commit, and the goldens move with it. The rows
-marked "the maintainer's word" were set from the maintainer's play of the pk00 build on 2026-10-25; the rows
-marked "proposed" are pk01's first values, waiting on play.
+marked "the maintainer's word" were set from the maintainer's play of the pk00 and pk01 builds on 2026-10-25;
+the rows marked "proposed" are pk01's and pk02's first values, waiting on play.
 
 To tune by play without rebuilding: `target/pack --debug --speed-scale N` scales every speed constant to N
 percent (100 is the table), and under `--debug` the keys `-` and `=` move the pack's health by ten so the
@@ -86,8 +86,62 @@ are the same on every machine and in every replay.
 A fainted wolf stops where it is and lies there; the world scrolls it off the bottom edge. When it returns it
 starts from where it lies if that is still on the screen, else from one row below the bottom edge at its slot's
 column, accelerates to `RETURN_V`, aims at its slot's column, and is running again once it reaches its slot's
-row. Health moves only by the replay's `health` events and the debug keys until pk02's shadows deal damage and
-pk03's deer feed the pack.
+row. Health falls by the shadows' landed attacks (below), by the replay's `health` events and by the debug keys;
+nothing raises it in play until pk03's deer feed the pack. At 0 the alpha is alone, and the next landed attack
+ends the run.
+
+## The shadows (`src/sim/sim.lu`; pk02)
+
+| constant | value | meaning | set |
+|---|---|---|---|
+| `CHASE_V` | 52 | a shadow's chase speed, 1.3 `v` (the campaign's bar: faster than the trot, slower than the sprint, so a sprint shakes a chaser and a trot does not) | 2026-10-25 proposed |
+| `STALK_V` | 20 | the speed a shadow stalks down the path toward the oncoming pack, `v`/2: its turn happens on the screen, not below it | 2026-10-25 proposed |
+| `SHADOW_ACCEL`, `SHADOW_BRAKE` | 4, 8 | a shadow's acceleration and braking, the wolves' | 2026-10-25 proposed |
+| `SHADOW_TURN_RATE` | 12 | a shadow's maximum turn rate, the wolves' `TURN_RATE` (R-pk02-1 A) | 2026-10-25 proposed |
+| `PERCEIVE` | 8 | the perception radius, cells (the larger of the sideways and the along distance): a lurking shadow this close to a pack member turns toward it | 2026-10-25 proposed |
+| `REACH` | 4 | the attack reach, cells, measured the same way: bodies three cells wide that touch are three apart centre to centre and a bump leaves them four, so a shadow on a wolf's flank is in reach | 2026-10-25 proposed |
+| `FLANK` | 4 | a chasing shadow stops steering toward its target's column this close to it and rides the flank | 2026-10-25 proposed |
+| `ATTACK_WINDUP` | 9 | the ticks an attack winds up before it lands (300 ms): the lunge the player reads and parries; the eyes go steady | 2026-10-25 proposed |
+| `ATTACK_COOLDOWN` | 30 | the ticks between one shadow's attacks (one landing a second) | 2026-10-25 proposed |
+| `DAMAGE` | 10 | health a landed attack costs when another shadow is in reach too (a group attack lands once per shadow in it: two landed cost one wolf; R-pk02-2 A) | 2026-10-25 proposed |
+| `DAMAGE_LONE` | 5 | health a lone shadow's landed attack costs | 2026-10-25 proposed |
+| `GROUP_RATE` | 5 | above this spawn rate (thousandths a tick) shadows come in groups of two or three, three rows apart on one side | 2026-10-25 proposed |
+| `GONE_ROWS` | 12 | a shadow this many rows behind the alpha is gone (a sprint can shake a chase; a lurker never woken scrolls away) | 2026-10-25 proposed |
+| `SHADOW_MAX` | 12 | shadows alive at once, at most; the spawn waits | 2026-10-25 proposed |
+| `FLOCK_CELLS`, `COHESION`, `COHESION_MAX` | 8, 32, 8 | cohesion: a chasing shadow closes a thirty-second of its offset to the centre of the other chasers within eight cells, at most 8 FP units a tick | 2026-10-25 proposed |
+| `FADE_TICKS` | 15 | a vanquished shadow's body fades (full block, dark shade, light shade) over half a second, then is gone | 2026-10-25 proposed |
+| `EYE_PULSE` | 4 | the eyes alternate bright and dim every four ticks while a shadow chases (dim while it lurks or recoils, steady bright through a windup) | 2026-10-25 proposed |
+
+How a shadow works, in one paragraph: each tick the world's hash of the tick is rolled against
+`world.spawn_rate` (thousandths), so a run's spawns are the seed's and never a replay event. A shadow
+appears half a cell into the verge one row above the top of the screen and lurks, speed zero, facing down the
+path. When a pack member comes within `PERCEIVE` it turns toward the nearest one: it steers to the wolf's
+column at the chase speed's split (the lateral heading turning at `SHADOW_TURN_RATE`, bounded by
+`STEER_HEADING`) and moves along the path toward the pack at `STALK_V`. Once its target is past it, it
+decelerates at `SHADOW_BRAKE`, flips its direction only when its speed has reached zero (no pivot), and
+accelerates at `SHADOW_ACCEL` up the path to `CHASE_V`; in reach it matches its target's pace rather than
+overshooting. The separation rule is the pack's, over every pair of bodies (wolf or shadow), so nothing ever
+overlaps; a shadow in reach with its cooldown spent winds up for `ATTACK_WINDUP` ticks and lands if the
+target is still in reach.
+
+## The leap and the parry (`src/sim/sim.lu`; pk02)
+
+| constant | value | meaning | set |
+|---|---|---|---|
+| `LEAP_REACH` | 4 | Space vanquishes every shadow within this many cells of a running wolf (the attack reach: a shadow that can bite can be leapt on) | 2026-10-25 proposed |
+| `LEAP_STAMINA` | 60 | a leap's cost, a fifth of the ceiling: about five leaps, then the pant; the spent pack cannot leap (the pant refuses, nothing happens) | 2026-10-25 proposed |
+| `LEAP_COOLDOWN` | 20 | the ticks between leaps | 2026-10-25 proposed |
+| `LEAP_TICKS` | 6 | the lunge: the pack at the sprint, the leap posture, for this long | 2026-10-25 proposed |
+| `PARRY_WINDOW` | 9 | Shift+Down or `z` turns any attack that lands within this many ticks of the press (300 ms; R-pk02-3 A: a press, never a held stance) | 2026-10-25 proposed |
+| `PARRY_COOLDOWN` | 30 | the ticks between parries | 2026-10-25 proposed |
+| `PARRY_PUSH`, `PARRY_RECOIL` | 3, 6 | a turned shadow loses its speed and recoils three cells away from its target over six ticks (half a cell a tick: a visible knock-back, no teleport), eyes dim | 2026-10-25 proposed |
+
+## The death card (`src/art/art.lu`; pk02)
+
+| constant | value | meaning | set |
+|---|---|---|---|
+| `CARD_COLS` x `CARD_ROWS` | 44 x 10 | the card's size, centred over the field on both tiers; the first numbers the player sees (shadows vanquished, seconds survived, the distance in cells, the score) with the offer `s saves the replay, q leaves` (R-pk02-4 A: nothing else on it) | 2026-10-25 proposed |
+| the score | `shadows × 100 + seconds × 2 + distance_cells` | the campaign's formula; seconds are the death's tick over 30 | 2026-10-25 campaign |
 
 ## The world (`src/world/world.lu`)
 
@@ -100,7 +154,7 @@ pk03's deer feed the pack.
 | `DENSITY_CHANNEL` | 3 | the noise channel the density reads (1 is the centre, 2 the width) | 2026-10-25 proposed |
 | `DENSITY_CLEARING` | 72 | density below this (of 256) is a clearing: grass to the verge, the odd trunk | 2026-10-25 proposed |
 | `DENSITY_STAND` | 168 | density at or above this is a dense stand; between is thin woods. A stand draws the woods' foliage texture with more trunks (the trunk share up 4 points of 100): its own texture (canopy from the verge, deep forest three cells in) read as striped bands in play and was retired | 2026-10-25 the maintainer's word (the texture); the threshold proposed |
-| `SPAWN_BASE`, `SPAWN_DISTANCE`, `SPAWN_DENSITY` | 2, 200, 6 | the spawn-rate input pk02 reads, in thousandths of a shadow a tick: 2 at the start, one more every 200 rows, up to 6 more in a dense stand; logged under `--trace` as `spawn`, nothing spawns yet | 2026-10-25 proposed |
+| `SPAWN_BASE`, `SPAWN_DISTANCE`, `SPAWN_DENSITY` | 2, 200, 6 | the spawn rate, in thousandths of a shadow a tick: 2 at the start, one more every 200 rows, up to 6 more in a dense stand; logged under `--trace` as `spawn`, rolled each tick against the world's hash of the tick (pk02) | 2026-10-25 proposed |
 
 ## The engine (`src/clock`, `src/term`, `src/input`)
 
