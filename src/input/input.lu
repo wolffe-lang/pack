@@ -1,0 +1,289 @@
+//! input — bytes from the terminal to keys. A decoder with a pending
+//! buffer, so a sequence split across reads decodes the same as one read
+//! (table-tested both ways), and a lone ESC resolved by a timeout the
+//! caller measures, never by a guess.
+//!
+//! The table (`docs/KEYS.md` has what each terminal was measured to send):
+//! the arrows `ESC [ A-D` and `ESC O A-D`; the modifier form `ESC [ 1 ; m X`
+//! with m = 1 + Shift + 2 Alt + 4 Ctrl (PAX's console and the Linux VT,
+//! px59's measurement; macOS terminals send the same for Shift), where
+//! Shift+Down is the parry (campaign R-PK-3) and any other modifier is
+//! read as the bare arrow; Space the leap; `z`/`Z` the parry alias; `q`/`Q`
+//! quit; Esc quit, once `ESC_TIMEOUT_MS` passes with nothing after it;
+//! Ctrl-C the interrupt (when the terminal passes it as a byte). The
+//! kitty/CSI-u form `ESC [ code ; mods u` and the tilde form `ESC [ n ~`
+//! are recognised and ignored; an unknown CSI is consumed; any other byte
+//! is dropped and counted in `dropped`.
+
+/// No key (never pushed; the zero value).
+pub const KEY_NONE: int = 0
+
+/// Up: the sprint burst.
+pub const KEY_UP: int = 1
+
+/// Down: stop.
+pub const KEY_DOWN: int = 2
+
+/// Left: steer left.
+pub const KEY_LEFT: int = 3
+
+/// Right: steer right.
+pub const KEY_RIGHT: int = 4
+
+/// Shift+Down or `z`: parry.
+pub const KEY_PARRY: int = 5
+
+/// Space: the leap.
+pub const KEY_LEAP: int = 6
+
+/// `q` or Esc: quit.
+pub const KEY_QUIT: int = 7
+
+/// Ctrl-C as a byte: interrupt (the signal path is the terminal's).
+pub const KEY_INTERRUPT: int = 8
+
+/// The milliseconds after which a lone ESC is Esc.
+pub const ESC_TIMEOUT_MS: int = 50
+
+/// The decoder: the bytes of an unfinished escape sequence and when the
+/// ESC that started it arrived.
+pub struct Decoder {
+    pending: List[byte],
+    esc_at_ms: int,
+    dropped: int,
+    ignored: int,
+}
+
+/// A fresh decoder.
+pub fn new() -> Decoder {
+    Decoder { pending: List[byte](), esc_at_ms: 0, dropped: 0, ignored: 0 }
+}
+
+/// The key a plain (non-escape) byte means, or `KEY_NONE`.
+pub fn plain_key(b: int) -> int {
+    if b == 32 {
+        return KEY_LEAP
+    }
+    if b == 122 || b == 90 {
+        return KEY_PARRY
+    }
+    if b == 113 || b == 81 {
+        return KEY_QUIT
+    }
+    if b == 3 {
+        return KEY_INTERRUPT
+    }
+    KEY_NONE
+}
+
+/// The key an arrow final byte (`A`-`D`) means with modifier `m` (1 none,
+/// 2 Shift, …), or `KEY_NONE` for a byte that is no arrow.
+pub fn arrow_key(final: int, m: int) -> int {
+    if final == 65 {
+        return KEY_UP
+    }
+    if final == 66 {
+        return if m == 2 then KEY_PARRY else KEY_DOWN
+    }
+    if final == 67 {
+        return KEY_RIGHT
+    }
+    if final == 68 {
+        return KEY_LEFT
+    }
+    KEY_NONE
+}
+
+/// Decode a complete CSI sequence `ESC [ params final` held in `pending`
+/// (params as digits and `;`), pushing at most one key.
+fn finish_csi(mut d: Decoder, final: int, mut keys: List[int]) {
+    // Parameters: at most two matter here, `1 ; m` for a modified arrow.
+    var p0 = 0
+    var p1 = 0
+    var n = 0
+    var have = false
+    var i = 2
+    while i < d.pending.len - 1 {
+        let b = d.pending[i] as int
+        if b >= 48 && b <= 57 {
+            if n == 0 {
+                p0 = p0 * 10 + (b - 48)
+            } else if n == 1 {
+                p1 = p1 * 10 + (b - 48)
+            }
+            have = true
+        } else if b == 59 {
+            n += 1
+        }
+        i += 1
+    }
+    if final >= 65 && final <= 68 {
+        let m = if n >= 1 then p1 else 1
+        if have && n == 0 {
+            // `ESC [ n A` with a count: the bare arrow.
+        }
+        let k = arrow_key(final, m)
+        if k != KEY_NONE {
+            (mut keys).push(k)
+        }
+        return
+    }
+    // CSI-u (kitty), the tilde form and anything else: recognised, ignored.
+    d.ignored += 1
+}
+
+/// Feed one byte at `now_ms` (any monotonic millisecond count; it only
+/// times a lone ESC), pushing the keys it completes onto `keys`.
+pub fn feed(mut d: Decoder, b: byte, now_ms: int, mut keys: List[int]) {
+    let v = b as int
+    if d.pending.len == 0 {
+        if v == 27 {
+            (mut d.pending).push(b)
+            d.esc_at_ms = now_ms
+            return
+        }
+        let k = plain_key(v)
+        if k != KEY_NONE {
+            (mut keys).push(k)
+        } else {
+            d.dropped += 1
+        }
+        return
+    }
+    if d.pending.len == 1 {
+        // After ESC: `[` opens a CSI, `O` an SS3, another ESC restarts;
+        // anything else is Esc then the byte on its own (an Alt-key).
+        if v == 91 || v == 79 {
+            (mut d.pending).push(b)
+            return
+        }
+        (mut d.pending).reset()
+        if v == 27 {
+            (mut d.pending).push(b)
+            d.esc_at_ms = now_ms
+            return
+        }
+        (mut keys).push(KEY_QUIT)
+        feed(mut d, b, now_ms, mut keys)
+        return
+    }
+    if d.pending[1] as int == 79 {
+        // SS3: one final byte.
+        (mut d.pending).reset()
+        let k = arrow_key(v, 1)
+        if k != KEY_NONE {
+            (mut keys).push(k)
+        } else {
+            d.ignored += 1
+        }
+        return
+    }
+    // CSI: parameter bytes 0x30-0x3F, intermediates 0x20-0x2F, a final
+    // 0x40-0x7E.
+    if v >= 64 && v <= 126 {
+        (mut d.pending).push(b)
+        finish_csi(mut d, v, mut keys)
+        (mut d.pending).reset()
+        return
+    }
+    if v >= 32 && v <= 63 {
+        (mut d.pending).push(b)
+        if d.pending.len > 32 {
+            // Nothing pack reads is this long: drop it.
+            (mut d.pending).reset()
+            d.dropped += 1
+        }
+        return
+    }
+    // A C0 byte inside a sequence ends it; the byte is read on its own.
+    (mut d.pending).reset()
+    d.dropped += 1
+    feed(mut d, b, now_ms, mut keys)
+}
+
+/// Feed every byte of `bytes` at `now_ms`.
+pub fn feed_all(mut d: Decoder, bytes: List[byte], now_ms: int, mut keys: List[int]) {
+    for b in bytes {
+        feed(mut d, b, now_ms, mut keys)
+    }
+}
+
+/// Resolve a lone ESC: when the pending bytes are exactly one ESC and
+/// `ESC_TIMEOUT_MS` have passed since it arrived, it is Esc (`KEY_QUIT`).
+/// Called once a tick with the clock's time; never guesses earlier.
+pub fn flush(mut d: Decoder, now_ms: int, mut keys: List[int]) {
+    if d.pending.len == 1 && now_ms - d.esc_at_ms >= ESC_TIMEOUT_MS {
+        (mut d.pending).reset()
+        (mut keys).push(KEY_QUIT)
+    }
+}
+
+/// Whether a lone ESC is waiting on its timeout (the loop may shorten its
+/// wait to resolve it on time).
+pub fn esc_pending(d: Decoder) -> bool {
+    d.pending.len == 1
+}
+
+/// The millisecond at which a pending lone ESC resolves (meaningful only
+/// when `esc_pending`).
+pub fn esc_deadline_ms(d: Decoder) -> int {
+    d.esc_at_ms + ESC_TIMEOUT_MS
+}
+
+/// The key's name in a replay file (`docs/REPLAY.md`).
+pub fn key_name(k: int) -> str {
+    if k == KEY_UP {
+        return "up"
+    }
+    if k == KEY_DOWN {
+        return "down"
+    }
+    if k == KEY_LEFT {
+        return "left"
+    }
+    if k == KEY_RIGHT {
+        return "right"
+    }
+    if k == KEY_PARRY {
+        return "parry"
+    }
+    if k == KEY_LEAP {
+        return "leap"
+    }
+    if k == KEY_QUIT {
+        return "quit"
+    }
+    if k == KEY_INTERRUPT {
+        return "interrupt"
+    }
+    "none"
+}
+
+/// The key a replay file's name means; `parse` for a name that is none.
+pub fn key_of(name: str) -> int ! {parse} {
+    if name == "up" {
+        return KEY_UP
+    }
+    if name == "down" {
+        return KEY_DOWN
+    }
+    if name == "left" {
+        return KEY_LEFT
+    }
+    if name == "right" {
+        return KEY_RIGHT
+    }
+    if name == "parry" {
+        return KEY_PARRY
+    }
+    if name == "leap" {
+        return KEY_LEAP
+    }
+    if name == "quit" {
+        return KEY_QUIT
+    }
+    if name == "interrupt" {
+        return KEY_INTERRUPT
+    }
+    parse
+}
