@@ -275,4 +275,13 @@ pack-16-NNN.pk` plays a file back and says whether its score verified. `--tier p
 | `pk03-plant-title-restart` | the title's `r` advances the seed like any other key | #15 | the pty `title` row in the linux job (the second run's closing line names seed 17), after the unit tests and the goldens pass |
 
 Each is a draft PR red in its own `tier pr` run; the run ids and first states (`queued`) were read once at
-the open: #13 run 40180596157, #14 run 40180599742, #15 run 40180603704. The red rows are in the hand-back.
+the open and the completions once more for the rows, each red in its `linux` job: #13 (run 40180596157)
+`test_a_deer_flees_at_1_5_v_away_from_the_pack_under_the_bars` and
+`test_a_tired_deer_slows_below_the_trot_and_recovers_walking` (127 passed, 2 failed; `check-linux` stops
+at the first red step, so the goldens behind them did not run); #14 (run 40180599742)
+`test_a_run_can_start_up_the_path` (128 passed, 1 failed) — and the night render test passed it, because
+that test compared two places on the path and could not fail: it now asserts night's colours at one place
+(`5ff3dea`, after the plants were cut, so the plant's run shows one red test, the head's test would show
+two); #15 (run 40180603704) the unit tests and the goldens green, the pty `title` row red on three
+assertions: the first run's closing line names seed 17, the best file records seed 17, the second run is
+seed 17 again.
