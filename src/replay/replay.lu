@@ -11,7 +11,8 @@
 //!     t 95 size 100x30
 //!     t 120 health -25
 //!
-//! `pk 1` is the version. Events are `t TICK KEY` (a key name as `input`
+//! `pk 1` is the version; `start N` (optional, pk03) begins the run N rows
+//! up the path, the same forest. Events are `t TICK KEY` (a key name as `input`
 //! names them), `t TICK size WxH` (a resize) or `t TICK health N` (a
 //! change to the pack's health, pk01: the goldens' and the debug keys'
 //! channel until pk02's shadows deal damage), ticks non-decreasing. A
@@ -36,18 +37,21 @@ pub struct Event {
     arg: int,
 }
 
-/// A replay.
+/// A replay: the header (the seed, the tier, the size, and `start`, the
+/// rows up the path the run begins at, 0 unless the file says `start N`;
+/// pk03) and the events.
 pub struct Replay {
     seed: int,
     tier: int,
     cols: int,
     rows: int,
+    start: int,
     events: List[Event],
 }
 
-/// An empty replay with the given header.
+/// An empty replay with the given header, starting at row 0.
 pub fn new(seed: int, tier: int, cols: int, rows: int) -> Replay {
-    Replay { seed: seed, tier: tier, cols: cols, rows: rows, events: List[Event]() }
+    Replay { seed: seed, tier: tier, cols: cols, rows: rows, start: 0, events: List[Event]() }
 }
 
 /// Record a key at a tick.
@@ -211,6 +215,12 @@ pub fn from_text(text: str) -> Replay ! {parse} {
             r.cols = c
             r.rows = rows
             have_size = true
+        } else if w0 == "start" {
+            let st = words[1].to_int()?
+            if st < 0 {
+                return parse
+            }
+            r.start = st
         } else if w0 == "t" {
             if words.len < 3 {
                 return parse
@@ -256,6 +266,9 @@ pub fn format(r: Replay, mut out: List[byte]) {
     push_str(mut out, "seed {r.seed}\n")
     push_str(mut out, "tier {if r.tier == 1 then "rich" else "plain"}\n")
     push_str(mut out, "size {r.cols}x{r.rows}\n")
+    if r.start != 0 {
+        push_str(mut out, "start {r.start}\n")
+    }
     for e in r.events {
         if e.key == EV_SIZE {
             push_str(mut out, "t {e.tick} size {e.cols}x{e.rows}\n")

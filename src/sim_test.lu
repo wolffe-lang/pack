@@ -1087,3 +1087,31 @@ fn test_a_spawn_lurks_on_the_outside_of_the_bend() {
     }
     assert(found, "some seed of forty bends at its start")
 }
+
+// Dusk and the start (pk03).
+
+fn test_the_phase_follows_the_distance_slowly() {
+    assert(sim.phase_at(0) == 0 && sim.phase_at(sim.DUSK_START) == 0, "afternoon until DUSK_START")
+    assert(sim.phase_at(sim.DUSK_FULL) == 256, "dusk at DUSK_FULL")
+    assert(sim.phase_at(sim.NIGHT_FULL) == 512 && sim.phase_at(99999) == 512, "night, and it holds")
+    var prev = 0
+    var r = 0
+    while r <= sim.NIGHT_FULL + 100 {
+        let ph = sim.phase_at(r)
+        assert(ph >= prev && ph - prev <= 2, "a slow climb at row {r}: {prev} to {ph}")
+        prev = ph
+        r += 1
+    }
+}
+
+fn test_a_run_can_start_up_the_path() {
+    var s = sim.new_at(7, 80, 24, 1200)
+    assert(sim.distance_cells(s) == 1200, "the alpha at row 1200: {sim.distance_cells(s)}")
+    assert(sim.phase(s) == 256, "full dusk there")
+    assert(sim.spawn_rate(s) == world.spawn_rate(7, 1200), "the curve read there")
+    let (centre, half) = world.path(7, 80, 1200)
+    let a = sim.alpha(s)
+    assert(a.x >= centre - half && a.x <= centre + half, "on the path at row 1200")
+    run(mut s, 10)
+    assert(sim.distance_cells(s) > 1200, "and it moves on")
+}

@@ -147,3 +147,90 @@ fn test_card_cells_need_no_font_row() {
         which += 1
     }
 }
+
+// Dusk (pk03).
+
+fn test_the_rich_palette_blends_from_afternoon_to_night_with_the_eyes_fixed() {
+    let day = tier.palette_at(tier.RICH, 0)
+    let dusk = tier.palette_at(tier.RICH, tier.PHASE_DUSK)
+    let night = tier.palette_at(tier.RICH, tier.PHASE_NIGHT)
+    var role = 0
+    while role < tier.ROLE_COUNT {
+        assert(
+            tier.color(day, role) == tier.rich_key(role, 0),
+            "role {role} at 0 is the afternoon key",
+        )
+        assert(
+            tier.color(dusk, role) == tier.rich_key(role, 1),
+            "role {role} at dusk is the dusk key",
+        )
+        assert(
+            tier.color(night, role) == tier.rich_key(role, 2),
+            "role {role} at night is the night key",
+        )
+        role += 1
+    }
+    assert(
+        tier.color(day, tier.C_EYE) == tier.color(night, tier.C_EYE),
+        "the red eye never changes",
+    )
+    assert(tier.color(day, tier.C_EYE_DIM) == tier.color(night, tier.C_EYE_DIM), "nor the dim one")
+    // Between the keyframes the path is neither: a blend, and no index
+    // outside the cube and the greys.
+    var steps = 0
+    var prev = tier.color(day, tier.C_PATH)
+    var ph = 1
+    while ph <= tier.PHASE_NIGHT {
+        let c = tier.color(tier.palette_at(tier.RICH, ph), tier.C_PATH)
+        assert(c >= 16 && c <= 255, "an index of the cube or the greys: {c}")
+        if c != prev {
+            steps += 1
+            prev = c
+        }
+        ph += 1
+    }
+    // The cube is coarse: the path takes three steps from afternoon to
+    // night (137, 95, 241, 59: one cube level or the grey ramp at a time),
+    // never the two keyframes' jump.
+    assert(steps >= 3, "the path takes several small steps, never one: {steps}")
+    let mid = tier.color(tier.palette_at(tier.RICH, 300), tier.C_PATH)
+    assert(
+        mid != tier.rich_key(tier.C_PATH, 0) && mid != tier.rich_key(tier.C_PATH, 2),
+        "between dusk and night the path is neither day's nor night's: {mid}",
+    )
+}
+
+fn test_nearest_index_round_trips_the_cube_and_the_greys() {
+    var i = 16
+    while i <= 255 {
+        let (r, g, b) = grid.rgb_of(i)
+        let back = tier.nearest_index(r, g, b)
+        let (r2, g2, b2) = grid.rgb_of(back)
+        assert(r2 == r && g2 == g && b2 == b, "index {i} came back as {back}")
+        i += 1
+    }
+}
+
+fn test_the_plain_palette_steps_and_keeps_its_promise_at_night() {
+    let day = tier.palette_at(tier.PLAIN, 0)
+    let night = tier.palette_at(tier.PLAIN, tier.PHASE_NIGHT)
+    assert(tier.color(night, tier.C_PATH) == 8, "the path drops to bright black at night")
+    assert(tier.color(day, tier.C_PATH) == 3, "and is yellow by day")
+    assert(!day.dim && night.dim, "the greens dim")
+    var ph = 0
+    while ph <= tier.PHASE_NIGHT {
+        let p = tier.palette_at(tier.PLAIN, ph)
+        var s = 0
+        while s < tier.SPRITE_COUNT {
+            let c = tier.glyph_at(tier.PLAIN, p, s, 0)
+            assert(
+                c.fg <= 15 && c.bg <= 15 && c.cp <= 255,
+                "phase {ph} sprite {s} keeps the promise",
+            )
+            s += 1
+        }
+        ph += 64
+    }
+    let eye = tier.glyph_at(tier.PLAIN, night, tier.SP_SHADOW_EYE, 0)
+    assert(eye.fg == 9, "the eye stays bright red at night")
+}

@@ -38,7 +38,7 @@ fn forest_sprite(kind: int) -> int {
 /// The terrain of screen row `row` into `g`: path cells inside the path,
 /// forest outside (its cover from the row's density), the verge at the
 /// edge.
-fn terrain_row(s: sim.Sim, t: int, row: int, mut g: grid.Grid) {
+fn terrain_row(s: sim.Sim, t: int, p: tier.Palette, row: int, mut g: grid.Grid) {
     let wr = sim.world_row(s, row)
     let (centre, half) = world.path(s.seed, s.cols, wr)
     let density = world.density(s.seed, wr)
@@ -52,16 +52,16 @@ fn terrain_row(s: sim.Sim, t: int, row: int, mut g: grid.Grid) {
                     mut g,
                     row,
                     col,
-                    tier.glyph(t, tier.SP_PATH_MARK, world.variant(s.seed, wr, col, 4)),
+                    tier.glyph_at(t, p, tier.SP_PATH_MARK, world.variant(s.seed, wr, col, 4)),
                 )
             } else {
-                grid.put(mut g, row, col, tier.glyph(t, tier.SP_PATH, 0))
+                grid.put(mut g, row, col, tier.glyph_at(t, p, tier.SP_PATH, 0))
             }
         } else {
             let dist = (d - half + world.FP - 1) / world.FP
             let kind = world.forest_kind(s.seed, wr, col, dist - 1, density)
             let v = world.variant(s.seed, wr, col, 4)
-            grid.put(mut g, row, col, tier.glyph(t, forest_sprite(kind), v))
+            grid.put(mut g, row, col, tier.glyph_at(t, p, forest_sprite(kind), v))
         }
         col += 1
     }
@@ -75,6 +75,7 @@ fn terrain_row(s: sim.Sim, t: int, row: int, mut g: grid.Grid) {
 pub fn draw_wolf(
     mut g: grid.Grid,
     t: int,
+    p: tier.Palette,
     row: int,
     col: int,
     frame: int,
@@ -87,32 +88,37 @@ pub fn draw_wolf(
     if t == tier.RICH {
         let body = if dim then tier.SP_WOLF_BODY_DIM else tier.SP_WOLF_BODY
         let head_v = if pant then 1 else 0
-        grid.put(mut g, row - 1, col - 1, tier.glyph(t, tier.SP_WOLF_EAR, 2 * band))
-        grid.put(mut g, row - 1, col, tier.glyph(t, tier.SP_WOLF_HEAD, head_v))
-        grid.put(mut g, row - 1, col + 1, tier.glyph(t, tier.SP_WOLF_EAR, 2 * band + 1))
-        grid.put(mut g, row, col - 1, tier.glyph(t, tier.SP_WOLF_LEGS, frame))
-        grid.put(mut g, row, col, tier.glyph(t, body, 0))
-        grid.put(mut g, row, col + 1, tier.glyph(t, tier.SP_WOLF_TAIL, 4 * band + frame))
+        grid.put(mut g, row - 1, col - 1, tier.glyph_at(t, p, tier.SP_WOLF_EAR, 2 * band))
+        grid.put(mut g, row - 1, col, tier.glyph_at(t, p, tier.SP_WOLF_HEAD, head_v))
+        grid.put(mut g, row - 1, col + 1, tier.glyph_at(t, p, tier.SP_WOLF_EAR, 2 * band + 1))
+        grid.put(mut g, row, col - 1, tier.glyph_at(t, p, tier.SP_WOLF_LEGS, frame))
+        grid.put(mut g, row, col, tier.glyph_at(t, p, body, 0))
+        grid.put(mut g, row, col + 1, tier.glyph_at(t, p, tier.SP_WOLF_TAIL, 4 * band + frame))
         return
     }
-    var head = tier.glyph(t, tier.SP_WOLF_HEAD, if pant || band == sim.BAND_SPENT then 1 else 0)
+    var head = tier.glyph_at(
+        t,
+        p,
+        tier.SP_WOLF_HEAD,
+        if pant || band == sim.BAND_SPENT then 1 else 0,
+    )
     if dim {
-        head = tier.glyph(t, tier.SP_WOLF_BODY_DIM, 0)
+        head = tier.glyph_at(t, p, tier.SP_WOLF_BODY_DIM, 0)
     }
     grid.put(mut g, row, col, head)
-    grid.put(mut g, row, col + 1, tier.glyph(t, tier.SP_WOLF_TAIL, 4 * band + frame))
+    grid.put(mut g, row, col + 1, tier.glyph_at(t, p, tier.SP_WOLF_TAIL, 4 * band + frame))
 }
 
 /// A fainted wolf at `row`, `col`.
-pub fn draw_fainted(mut g: grid.Grid, t: int, row: int, col: int) {
+pub fn draw_fainted(mut g: grid.Grid, t: int, p: tier.Palette, row: int, col: int) {
     if t == tier.RICH {
-        grid.put(mut g, row, col - 1, tier.glyph(t, tier.SP_FAINTED, 1))
-        grid.put(mut g, row, col, tier.glyph(t, tier.SP_FAINTED, 0))
-        grid.put(mut g, row, col + 1, tier.glyph(t, tier.SP_FAINTED, 1))
+        grid.put(mut g, row, col - 1, tier.glyph_at(t, p, tier.SP_FAINTED, 1))
+        grid.put(mut g, row, col, tier.glyph_at(t, p, tier.SP_FAINTED, 0))
+        grid.put(mut g, row, col + 1, tier.glyph_at(t, p, tier.SP_FAINTED, 1))
         return
     }
-    grid.put(mut g, row, col, tier.glyph(t, tier.SP_FAINTED, 0))
-    grid.put(mut g, row, col + 1, tier.glyph(t, tier.SP_FAINTED, 1))
+    grid.put(mut g, row, col, tier.glyph_at(t, p, tier.SP_FAINTED, 0))
+    grid.put(mut g, row, col + 1, tier.glyph_at(t, p, tier.SP_FAINTED, 1))
 }
 
 /// A shadow wolf at `row` (its body row), `col`, with its eyes toward the
@@ -125,6 +131,7 @@ pub fn draw_fainted(mut g: grid.Grid, t: int, row: int, col: int) {
 pub fn draw_shadow(
     mut g: grid.Grid,
     t: int,
+    p: tier.Palette,
     row: int,
     col: int,
     eyes: int,
@@ -136,19 +143,19 @@ pub fn draw_shadow(
     if t == tier.RICH {
         let body_row = if facing_up then row else row - 1
         let eye_row = if facing_up then row - 1 else row
-        let body = tier.glyph(t, tier.SP_SHADOW_BODY, body_v)
+        let body = tier.glyph_at(t, p, tier.SP_SHADOW_BODY, body_v)
         grid.put(mut g, body_row, col - 1, body)
         grid.put(mut g, body_row, col, body)
         grid.put(mut g, body_row, col + 1, body)
-        let eye = if fade == 0 then tier.glyph(t, tier.SP_SHADOW_EYE, eyes) else copy body
+        let eye = if fade == 0 then tier.glyph_at(t, p, tier.SP_SHADOW_EYE, eyes) else copy body
         grid.put(mut g, eye_row, col - 1, eye)
         grid.put(mut g, eye_row, col, body)
         grid.put(mut g, eye_row, col + 1, eye)
         return
     }
-    grid.put(mut g, row, col, tier.glyph(t, tier.SP_SHADOW_BODY, body_v))
+    grid.put(mut g, row, col, tier.glyph_at(t, p, tier.SP_SHADOW_BODY, body_v))
     if fade == 0 {
-        grid.put(mut g, row, col + 1, tier.glyph(t, tier.SP_SHADOW_EYE, eyes))
+        grid.put(mut g, row, col + 1, tier.glyph_at(t, p, tier.SP_SHADOW_EYE, eyes))
     }
 }
 
@@ -156,16 +163,16 @@ pub fn draw_shadow(
 /// path (pk03): rich, two cells wide and two tall, the antlers over the
 /// body (`▝▘` over `██`, code points the wolf already uses, so GLYPHS.md
 /// gains no row); plain `YD`.
-pub fn draw_deer(mut g: grid.Grid, t: int, row: int, col: int) {
+pub fn draw_deer(mut g: grid.Grid, t: int, p: tier.Palette, row: int, col: int) {
     if t == tier.RICH {
-        grid.put(mut g, row - 1, col, tier.glyph(t, tier.SP_DEER, 0))
-        grid.put(mut g, row - 1, col + 1, tier.glyph(t, tier.SP_DEER, 2))
-        grid.put(mut g, row, col, tier.glyph(t, tier.SP_DEER, 1))
-        grid.put(mut g, row, col + 1, tier.glyph(t, tier.SP_DEER, 1))
+        grid.put(mut g, row - 1, col, tier.glyph_at(t, p, tier.SP_DEER, 0))
+        grid.put(mut g, row - 1, col + 1, tier.glyph_at(t, p, tier.SP_DEER, 2))
+        grid.put(mut g, row, col, tier.glyph_at(t, p, tier.SP_DEER, 1))
+        grid.put(mut g, row, col + 1, tier.glyph_at(t, p, tier.SP_DEER, 1))
         return
     }
-    grid.put(mut g, row, col, tier.glyph(t, tier.SP_DEER, 0))
-    grid.put(mut g, row, col + 1, tier.glyph(t, tier.SP_DEER, 1))
+    grid.put(mut g, row, col, tier.glyph_at(t, p, tier.SP_DEER, 0))
+    grid.put(mut g, row, col + 1, tier.glyph_at(t, p, tier.SP_DEER, 1))
 }
 
 /// Whether a wolf whose body row is `row` is on a screen of `rows` rows
@@ -178,7 +185,7 @@ fn on_screen(t: int, row: int, rows: int) -> bool {
 /// Draw shadow `k` where the alpha's eye puts it, if on the screen. Under
 /// the card the world stands still, eyes included: the pulse reads the
 /// death's tick.
-fn draw_sim_shadow(s: sim.Sim, t: int, k: int, mut g: grid.Grid) {
+fn draw_sim_shadow(s: sim.Sim, t: int, p: tier.Palette, k: int, mut g: grid.Grid) {
     let sh = copy s.shadows[k]
     if sh.state == sim.GONE {
         return
@@ -189,6 +196,7 @@ fn draw_sim_shadow(s: sim.Sim, t: int, k: int, mut g: grid.Grid) {
         draw_shadow(
             mut g,
             t,
+            p,
             row,
             col,
             sim.shadow_eyes(sh, if s.dead then s.died_tick else s.tick),
@@ -200,26 +208,26 @@ fn draw_sim_shadow(s: sim.Sim, t: int, k: int, mut g: grid.Grid) {
 }
 
 /// Draw deer `k` where the alpha's eye puts it, if on the screen.
-fn draw_sim_deer(s: sim.Sim, t: int, k: int, mut g: grid.Grid) {
+fn draw_sim_deer(s: sim.Sim, t: int, p: tier.Palette, k: int, mut g: grid.Grid) {
     if s.deer[k].state == sim.DEER_GONE {
         return
     }
     let row = sim.deer_screen_row(s, k)
     let col = sim.deer_screen_col(s, k)
     if on_screen(t, row, s.rows) {
-        draw_deer(mut g, t, row, col)
+        draw_deer(mut g, t, p, row, col)
     }
 }
 
 /// Draw wolf `i` of the simulation where the alpha's eye puts it, if on
 /// the screen.
-fn draw_pack_wolf(s: sim.Sim, t: int, i: int, mut g: grid.Grid) {
+fn draw_pack_wolf(s: sim.Sim, t: int, p: tier.Palette, i: int, mut g: grid.Grid) {
     let row = sim.screen_row(s, i)
     let col = sim.screen_col(s, i)
     let w = copy s.wolves[i]
     if w.state == sim.FAINTED {
         if row >= 0 && row < s.rows {
-            draw_fainted(mut g, t, row, col)
+            draw_fainted(mut g, t, p, row, col)
         }
         return
     }
@@ -227,6 +235,7 @@ fn draw_pack_wolf(s: sim.Sim, t: int, i: int, mut g: grid.Grid) {
         draw_wolf(
             mut g,
             t,
+            p,
             row,
             col,
             sim.trot_frame(s, i),
@@ -244,15 +253,17 @@ fn draw_pack_wolf(s: sim.Sim, t: int, i: int, mut g: grid.Grid) {
 /// (`assert`).
 pub fn render(s: sim.Sim, t: int, mut g: grid.Grid) {
     assert(g.rows == s.rows && g.cols == s.cols, "art.render: the grid is the simulation's size")
+    // The phase of the day from the distance, the palette once a frame.
+    let p = tier.palette_at(t, sim.phase(s))
     var row = 0
     while row < s.rows {
-        terrain_row(s, t, row, mut g)
+        terrain_row(s, t, p, row, mut g)
         row += 1
     }
     var i = 0
     while i < sim.PACK_SIZE {
         if s.wolves[i].state == sim.FAINTED {
-            draw_pack_wolf(s, t, i, mut g)
+            draw_pack_wolf(s, t, p, i, mut g)
         }
         i += 1
     }
@@ -260,32 +271,32 @@ pub fn render(s: sim.Sim, t: int, mut g: grid.Grid) {
     var k = 0
     while k < s.shadows.len {
         if s.shadows[k].state == sim.VANQUISHED {
-            draw_sim_shadow(s, t, k, mut g)
+            draw_sim_shadow(s, t, p, k, mut g)
         }
         k += 1
     }
     k = 0
     while k < s.deer.len {
-        draw_sim_deer(s, t, k, mut g)
+        draw_sim_deer(s, t, p, k, mut g)
         k += 1
     }
     k = 0
     while k < s.shadows.len {
         if s.shadows[k].state != sim.VANQUISHED {
-            draw_sim_shadow(s, t, k, mut g)
+            draw_sim_shadow(s, t, p, k, mut g)
         }
         k += 1
     }
     i = 0
     while i < sim.PACK_SIZE {
         if i != sim.ALPHA && s.wolves[i].state != sim.FAINTED {
-            draw_pack_wolf(s, t, i, mut g)
+            draw_pack_wolf(s, t, p, i, mut g)
         }
         i += 1
     }
-    draw_pack_wolf(s, t, sim.ALPHA, mut g)
+    draw_pack_wolf(s, t, p, sim.ALPHA, mut g)
     if s.dead {
-        card(s, t, mut g)
+        card_with(s, t, mut g, "")
     }
 }
 
@@ -295,10 +306,18 @@ pub const CARD_COLS: int = 44
 /// The card's height in rows.
 pub const CARD_ROWS: int = 10
 
-fn put_text(mut g: grid.Grid, t: int, row: int, col: int, text: str, emphasis: bool) {
+fn put_text(
+    mut g: grid.Grid,
+    t: int,
+    p: tier.Palette,
+    row: int,
+    col: int,
+    text: str,
+    emphasis: bool,
+) {
     var c = col
     for b in text.bytes() {
-        grid.put(mut g, row, c, tier.card_text(t, b as int, emphasis))
+        grid.put(mut g, row, c, tier.card_text_at(t, p, b as int, emphasis))
         c += 1
     }
 }
@@ -312,9 +331,18 @@ fn pad_left(text: str, width: int) -> str {
 }
 
 /// A line of the card: a label at the left, a number at the right.
-fn card_line(mut g: grid.Grid, t: int, row: int, col: int, label: str, value: str, emphasis: bool) {
-    put_text(mut g, t, row, col + 3, label, emphasis)
-    put_text(mut g, t, row, col + CARD_COLS - 3 - value.len, value, emphasis)
+fn card_line(
+    mut g: grid.Grid,
+    t: int,
+    p: tier.Palette,
+    row: int,
+    col: int,
+    label: str,
+    value: str,
+    emphasis: bool,
+) {
+    put_text(mut g, t, p, row, col + 3, label, emphasis)
+    put_text(mut g, t, p, row, col + CARD_COLS - 3 - value.len, value, emphasis)
 }
 
 /// The death card (pk02, the campaign's innovation 5: the first numbers
@@ -328,6 +356,7 @@ pub fn card(s: sim.Sim, t: int, mut g: grid.Grid) {
 
 /// The card, with the saved file's name on its last line when not empty.
 pub fn card_with(s: sim.Sim, t: int, mut g: grid.Grid, saved: str) {
+    let p = tier.palette_at(t, sim.phase(s))
     let top = (s.rows - CARD_ROWS) / 2
     let left = (s.cols - CARD_COLS) / 2
     var r = 0
@@ -335,13 +364,13 @@ pub fn card_with(s: sim.Sim, t: int, mut g: grid.Grid, saved: str) {
         var c = 0
         while c < CARD_COLS {
             let cell = if r == 0 {
-                tier.card_frame(t, 0)
+                tier.card_frame_at(t, p, 0)
             } else if r == CARD_ROWS - 1 {
-                tier.card_frame(t, 1)
+                tier.card_frame_at(t, p, 1)
             } else if c == 0 || c == CARD_COLS - 1 {
-                tier.card_frame(t, 2)
+                tier.card_frame_at(t, p, 2)
             } else {
-                tier.card_text(t, 32, false)
+                tier.card_text_at(t, p, 32, false)
             }
             grid.put(mut g, top + r, left + c, cell)
             c += 1
@@ -349,13 +378,13 @@ pub fn card_with(s: sim.Sim, t: int, mut g: grid.Grid, saved: str) {
         r += 1
     }
     let title = "the pack is gone"
-    put_text(mut g, t, top + 1, left + (CARD_COLS - title.len) / 2, title, true)
-    card_line(mut g, t, top + 3, left, "shadows vanquished", "{s.vanquished}", false)
-    card_line(mut g, t, top + 4, left, "seconds survived", "{sim.seconds(s)}", false)
-    card_line(mut g, t, top + 5, left, "distance, cells", "{sim.distance_cells(s)}", false)
-    card_line(mut g, t, top + 6, left, "score", "{sim.score(s)}", true)
+    put_text(mut g, t, p, top + 1, left + (CARD_COLS - title.len) / 2, title, true)
+    card_line(mut g, t, p, top + 3, left, "shadows vanquished", "{s.vanquished}", false)
+    card_line(mut g, t, p, top + 4, left, "seconds survived", "{sim.seconds(s)}", false)
+    card_line(mut g, t, p, top + 5, left, "distance, cells", "{sim.distance_cells(s)}", false)
+    card_line(mut g, t, p, top + 6, left, "score", "{sim.score(s)}", true)
     let offer = if saved == "" then "s saves the replay, q leaves" else "saved {saved}; q leaves"
-    put_text(mut g, t, top + 8, left + 3, offer, false)
+    put_text(mut g, t, p, top + 8, left + 3, offer, false)
 }
 
 /// The art study's sheet (`docs/ART.md`): every sprite the tiers know,
@@ -367,6 +396,7 @@ pub fn card_with(s: sim.Sim, t: int, mut g: grid.Grid, saved: str) {
 /// and fading, the deer, and the pack in formation.
 /// Committed as a golden on both tiers.
 pub fn sheet(t: int) -> grid.Grid {
+    let p = tier.palette_at(t, 0)
     var g = grid.new(24, 60)
     // A band of path down the middle with forest either side.
     var row = 0
@@ -375,13 +405,13 @@ pub fn sheet(t: int) -> grid.Grid {
         var col = 0
         while col < 60 {
             let d = abs(col - 30)
-            var c = tier.glyph(t, tier.SP_PATH, 0)
+            var c = tier.glyph_at(t, p, tier.SP_PATH, 0)
             if d > 14 {
                 let dist = d - 14
                 let kind = world.forest_kind(1, row, col, dist - 1, density)
-                c = tier.glyph(t, forest_sprite(kind), world.variant(1, row, col, 4))
+                c = tier.glyph_at(t, p, forest_sprite(kind), world.variant(1, row, col, 4))
             } else if world.path_marked(1, row, col, 9) {
-                c = tier.glyph(t, tier.SP_PATH_MARK, world.variant(1, row, col, 4))
+                c = tier.glyph_at(t, p, tier.SP_PATH_MARK, world.variant(1, row, col, 4))
             }
             grid.put(mut g, row, col, c)
             col += 1
@@ -391,23 +421,23 @@ pub fn sheet(t: int) -> grid.Grid {
     // The four trot frames, side by side on row 3.
     var f = 0
     while f < 4 {
-        draw_wolf(mut g, t, 3, 20 + f * 5, f, sim.POSTURE_TROT, sim.BAND_FRESH, 0, false)
+        draw_wolf(mut g, t, p, 3, 20 + f * 5, f, sim.POSTURE_TROT, sim.BAND_FRESH, 0, false)
         f += 1
     }
     // Standing, sprinting, panting (both phases), dim, tired, spent.
-    draw_wolf(mut g, t, 7, 20, 0, sim.POSTURE_STAND, sim.BAND_FRESH, 0, false)
-    draw_wolf(mut g, t, 7, 25, 1, sim.POSTURE_SPRINT, sim.BAND_FRESH, 0, false)
-    draw_wolf(mut g, t, 7, 30, 0, sim.POSTURE_PANT, sim.BAND_SPENT, 0, false)
-    draw_wolf(mut g, t, 7, 35, 0, sim.POSTURE_PANT, sim.BAND_SPENT, 8, false)
-    draw_wolf(mut g, t, 7, 40, 2, sim.POSTURE_TROT, sim.BAND_FRESH, 0, true)
-    draw_wolf(mut g, t, 7, 45, 1, sim.POSTURE_TROT, sim.BAND_TIRED, 0, false)
-    draw_wolf(mut g, t, 7, 50, 2, sim.POSTURE_TROT, sim.BAND_SPENT, 0, false)
+    draw_wolf(mut g, t, p, 7, 20, 0, sim.POSTURE_STAND, sim.BAND_FRESH, 0, false)
+    draw_wolf(mut g, t, p, 7, 25, 1, sim.POSTURE_SPRINT, sim.BAND_FRESH, 0, false)
+    draw_wolf(mut g, t, p, 7, 30, 0, sim.POSTURE_PANT, sim.BAND_SPENT, 0, false)
+    draw_wolf(mut g, t, p, 7, 35, 0, sim.POSTURE_PANT, sim.BAND_SPENT, 8, false)
+    draw_wolf(mut g, t, p, 7, 40, 2, sim.POSTURE_TROT, sim.BAND_FRESH, 0, true)
+    draw_wolf(mut g, t, p, 7, 45, 1, sim.POSTURE_TROT, sim.BAND_TIRED, 0, false)
+    draw_wolf(mut g, t, p, 7, 50, 2, sim.POSTURE_TROT, sim.BAND_SPENT, 0, false)
     // The fainted wolf, the shadow wolf (two eye frames), the deer.
-    draw_fainted(mut g, t, 11, 20)
-    draw_shadow(mut g, t, 11, 27, 0, false, 0, sim.FADE_TICKS)
-    draw_shadow(mut g, t, 11, 33, 1, true, 0, sim.FADE_TICKS)
-    draw_shadow(mut g, t, 11, 46, 0, false, 10, sim.FADE_TICKS)
-    draw_deer(mut g, t, 11, 39)
+    draw_fainted(mut g, t, p, 11, 20)
+    draw_shadow(mut g, t, p, 11, 27, 0, false, 0, sim.FADE_TICKS)
+    draw_shadow(mut g, t, p, 11, 33, 1, true, 0, sim.FADE_TICKS)
+    draw_shadow(mut g, t, p, 11, 46, 0, false, 10, sim.FADE_TICKS)
+    draw_deer(mut g, t, p, 11, 39)
     // The pack in formation, the alpha trailing at the centre: the slots
     // of `sim.slot_dx`/`slot_dy` around the alpha at (21, 30).
     var i = 0
@@ -415,6 +445,7 @@ pub fn sheet(t: int) -> grid.Grid {
         draw_wolf(
             mut g,
             t,
+            p,
             21 - sim.slot_dy(i),
             30 + sim.slot_dx(i),
             i % 4,

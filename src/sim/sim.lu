@@ -363,6 +363,21 @@ pub const DEER_MAX: int = 3
 /// gone; behind the alpha the shadows' `GONE_ROWS` holds for it too.
 pub const DEER_GONE_MARGIN: int = 20
 
+// Dusk (pk03, innovation 4). The phase of the day is a function of the
+// distance travelled: afternoon to `DUSK_START`, a blend to dusk by
+// `DUSK_FULL`, a blend to night by `NIGHT_FULL`, in rows. Proposed
+// 2026-10-25; mirrored in docs/DESIGN.md and docs/PALETTE.md.
+
+/// The afternoon lasts this many rows (about two minutes at the trot).
+pub const DUSK_START: int = 600
+
+/// Full dusk at this many rows (about four minutes).
+pub const DUSK_FULL: int = 1200
+
+/// Night at this many rows (about six and a half minutes); the palette
+/// holds there.
+pub const NIGHT_FULL: int = 1800
+
 /// A deer's states: wandering (the walk, grazing across the path and the
 /// verge).
 pub const DEER_WANDERING: int = 0
@@ -592,13 +607,20 @@ pub fn slot_lag(i: int) -> int {
 /// A new simulation: the reference at the path's centre on world row 0,
 /// every wolf in its slot, at trot, full stamina and health.
 pub fn new(seed: int, cols: int, rows: int) -> Sim {
-    let (centre, _) = world.path(seed, cols, 0)
+    new_at(seed, cols, rows, 0)
+}
+
+/// A new simulation whose run starts `start` rows up the path (the replay
+/// header's `start N`, pk03): the same forest, the pack placed there, so
+/// the distance (and with it the curve and the dusk) begins at `start`.
+pub fn new_at(seed: int, cols: int, rows: int, start: int) -> Sim {
+    let (centre, _) = world.path(seed, cols, start)
     var wolves = List[Wolf]()
     var i = 0
     while i < PACK_SIZE {
         (mut wolves).push(Wolf {
             x: clamp_x(centre + slot_dx(i) * world.FP, cols),
-            y: slot_dy(i) * world.FP,
+            y: (start + slot_dy(i)) * world.FP,
             heading: 0,
             speed: TROT_V,
             state: RUNNING,
@@ -620,7 +642,7 @@ pub fn new(seed: int, cols: int, rows: int) -> Sim {
         tick: 0,
         wolves: wolves,
         px: centre,
-        py: 0,
+        py: start * world.FP,
         heading: 0,
         heading_target: 0,
         steer_hist: hist,
@@ -1852,6 +1874,26 @@ fn deer_step(mut s: Sim) -> int {
         let _ = (mut s.deer).pop() else grazer(s, 0, 0)
     }
     feed
+}
+
+/// The phase of the day from the distance, in `tier`'s units: 0 the
+/// afternoon, 256 dusk, 512 night, blended between (never a step).
+pub fn phase(s: Sim) -> int {
+    phase_at(distance_cells(s))
+}
+
+/// The phase at a distance in rows. Pure.
+pub fn phase_at(rows: int) -> int {
+    if rows <= DUSK_START {
+        return 0
+    }
+    if rows < DUSK_FULL {
+        return (rows - DUSK_START) * 256 / (DUSK_FULL - DUSK_START)
+    }
+    if rows < NIGHT_FULL {
+        return 256 + (rows - DUSK_FULL) * 256 / (NIGHT_FULL - DUSK_FULL)
+    }
+    512
 }
 
 /// Seconds the run lasted (to its death, or so far).

@@ -334,3 +334,39 @@ fn test_render_with_shadows_is_deterministic_and_plain_keeps_the_promise() {
     art.render(s, tier.PLAIN, mut p)
     assert(grid.plain_ok(p), "the plain frame with shadows keeps the promise")
 }
+
+// Dusk (pk03).
+
+fn test_night_changes_the_colours_and_not_the_glyphs() {
+    let day = sim.new(5, 80, 24)
+    let night = sim.new_at(5, 80, 24, sim.NIGHT_FULL)
+    var a = grid.new(24, 80)
+    var b = grid.new(24, 80)
+    art.render(day, tier.RICH, mut a)
+    art.render(night, tier.RICH, mut b)
+    var colours_differ = 0
+    var i = 0
+    while i < a.cells.len {
+        if !grid.same(a.cells[i], b.cells[i]) {
+            colours_differ += 1
+        }
+        i += 1
+    }
+    assert(colours_differ > a.cells.len / 2, "most cells recoloured at night: {colours_differ}")
+    // The eyes of a shadow stay the same red.
+    var s = sim.new_at(5, 80, 24, sim.NIGHT_FULL)
+    (mut s.shadows).push(chaser(s, 0 - 8, -2))
+    var g = grid.new(24, 80)
+    art.render(s, tier.RICH, mut g)
+    let row = sim.shadow_screen_row(s, 0)
+    let col = sim.shadow_screen_col(s, 0)
+    let eye = grid.at(g, row - 1, col - 1)
+    assert(
+        eye.fg == tier.palette(tier.RICH, tier.C_EYE) ||
+            eye.fg == tier.palette(tier.RICH, tier.C_EYE_DIM),
+        "red at night",
+    )
+    var p = grid.new(24, 80)
+    art.render(night, tier.PLAIN, mut p)
+    assert(grid.plain_ok(p), "the plain tier keeps its promise at night")
+}

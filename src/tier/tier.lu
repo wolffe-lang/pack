@@ -11,8 +11,11 @@
 //!   that, and `test_plain_tier_keeps_its_promise` checks every sprite.
 //!
 //! Colours are named once in `docs/PALETTE.md`; the numbers here are that
-//! document's. The dusk shift (pk03) will take a phase argument through
-//! `palette`; today there is one phase, afternoon.
+//! document's. The dusk shift (pk03, innovation 4): `palette_at` takes a
+//! phase from the distance (afternoon, dusk, night) and blends the rich
+//! tier's keyframes in RGB, quantized to the nearest cube index, so the
+//! change is slow and never a step; the plain tier's sixteen colours step
+//! at the midpoints. The red eyes never change: shadows come with the dark.
 
 use grid
 
@@ -128,61 +131,265 @@ pub const C_FAINT: int = 12
 /// A red eye, dim (fg): the pulse's other phase, a lurker's eyes.
 pub const C_EYE_DIM: int = 13
 
-/// The colour index a palette role has on a tier.
-pub fn palette(tier: int, role: int) -> int {
-    if tier == RICH {
-        return match role {
-            0 => 137,  // C_PATH
-            1 => 180,  // C_PATH_MARK
-            2 => 64,  // C_GRASS
-            3 => 94,  // C_TRUNK
-            4 => 28,  // C_CANOPY
-            5 => 22,  // C_CANOPY_DARK
-            6 => 234,  // C_FLOOR
-            7 => 250,  // C_FUR
-            8 => 245,  // C_FUR_DIM
-            9 => 236,  // C_SHADOW
-            10 => 196,  // C_EYE
-            11 => 223,  // C_DEER
-            12 => 243,  // C_FAINT
-            13 => 124,  // C_EYE_DIM
-            _ => grid.COLOR_DEFAULT,
-        }
-    }
+/// The number of palette roles.
+pub const ROLE_COUNT: int = 14
+
+/// The phase of the day, in 256ths (pk03, campaign innovation 4): 0 is the
+/// afternoon, `PHASE_DUSK` dusk, `PHASE_NIGHT` night; the simulation reads
+/// it from the distance (`sim.phase`) and the palette blends between the
+/// keyframes, never a step on the rich tier (the plain tier's sixteen
+/// colours step at the midpoints).
+pub const PHASE_DUSK: int = 256
+
+/// Night.
+pub const PHASE_NIGHT: int = 512
+
+/// A keyframe colour of a role on the rich tier: a 256-colour index at
+/// keyframe `key` (0 afternoon, 1 dusk, 2 night). `docs/PALETTE.md`'s
+/// tables. The red eyes never change, so shadows come with the dark.
+pub fn rich_key(role: int, key: int) -> int {
     match role {
-        0 => 3,  // C_PATH
-        1 => 11,  // C_PATH_MARK
-        2 => 2,  // C_GRASS
-        3 => 3,  // C_TRUNK
-        4 => 2,  // C_CANOPY
+        0 => if key == 0 then 137 else if key == 1 then 95 else 59,  // C_PATH
+        1 => if key == 0 then 180 else if key == 1 then 138 else 102,  // C_PATH_MARK
+        2 => if key == 0 then 64 else if key == 1 then 58 else 22,  // C_GRASS
+        3 => if key == 0 then 94 else if key == 1 then 58 else 237,  // C_TRUNK
+        4 => if key == 0 then 28 else if key == 1 then 22 else 17,  // C_CANOPY
+        5 => if key == 0 then 22 else if key == 1 then 17 else 16,  // C_CANOPY_DARK
+        6 => if key == 0 then 234 else if key == 1 then 233 else 232,  // C_FLOOR
+        7 => if key == 0 then 250 else if key == 1 then 248 else 245,  // C_FUR
+        8 => if key == 0 then 245 else if key == 1 then 243 else 240,  // C_FUR_DIM
+        9 => if key == 0 then 236 else if key == 1 then 235 else 233,  // C_SHADOW
+        10 => 196,  // C_EYE
+        11 => if key == 0 then 223 else if key == 1 then 180 else 138,  // C_DEER
+        12 => if key == 0 then 243 else if key == 1 then 241 else 238,  // C_FAINT
+        13 => 124,  // C_EYE_DIM
+        _ => grid.COLOR_DEFAULT,
+    }
+}
+
+/// A keyframe colour of a role on the plain tier: one of the sixteen at
+/// keyframe `key` (0 afternoon, 1 dusk, 2 night). Dusk dims the greens
+/// (the canopy loses its bold); night drops the path to bright black, the
+/// foliage to black on black, the fur to white.
+pub fn plain_key(role: int, key: int) -> int {
+    match role {
+        0 => if key < 2 then 3 else 8,  // C_PATH
+        1 => if key == 0 then 11 else if key == 1 then 3 else 7,  // C_PATH_MARK
+        2 => if key < 2 then 2 else 0,  // C_GRASS
+        3 => if key < 2 then 3 else 8,  // C_TRUNK
+        4 => if key < 2 then 2 else 0,  // C_CANOPY
         5 => 0,  // C_CANOPY_DARK
         6 => 0,  // C_FLOOR
-        7 => 15,  // C_FUR
-        8 => 7,  // C_FUR_DIM
-        9 => 8,  // C_SHADOW
+        7 => if key < 2 then 15 else 7,  // C_FUR
+        8 => if key < 2 then 7 else 8,  // C_FUR_DIM
+        9 => if key < 2 then 8 else 0,  // C_SHADOW
         10 => 9,  // C_EYE
-        11 => 11,  // C_DEER
-        12 => 8,  // C_FAINT
+        11 => if key < 2 then 11 else 7,  // C_DEER
+        12 => if key < 2 then 8 else 0,  // C_FAINT
         13 => 1,  // C_EYE_DIM
         _ => grid.COLOR_DEFAULT,
     }
 }
 
-fn c(tier: int, cp: int, fg: int, bg: int, attrs: int) -> grid.Cell {
-    grid.cell(cp, palette(tier, fg), palette(tier, bg), attrs)
+/// The palette at one phase: a colour per role, and `dim` (the plain
+/// tier at dusk and after: the canopy's bold dropped). A struct of ints,
+/// computed once a frame by `palette_at`.
+pub struct Palette {
+    path: int,
+    path_mark: int,
+    grass: int,
+    trunk: int,
+    canopy: int,
+    canopy_dark: int,
+    floor: int,
+    fur: int,
+    fur_dim: int,
+    shadow: int,
+    eye: int,
+    deer: int,
+    faint: int,
+    eye_dim: int,
+    dim: bool,
 }
 
-/// The cell a sprite is on a tier, with its variant (a trot frame, a
-/// texture index; a variant a sprite has no use for is ignored).
-pub fn glyph(tier: int, sprite: int, variant: int) -> grid.Cell {
-    if tier == RICH {
-        return rich(sprite, variant)
+/// The colour a role has in a palette.
+pub fn color(p: Palette, role: int) -> int {
+    match role {
+        0 => p.path,
+        1 => p.path_mark,
+        2 => p.grass,
+        3 => p.trunk,
+        4 => p.canopy,
+        5 => p.canopy_dark,
+        6 => p.floor,
+        7 => p.fur,
+        8 => p.fur_dim,
+        9 => p.shadow,
+        10 => p.eye,
+        11 => p.deer,
+        12 => p.faint,
+        13 => p.eye_dim,
+        _ => grid.COLOR_DEFAULT,
     }
-    plain(sprite, variant)
 }
 
-fn rich(sprite: int, v: int) -> grid.Cell {
-    let t = RICH
+/// The nearest 256-colour index to an RGB, among the cube (16-231) and
+/// the grey ramp (232-255), never the sixteen theme colours: the cube's
+/// levels are 0, 95, 135, 175, 215, 255 and the greys 8 + 10 i. Integer
+/// arithmetic, so the blend quantizes the same on every machine.
+pub fn nearest_index(r: int, g: int, b: int) -> int {
+    let ri = cube_level(r)
+    let gi = cube_level(g)
+    let bi = cube_level(b)
+    let cube = 16 + 36 * ri + 6 * gi + bi
+    let (cr, cg, cb) = grid.rgb_of(cube)
+    let dc = sq(r - cr) + sq(g - cg) + sq(b - cb)
+    var gi2 = ((r + g + b) / 3 - 8 + 5) / 10
+    if gi2 < 0 {
+        gi2 = 0
+    }
+    if gi2 > 23 {
+        gi2 = 23
+    }
+    let grey = 232 + gi2
+    let (gr, gg, gb) = grid.rgb_of(grey)
+    let dg = sq(r - gr) + sq(g - gg) + sq(b - gb)
+    if dg < dc then grey else cube
+}
+
+fn sq(v: int) -> int {
+    v * v
+}
+
+/// The cube level (0-5) nearest a channel value.
+fn cube_level(v: int) -> int {
+    if v < 48 {
+        return 0
+    }
+    if v < 115 {
+        return 1
+    }
+    if v < 155 {
+        return 2
+    }
+    if v < 195 {
+        return 3
+    }
+    if v < 235 {
+        return 4
+    }
+    5
+}
+
+/// A role's rich colour at `phase`: the two keyframes around it blended
+/// in RGB by the phase's fraction and quantized to the nearest index. A
+/// role whose keyframes agree (the eyes) is returned as is.
+fn rich_at(role: int, phase: int) -> int {
+    var ph = phase
+    if ph < 0 {
+        ph = 0
+    }
+    if ph > PHASE_NIGHT {
+        ph = PHASE_NIGHT
+    }
+    let key = if ph < PHASE_DUSK then 0 else 1
+    let t = ph - key * PHASE_DUSK
+    let from = rich_key(role, key)
+    let to = rich_key(role, key + 1)
+    if from == to || t == 0 {
+        return from
+    }
+    if t >= PHASE_DUSK {
+        return to
+    }
+    let (r0, g0, b0) = grid.rgb_of(from)
+    let (r1, g1, b1) = grid.rgb_of(to)
+    nearest_index(
+        r0 + (r1 - r0) * t / PHASE_DUSK,
+        g0 + (g1 - g0) * t / PHASE_DUSK,
+        b0 + (b1 - b0) * t / PHASE_DUSK,
+    )
+}
+
+/// The plain tier's keyframe at `phase`: steps at the midpoints (the
+/// sixteen colours cannot blend).
+fn plain_step(phase: int) -> int {
+    if phase < PHASE_DUSK / 2 {
+        return 0
+    }
+    if phase < (PHASE_DUSK + PHASE_NIGHT) / 2 {
+        return 1
+    }
+    2
+}
+
+/// The palette of a tier at a phase (0 afternoon .. `PHASE_NIGHT`).
+pub fn palette_at(tier: int, phase: int) -> Palette {
+    if tier == RICH {
+        return Palette {
+            path: rich_at(C_PATH, phase),
+            path_mark: rich_at(C_PATH_MARK, phase),
+            grass: rich_at(C_GRASS, phase),
+            trunk: rich_at(C_TRUNK, phase),
+            canopy: rich_at(C_CANOPY, phase),
+            canopy_dark: rich_at(C_CANOPY_DARK, phase),
+            floor: rich_at(C_FLOOR, phase),
+            fur: rich_at(C_FUR, phase),
+            fur_dim: rich_at(C_FUR_DIM, phase),
+            shadow: rich_at(C_SHADOW, phase),
+            eye: rich_at(C_EYE, phase),
+            deer: rich_at(C_DEER, phase),
+            faint: rich_at(C_FAINT, phase),
+            eye_dim: rich_at(C_EYE_DIM, phase),
+            dim: false,
+        }
+    }
+    let k = plain_step(phase)
+    Palette {
+        path: plain_key(C_PATH, k),
+        path_mark: plain_key(C_PATH_MARK, k),
+        grass: plain_key(C_GRASS, k),
+        trunk: plain_key(C_TRUNK, k),
+        canopy: plain_key(C_CANOPY, k),
+        canopy_dark: plain_key(C_CANOPY_DARK, k),
+        floor: plain_key(C_FLOOR, k),
+        fur: plain_key(C_FUR, k),
+        fur_dim: plain_key(C_FUR_DIM, k),
+        shadow: plain_key(C_SHADOW, k),
+        eye: plain_key(C_EYE, k),
+        deer: plain_key(C_DEER, k),
+        faint: plain_key(C_FAINT, k),
+        eye_dim: plain_key(C_EYE_DIM, k),
+        dim: k > 0,
+    }
+}
+
+/// The colour index a palette role has on a tier in the afternoon (the
+/// one phase before pk03; the sheet's and the tests' palette).
+pub fn palette(tier: int, role: int) -> int {
+    color(palette_at(tier, 0), role)
+}
+
+fn c(p: Palette, cp: int, fg: int, bg: int, attrs: int) -> grid.Cell {
+    grid.cell(cp, color(p, fg), color(p, bg), attrs)
+}
+
+/// The cell a sprite is on a tier in the afternoon, with its variant (a
+/// trot frame, a texture index; a variant a sprite has no use for is
+/// ignored). The renderer uses `glyph_at` with the frame's palette.
+pub fn glyph(tier: int, sprite: int, variant: int) -> grid.Cell {
+    glyph_at(tier, palette_at(tier, 0), sprite, variant)
+}
+
+/// The cell a sprite is on a tier under palette `p` (the phase's).
+pub fn glyph_at(tier: int, p: Palette, sprite: int, variant: int) -> grid.Cell {
+    if tier == RICH {
+        return rich(p, sprite, variant)
+    }
+    plain(p, sprite, variant)
+}
+
+fn rich(t: Palette, sprite: int, v: int) -> grid.Cell {
     match sprite {
         0 => c(t, 32, C_PATH_MARK, C_PATH, 0),  // SP_PATH
         1 =>
@@ -275,8 +482,7 @@ fn rich(sprite: int, v: int) -> grid.Cell {
     }
 }
 
-fn plain(sprite: int, v: int) -> grid.Cell {
-    let t = PLAIN
+fn plain(t: Palette, sprite: int, v: int) -> grid.Cell {
     match sprite {
         0 => c(t, 32, C_PATH_MARK, C_PATH, 0),  // SP_PATH
         1 =>
@@ -295,7 +501,7 @@ fn plain(sprite: int, v: int) -> grid.Cell {
                 if v % 4 == 0 then 38 else if v % 4 == 1 then 37 else if v % 4 == 2 then 42 else 59,
                 if v % 4 < 2 then C_CANOPY else C_CANOPY_DARK,
                 C_FLOOR,
-                if v % 4 < 2 then grid.ATTR_BOLD else 0,
+                if v % 4 < 2 && !t.dim then grid.ATTR_BOLD else 0,
             ),  // SP_CANOPY
         5 => c(t, 32, C_CANOPY_DARK, C_FLOOR, 0),  // SP_FOREST_DARK
         6 => c(t, 87, C_FUR, C_PATH, grid.ATTR_BOLD),  // SP_WOLF_BODY
@@ -338,24 +544,34 @@ fn plain(sprite: int, v: int) -> grid.Cell {
 /// `docs/GLYPHS.md`; its frame is drawn with the blocks the wolf already
 /// uses (`card_frame`).
 pub fn card_text(tier: int, cp: int, emphasis: bool) -> grid.Cell {
+    card_text_at(tier, palette_at(tier, 0), cp, emphasis)
+}
+
+/// The card's text under palette `p`.
+pub fn card_text_at(tier: int, p: Palette, cp: int, emphasis: bool) -> grid.Cell {
     let attrs = if emphasis || tier == PLAIN then grid.ATTR_BOLD else 0
-    c(tier, cp, C_FUR, C_FLOOR, attrs)
+    c(p, cp, C_FUR, C_FLOOR, attrs)
 }
 
 /// A cell of the card's frame: `which` 0 the top edge, 1 the bottom, 2 a
 /// side. Rich: the upper and lower half blocks and the full block (all in
 /// `docs/GLYPHS.md`); plain: `-` and `|`.
 pub fn card_frame(tier: int, which: int) -> grid.Cell {
+    card_frame_at(tier, palette_at(tier, 0), which)
+}
+
+/// The card's frame under palette `p`.
+pub fn card_frame_at(tier: int, p: Palette, which: int) -> grid.Cell {
     if tier == RICH {
         return c(
-            tier,
+            p,
             if which == 0 then 9600 else if which == 1 then 9604 else 9608,
             C_FUR_DIM,
             C_FLOOR,
             0,
         )
     }
-    c(tier, if which == 2 then 124 else 45, C_FUR_DIM, C_FLOOR, 0)
+    c(p, if which == 2 then 124 else 45, C_FUR_DIM, C_FLOOR, 0)
 }
 
 /// The colour dialect a tier renders in: the plain tier the sixteen, the

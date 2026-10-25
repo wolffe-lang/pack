@@ -76,3 +76,27 @@ fn test_parse_size() {
     }
     assert(bad, "a zero dimension is parse")
 }
+
+fn test_start_is_read_written_and_defaults_to_zero() {
+    let r = from_text("pk 1\nseed 3\ntier plain\nsize 80x24\nstart 1200\nt 5 up\n") else {
+        assert(false, "parses")
+        return
+    }
+    assert(r.start == 1200, "start {r.start}")
+    var out = List[byte]()
+    format(r, mut out)
+    let text = str_from_utf8(out) else ""
+    assert(text.contains("\nstart 1200\n"), "written back: {text}")
+    let plain = from_text("pk 1\nseed 3\ntier plain\nsize 80x24\n") else {
+        assert(false, "parses")
+        return
+    }
+    assert(plain.start == 0, "no line: zero")
+    var out2 = List[byte]()
+    format(plain, mut out2)
+    assert(!(str_from_utf8(out2) else "x").contains("start"), "a zero start is not written")
+    let bad = from_text("pk 1\nseed 3\ntier plain\nsize 80x24\nstart -4\n") else {
+        return
+    }
+    assert(false, "a negative start is a parse failure: {bad.start}")
+}
