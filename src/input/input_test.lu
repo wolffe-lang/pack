@@ -97,6 +97,10 @@ fn test_plain_keys() {
     check("q", one(KEY_QUIT), "q")
     check("Q", one(KEY_QUIT), "Q")
     check("\x03", one(KEY_INTERRUPT), "Ctrl-C")
+    check("-", one(KEY_HEALTH_DOWN), "- (debug: health down)")
+    check("_", one(KEY_HEALTH_DOWN), "_")
+    check("=", one(KEY_HEALTH_UP), "= (debug: health up)")
+    check("+", one(KEY_HEALTH_UP), "+")
 }
 
 fn test_lone_esc_waits_for_the_timeout() {

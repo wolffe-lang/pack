@@ -11,6 +11,7 @@
 //! read as the bare arrow; Space the leap; `z`/`Z` the parry alias; `q`/`Q`
 //! quit; Esc quit, once `ESC_TIMEOUT_MS` passes with nothing after it;
 //! Ctrl-C the interrupt (when the terminal passes it as a byte). The
+//! debug keys `-`/`_` and `=`/`+` (health down and up, `--debug` only). The
 //! kitty/CSI-u form `ESC [ code ; mods u` and the tilde form `ESC [ n ~`
 //! are recognised and ignored; an unknown CSI is consumed; any other byte
 //! is dropped and counted in `dropped`.
@@ -42,6 +43,13 @@ pub const KEY_QUIT: int = 7
 /// Ctrl-C as a byte: interrupt (the signal path is the terminal's).
 pub const KEY_INTERRUPT: int = 8
 
+/// `-` or `_`: health down (a debug key, acted on only under `--debug`;
+/// it reaches the replay as a `health` event, never as a key).
+pub const KEY_HEALTH_DOWN: int = 9
+
+/// `=` or `+`: health up (the same).
+pub const KEY_HEALTH_UP: int = 10
+
 /// The milliseconds after which a lone ESC is Esc.
 pub const ESC_TIMEOUT_MS: int = 50
 
@@ -72,6 +80,12 @@ pub fn plain_key(b: int) -> int {
     }
     if b == 3 {
         return KEY_INTERRUPT
+    }
+    if b == 45 || b == 95 {
+        return KEY_HEALTH_DOWN
+    }
+    if b == 61 || b == 43 {
+        return KEY_HEALTH_UP
     }
     KEY_NONE
 }
