@@ -5,9 +5,15 @@ trees; leap at them as a pack, parry, or sprint past and be chased. Deer feed th
 bar: as the pack weakens, wolves faint and are left behind, and as it recovers they sprint back to rejoin
 you.
 
-A terminal game written in wolf, the first of the lair, the wolf games collection. Today it is the engine
-with one wolf: the path scrolls, the wolf trots, sprints, stops and tires, and everything the finished
-game stands on is here and tested. The pack, the shadows, the deer and the score card follow.
+A terminal game written in wolf, the first of the lair, the wolf games collection.
+
+**What is in this build:** a pack of five runs the forest. The wolves hold a formation with the alpha
+trailing, steer as one with the turn rippling back through the pack, drift and bump without overlapping,
+sprint, stop and tire; the forest has clearings and dense stands and the path widens and narrows with them;
+posture is the only gauge (ears, tail, gait, the pant); health works as fainting and return. **No shadows
+and no deer yet:** nothing attacks and nothing feeds the pack, so health only moves under `--debug`. The
+shadows, the leap and the parry are the next build (pk02); the deer, dusk and the score card the one after
+(pk03).
 
 ## Where it runs
 
@@ -24,15 +30,17 @@ The terminal must be at least 80 columns by 24 rows; the field grows to fill a l
 
 | key | action |
 |---|---|
-| Left, Right | steer the pack; the forest edge slows and scratches |
+| Left, Right | steer the pack; hold to keep turning, release to straighten; the forest edge slows and scratches |
 | Up | a sprint burst, while stamina lasts |
 | Down | stop; stamina returns fastest standing |
 | Space | leap (the attack, from pk02) |
 | Shift+Down, or `z` | parry (from pk02) |
 | `q` or Esc | quit; the terminal is restored on every exit |
 
-An exhausted wolf pants and cannot sprint until it has recovered. Posture is the only gauge: there are no
-bars.
+The pack moves at a migrating trot, not a run. An exhausted pack pants and cannot sprint until it has
+recovered; a tired pack's ears go back and its tails drop. Posture is the only gauge: there are no bars. As
+health falls, wolves faint and are left behind; as it recovers they sprint back up from the bottom of the
+screen to their places.
 
 ## Build and run
 
@@ -44,22 +52,31 @@ tools/fetch-toolchain     stage the pinned toolchain into .wolf-bin/
 tools/build --release     target/release/pack (and a copy at target/pack)
 target/pack               play; --seed N picks a forest, --tier plain forces the plain tier
 target/pack --record run.pk   save the run you just played; --replay run.pk plays it back
+target/pack --debug --speed-scale 150   every speed at 150 percent, to tune by play; under --debug the
+                          keys - and = move the pack's health by ten, so fainting and return can be watched
 ```
 
-`pack --help` lists the rest: the headless mode that writes frames for the goldens, `--bench`, the glyph
-probe.
+`pack --help` lists the rest: the headless mode that writes frames for the goldens, `--bench`, `--trace`
+(one line a tick on standard error), the glyph probe. Seeds worth a look: 11 starts in a clearing, 16 in a
+dense stand, 3 shows the pack bump in a right turn.
 
 ## Tests
 
 Determinism is the oracle. A run is a pure function of the seed, the inputs, the tier and the size, so
-`tests/cases/*.pk` are run headless on both tiers and diffed against `tests/goldens/` cell for cell
-(`tools/goldens`). The unit tests (`tools/test`, 66 of them) cover the diff renderer with a terminal model,
-the key decoder with every sequence split at every byte, the clock, the world, the simulation's bars and
-the tiers' promises. The pty runner (`tools/pty`) drives the real binary in a pseudo-terminal and checks
-that raw mode is undone and the alternate screen left on `q`, on Ctrl-C (the interrupt the line discipline raises) and on a planted trap, and that the
-bytes it captured, replayed through the model, equal the headless frames. `tools/perf` holds the render
-under a millisecond at 80x24 and under four at 200x60, and counts the loop's wake-ups at idle.
-`tools/check` runs all of it; CI runs it on Linux for every pull request and on macOS as well for trunk.
+`tests/cases/*.pk` (ten cases: a standstill, a trot, a steer into the forest, a sprint to exhaustion, a
+formation turn with a bump, a faint and a return, a clearing, a dense stand, a resize mid-run, the wide
+field) are run headless on both tiers and diffed against `tests/goldens/` cell for cell (`tools/goldens`).
+The unit tests (`tools/test`, 83 of them) cover the diff renderer with a terminal model, the key decoder
+with every sequence split at every byte, the clock, the world's noise and density, the simulation's bars
+(the speeds, the turn rate, the held key, the formation's lag, the wander and the bumps, health's floors
+and returns) and the tiers' promises. The pty runner (`tools/pty`) drives the real binary in a
+pseudo-terminal and checks that raw mode is undone and the alternate screen left on `q`, on Ctrl-C (the
+interrupt the line discipline raises) and on a planted trap, that the bytes it captured, replayed through
+the model, equal the headless frames, and that a held key releases within two ticks of its last byte.
+`tools/perf` holds the render under a millisecond at 80x24 and under four at 200x60, counts the loop's
+wake-ups at idle, and times a key to the frame that carries it (median under a tick and a render, p90 under
+two ticks). `tools/check` runs all of it; CI runs it on Linux for every pull request and on macOS as well
+for trunk.
 
 ## Documents
 
