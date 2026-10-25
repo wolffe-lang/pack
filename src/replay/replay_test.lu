@@ -1,0 +1,73 @@
+//! The replay format: parse, format, round trip, refusals by name.
+
+fn text_of(v: List[byte]) -> str {
+    str_from_utf8(v) else "<not utf-8>"
+}
+
+fn sample() -> str {
+    "# a run\npk 1\nseed 42\ntier rich\nsize 80x24\n\nt 30 up\nt 30 left\nt 95 size 100x30\nt 120 quit\n"
+}
+
+fn test_parse_sample() {
+    let r = from_text(sample()) else |_| {
+        assert(false, "the sample parses")
+        new(0, 0, 0, 0)
+    }
+    assert(r.seed == 42 && r.tier == 1 && r.cols == 80 && r.rows == 24, "header")
+    assert(r.events.len == 4 && last_tick(r) == 120, "events")
+    var keys = List[int]()
+    let (c, rows) = at(r, 30, mut keys)
+    assert(
+        keys.len == 2 && keys[0] == 1 && keys[1] == 3 && c == 0 && rows == 0,
+        "tick 30: up, left",
+    )
+    var k2 = List[int]()
+    let (c2, r2) = at(r, 95, mut k2)
+    assert(k2.len == 0 && c2 == 100 && r2 == 30, "tick 95: a resize")
+}
+
+fn test_round_trip() {
+    let r = from_text(sample()) else new(0, 0, 0, 0)
+    var out = List[byte]()
+    format(r, mut out)
+    let again = from_text(text_of(out)) else new(0, 0, 0, 0)
+    var out2 = List[byte]()
+    format(again, mut out2)
+    assert(text_of(out) == text_of(out2), "format is a fixed point:\n{text_of(out)}")
+    assert(
+        text_of(out) ==
+            "pk 1\nseed 42\ntier rich\nsize 80x24\nt 30 up\nt 30 left\nt 95 size 100x30\nt 120 quit\n",
+        "{text_of(out)}",
+    )
+}
+
+fn refused(text: str) -> bool {
+    var bad = false
+    let _ = from_text(text) else |_| {
+        bad = true
+        new(0, 0, 0, 0)
+    }
+    bad
+}
+
+fn test_refusals() {
+    assert(refused("pk 2\nseed 1\ntier rich\nsize 80x24\n"), "version 2")
+    assert(refused("seed 1\ntier rich\nsize 80x24\n"), "no version")
+    assert(refused("pk 1\nseed 1\ntier vivid\nsize 80x24\n"), "unknown tier")
+    assert(refused("pk 1\nseed 1\ntier rich\nsize 80\n"), "bad size")
+    assert(refused("pk 1\nseed 1\ntier rich\nsize 80x24\nt 10 up\nt 5 up\n"), "ticks backwards")
+    assert(refused("pk 1\nseed 1\ntier rich\nsize 80x24\nt 10 sideways\n"), "unknown key")
+    assert(refused("pk 1\nseed 1\ntier rich\nsize 80x24\nwolves 5\n"), "unknown word")
+    assert(!refused("pk 1\nseed -7\ntier plain\nsize 20x10\n"), "a negative seed is a seed")
+}
+
+fn test_parse_size() {
+    let (c, r) = parse_size("200x60") else (0, 0)
+    assert(c == 200 && r == 60, "200x60")
+    var bad = false
+    let _ = parse_size("0x5") else |_| {
+        bad = true
+        (0, 0)
+    }
+    assert(bad, "a zero dimension is parse")
+}
