@@ -543,32 +543,31 @@ fn keys_text(keys: List[int]) -> str {
 /// binary is held to the same table here. Exit 1 on any mismatch.
 fn run_selftest() -> int {
     var bad = 0
+    // Each row: the bytes, `|`, the keys wanted (space separated).
     var rows = List[str]()
-    (mut rows).push("\x1b[A 1")
-    (mut rows).push("\x1b[B 2")
-    (mut rows).push("\x1b[C 4")
-    (mut rows).push("\x1b[D 3")
-    (mut rows).push("\x1bOA 1")
-    (mut rows).push("\x1bOB 2")
-    (mut rows).push("\x1b[1;2B 5")
-    (mut rows).push("\x1b[1;2A 1")
-    (mut rows).push("\x1b[1;5B 2")
-    (mut rows).push("  6")
-    (mut rows).push("z 5")
-    (mut rows).push("Z 5")
-    (mut rows).push("q 7")
-    (mut rows).push("Q 7")
-    (mut rows).push("\x03 8")
-    (mut rows).push("\x1b 7")
-    (mut rows).push("\x1b  7 6")
-    (mut rows).push("\x1b[57;2u")
-    (mut rows).push("\x1b[5~")
-    (mut rows).push("\x1b[D\x1b[1;2B  3 5 6")
+    (mut rows).push("\x1b[A|1")
+    (mut rows).push("\x1b[B|2")
+    (mut rows).push("\x1b[C|4")
+    (mut rows).push("\x1b[D|3")
+    (mut rows).push("\x1bOA|1")
+    (mut rows).push("\x1bOB|2")
+    (mut rows).push("\x1b[1;2B|5")
+    (mut rows).push("\x1b[1;2A|1")
+    (mut rows).push("\x1b[1;5B|2")
+    (mut rows).push(" |6")
+    (mut rows).push("z|5")
+    (mut rows).push("Z|5")
+    (mut rows).push("q|7")
+    (mut rows).push("Q|7")
+    (mut rows).push("\x03|8")
+    (mut rows).push("\x1b|7")
+    (mut rows).push("\x1b |7 6")
+    (mut rows).push("\x1b[57;2u|")
+    (mut rows).push("\x1b[5~|")
+    (mut rows).push("\x1b[D\x1b[1;2B |3 5 6")
     for row in rows {
-        // The row is "<bytes> <keys...>": the bytes run to the first space
-        // that is followed by a digit or the end; a leading space byte is
-        // itself the leap's row.
-        let (seq, want) = split_row(row)
+        let (seq, want_raw) = row.split_once("|") else (row, "")
+        let want = if want_raw.len == 0 then "" else " {want_raw}"
         var at = 0
         while at <= seq.len {
             let got = keys_text(decode_all(seq, at))
@@ -627,30 +626,6 @@ fn run_selftest() -> int {
     }
     print("selftest: {bad} FAILED")
     1
-}
-
-fn split_row(row: str) -> (str, str) {
-    // The last run of " <digit>" groups is the wanted keys.
-    var cut = row.len
-    var i = row.len
-    while i > 0 {
-        let c = row[i - 1..i]
-        let digit = (c.to_int() else -1) >= 0
-        if c == " " || digit {
-            cut = i - 1
-            i -= 1
-        } else {
-            break
-        }
-    }
-    // A lone space row ("  6") keeps its first byte.
-    var seq = row[0..cut]
-    var want = row[cut..]
-    if seq.len == 0 && row.starts_with(" ") {
-        seq = " "
-        want = row[1..]
-    }
-    (seq, want)
 }
 
 fn describe(seq: str) -> str {
