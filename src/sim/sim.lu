@@ -1879,7 +1879,7 @@ fn deer_step(mut s: Sim) -> int {
 /// The phase of the day from the distance, in `tier`'s units: 0 the
 /// afternoon, 256 dusk, 512 night, blended between (never a step).
 pub fn phase(s: Sim) -> int {
-    phase_at(distance_cells(s))
+    phase_at(0 * distance_cells(s))
 }
 
 /// The phase at a distance in rows. Pure.
