@@ -5,7 +5,8 @@ trees; leap at them as a pack, parry, or sprint past and be chased. Deer feed th
 bar: as the pack weakens, wolves faint and are left behind, and as it recovers they sprint back to rejoin
 you.
 
-A terminal game written in wolf, the first of the lair, the wolf games collection.
+A terminal game written in wolf, the first of the lair, the wolf games collection, on the collection's
+shared engine (`wolffe-lang/lair`, pinned in `lair.pin`).
 
 **What is in this build:** the game as designed — the title card, the pack, the forest, the shadows, the
 deer, dusk, the death card and replays verified. Deer graze the path and bolt up it at one and a half
@@ -55,12 +56,16 @@ and it tires and slows, then a sprint runs it down and the pack eats.
 
 ## Build and run
 
-The toolchain is pinned by digest in `wolf-toolchain.toml` (wolf 0.2.35, lupin 0.1.56, the std tree the
-compiler bundles). Nothing is built from source but pack itself; the only dependency is wolf-std.
+pack runs on the lair engine (`wolffe-lang/lair`: the cell grid, the two glyph tiers, the terminal, the
+decoder, the clock, replays, the tools), pinned by commit in `lair.pin` and staged into `.lair/` by
+`tools/fetch-lair`, which refuses any other commit. The toolchain is the engine's pin (`.lair/wolf-toolchain.toml`:
+wolf 0.2.35, lupin 0.1.56, the std tree the compiler bundles), fetched by digest. Nothing is built from
+source but pack and the engine's modules it links; the only dependency under them is wolf-std.
 
 ```
-tools/fetch-toolchain     stage the pinned toolchain into .wolf-bin/
-tools/build --release     target/release/pack (and a copy at target/pack)
+tools/fetch-lair               stage the engine at lair.pin into .lair/
+.lair/tools/fetch-toolchain    stage the pinned toolchain into .wolf-bin/
+.lair/tools/build --release    target/release/pack (and a copy at target/pack)
 target/pack               the title card, then play; --seed N picks a forest, --tier plain forces the plain tier
 target/pack --record run.pk   save the run you just played; --replay run.pk plays it back and verifies its score
 target/pack --start 1200  begin 1200 rows up the path: the curve near its ceiling and full dusk at once
@@ -83,33 +88,36 @@ formation turn with a bump, a faint and a return, a clearing, a dense stand, a r
 field, the shadows' five — a spawn and a chase with the turn, a group attack, a leap that lands and the
 fade, a parry that turns an attack, a death and its card, all from row 600 where the curve has groups — a
 deer fleeing and run down, and dusk coming, dusk and night) are run headless on both tiers and diffed
-against `tests/goldens/` cell for cell (`tools/goldens`), with the art study's sheets and the title card.
+against `tests/goldens/` cell for cell (the engine's `.lair/tools/goldens`), with the art study's sheets and the title card.
 Shadows and deer are the seed's, never a replay event, so the same file meets the same on every machine.
-The unit tests (`tools/test`, 129 of them) cover the diff renderer with a terminal model, the key decoder
-with every sequence split at every byte and the prompt's text mode, the clock, the world's noise and
-density, the curve and the deer's rate, the simulation's bars (the speeds, the turn rate, the held key, the
+The unit tests (`.lair/tools/test`, 135 of them: pack's 74 and the pinned engine's 61, run through the
+symlinked module directories) cover the diff renderer with a terminal model, the key decoder with every
+sequence split at every byte and pack's mapping of its keys with the prompt's text mode, the clock, the
+world's noise and density, the path, the curve and the deer's rate, the simulation's bars (the speeds, the turn rate, the held key, the
 formation's lag, the wander and the bumps, health's floors and returns, the shadows' roll, perception, the
 turn at rest and the chase, the sprint that shakes, bodies never overlapping, group and lone damage, the
 leap and its refusals, the parry's window and recoil, death and the score, the deer's roll, walk, flight,
 tiring, catch and feed, the spawn side on a bend, the phase of the day), the palette's blend (the keyframes
 met, the eyes fixed, the cube round-tripped, the plain tier's promise at night), the replay's `start` and
 `# score`, the best file, and the tiers' promises (the cards' text is Latin-1, no digit in the field before
-the card). The pty runner (`tools/pty`) drives the real binary in a pseudo-terminal and checks that raw
+the card). The pty runner (the engine's `.lair/tools/pty`, with pack's own rows from `tests/pty_rows.py`)
+drives the real binary in a pseudo-terminal and checks that raw
 mode is undone and the alternate screen left on `q`, on Ctrl-C (the interrupt the line discipline raises)
 and on a planted trap, that the bytes it captured, replayed through the model, equal the headless frames,
 that a held key releases within two ticks of its last byte, that a run played to its death, saved from the
 card and re-run, gives the same card byte for byte, and that the title card runs the same seed on `r`,
-records the score and the saved replay in its own `HOME`, and plays the replay back verified. `tools/perf`
+records the score and the saved replay in its own `HOME`, and plays the replay back verified. `.lair/tools/perf`
 holds the render under a millisecond at 80x24 and under four at 200x60 with a dozen shadows and three deer
 at dusk, counts the loop's wake-ups at idle, and times a key to the frame that carries it (median under a
-tick and a render, p90 under two ticks). `tools/check` runs all of it; CI runs it on Linux for every pull request and
-on macOS as well for trunk.
+tick and a render, p90 under two ticks). `.lair/tools/check` runs all of it; CI runs it on Linux for every pull
+request and on macOS as well for trunk, the engine staged at `lair.pin` first in every job.
 
 ## Documents
 
 `docs/DESIGN.md` the tuning constants; `docs/ART.md` the sprites; `docs/GLYPHS.md` every code point the
 rich tier uses (PAX's font specification); `docs/PALETTE.md` the colours; `docs/KEYS.md` what terminals
-send; `docs/REPLAY.md` the `.pk` file.
+send. The `.pk` replay file is the engine's format: lair's `docs/REPLAY.md`; pack's words in it are `up down
+left right parry leap quit interrupt` and `health`.
 
 ## Licence
 
