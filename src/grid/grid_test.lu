@@ -1,0 +1,220 @@
+//! The grid's tests: the diff on the four named shapes (empty, one cell,
+//! a full repaint, a style run), the property that applying the diff to
+//! a terminal model gives the next grid, the dialects, and the dumps.
+
+fn bytes_of(s: str) -> List[byte] {
+    var v = List[byte]()
+    for b in s.bytes() {
+        (mut v).push(b)
+    }
+    v
+}
+
+fn same_bytes(a: List[byte], b: List[byte]) -> bool {
+    if a.len != b.len {
+        return false
+    }
+    var i = 0
+    while i < a.len {
+        if a[i] as int != b[i] as int {
+            return false
+        }
+        i += 1
+    }
+    true
+}
+
+fn text_of(v: List[byte]) -> str {
+    str_from_utf8(v) else "<not utf-8>"
+}
+
+fn test_empty_diff_writes_nothing() {
+    let a = new(3, 4)
+    let b = new(3, 4)
+    var pen = pen_new()
+    var out = List[byte]()
+    diff(a, b, false, mut pen, mut out, COLORS_256)
+    assert(out.len == 0, "no change, no bytes")
+}
+
+fn test_one_cell_diff() {
+    let a = new(3, 4)
+    var b = new(3, 4)
+    put(mut b, 1, 2, cell(65, 1, COLOR_DEFAULT, 0))
+    var pen = pen_new()
+    var out = List[byte]()
+    diff(a, b, false, mut pen, mut out, COLORS_16)
+    assert(text_of(out) == "\x1b[2;3H\x1b[0;31;49mA", "cup, sgr, glyph: {text_of(out)}")
+    assert(pen.row == 1 && pen.col == 3, "the pen follows the cursor")
+}
+
+fn test_full_repaint_is_contiguous() {
+    let a = new(2, 3)
+    var b = new(2, 3)
+    fill(mut b, cell(120, COLOR_DEFAULT, COLOR_DEFAULT, 0))
+    var pen = pen_new()
+    var out = List[byte]()
+    diff(a, b, true, mut pen, mut out, COLORS_16)
+    // One move per row (the pending wrap at the last column breaks the run),
+    // one SGR for the whole frame.
+    assert(text_of(out) == "\x1b[1;1H\x1b[0;39;49mxxx\x1b[2;1Hxxx", "{text_of(out)}")
+}
+
+fn test_style_run_sets_sgr_once() {
+    let a = new(1, 6)
+    var b = new(1, 6)
+    var i = 0
+    while i < 6 {
+        put(mut b, 0, i, cell(97 + i, 196, 22, ATTR_BOLD))
+        i += 1
+    }
+    var pen = pen_new()
+    var out = List[byte]()
+    diff(a, b, false, mut pen, mut out, COLORS_256)
+    assert(text_of(out) == "\x1b[1;1H\x1b[0;1;38;5;196;48;5;22mabcdef", "{text_of(out)}")
+}
+
+fn test_rgb_dialect() {
+    var out = List[byte]()
+    push_sgr(mut out, cell(32, 196, COLOR_DEFAULT, ATTR_DIM), COLORS_RGB)
+    assert(text_of(out) == "\x1b[0;2;38;2;255;0;0;49m", "{text_of(out)}")
+    let (r, g, b) = rgb_of(232)
+    assert(r == 8 && g == 8 && b == 8, "the first grey")
+    let (r2, g2, b2) = rgb_of(231)
+    assert(r2 == 255 && g2 == 255 && b2 == 255, "the cube's white")
+}
+
+fn test_sixteen_dialect_bright() {
+    var out = List[byte]()
+    push_sgr(mut out, cell(32, 9, 8, 0), COLORS_16)
+    assert(text_of(out) == "\x1b[0;91;100m", "{text_of(out)}")
+}
+
+fn test_utf8_lengths() {
+    var out = List[byte]()
+    push_utf8(mut out, 65)
+    push_utf8(mut out, 233)
+    push_utf8(mut out, 9608)
+    push_utf8(mut out, 128512)
+    assert(out.len == 10, "1 + 2 + 3 + 4 = {out.len}")
+    var bad = List[byte]()
+    push_utf8(mut bad, 55296)
+    assert(text_of(bad) == "\u{FFFD}", "a surrogate is U+FFFD")
+}
+
+fn checker(rows: int, cols: int, salt: int) -> Grid {
+    var g = new(rows, cols)
+    var r = 0
+    while r < rows {
+        var c = 0
+        while c < cols {
+            let k = (r * 7 + c * 13 + salt) % 11
+            if k < 7 {
+                put(
+                    mut g,
+                    r,
+                    c,
+                    cell(
+                        9600 + k,
+                        (k * 37 + salt) % 256,
+                        if k % 3 == 0 then COLOR_DEFAULT else k * 20,
+                        k % 8 & ATTR_MASK,
+                    ),
+                )
+            }
+            c += 1
+        }
+        r += 1
+    }
+    g
+}
+
+fn test_property_apply_diff_equals_next() {
+    // Twenty pairs of pseudo-random grids: the model fed the diff shows
+    // exactly `next`, through a pen carried from frame to frame.
+    var m = model_new(5, 9)
+    var prev = new(5, 9)
+    var pen = pen_new()
+    var salt = 0
+    while salt < 20 {
+        let next = checker(5, 9, salt)
+        var out = List[byte]()
+        diff(prev, next, salt == 0, mut pen, mut out, COLORS_256)
+        model_feed(mut m, out)
+        let (dr, dc) = model_first_diff(m, next)
+        assert(model_equals(m, next), "frame {salt}: first difference at {dr},{dc}")
+        prev = next
+        salt += 1
+    }
+    assert(m.unknown == 0, "the model understood every sequence")
+}
+
+fn test_property_holds_in_the_rgb_dialect() {
+    var m = model_new(4, 7)
+    var prev = new(4, 7)
+    var pen = pen_new()
+    var salt = 0
+    while salt < 8 {
+        let next = checker(4, 7, salt + 3)
+        var out = List[byte]()
+        diff(prev, next, false, mut pen, mut out, COLORS_RGB)
+        model_feed(mut m, out)
+        assert(model_equals(m, next), "rgb frame {salt}")
+        prev = next
+        salt += 1
+    }
+}
+
+fn test_model_wraps_and_scrolls() {
+    var m = model_new(2, 3)
+    model_feed(mut m, bytes_of("abcd"))
+    assert(at(m.grid, 0, 2).cp == 99 && at(m.grid, 1, 0).cp == 100, "deferred wrap")
+    model_feed(mut m, bytes_of("ef\r\nx"))
+    assert(at(m.grid, 0, 0).cp == 100, "scrolled: row 1 became row 0")
+    assert(at(m.grid, 1, 0).cp == 120, "x on the new last row")
+}
+
+fn test_model_private_modes() {
+    var m = model_new(2, 2)
+    model_feed(mut m, bytes_of("\x1b[?1049h\x1b[?25l"))
+    assert(m.alt_screen && !m.cursor_visible && m.alt_enters == 1, "entered, hidden")
+    model_feed(mut m, bytes_of("\x1b[?1049l\x1b[?25h"))
+    assert(!m.alt_screen && m.cursor_visible && m.alt_leaves == 1, "left, shown")
+    assert(m.unknown == 0, "all understood")
+}
+
+fn test_model_malformed_utf8() {
+    var m = model_new(1, 4)
+    var v = List[byte]()
+    (mut v).push(226 as byte)
+    (mut v).push(65 as byte)
+    model_feed(mut m, v)
+    assert(at(m.grid, 0, 0).cp == 65533 && at(m.grid, 0, 1).cp == 65, "U+FFFD then A")
+}
+
+fn test_dump_text_and_styles() {
+    var g = new(2, 3)
+    put(mut g, 0, 0, cell(9608, 7, 0, ATTR_BOLD))
+    put(mut g, 0, 1, cell(9608, 7, 0, ATTR_BOLD))
+    var out = List[byte]()
+    dump_text(g, mut out)
+    assert(text_of(out) == "\u{2588}\u{2588} \n   \n", "text dump")
+    var sty = List[byte]()
+    dump_styles(g, mut sty)
+    assert(text_of(sty) == "7,0,1*2 256,256,0*1\n256,256,0*3\n", "style dump: {text_of(sty)}")
+}
+
+fn test_plain_ok() {
+    var g = new(1, 2)
+    assert(plain_ok(g), "blanks are plain")
+    put(mut g, 0, 0, cell(255, 15, COLOR_DEFAULT, 0))
+    assert(plain_ok(g), "Latin-1 and the sixteen are plain")
+    put(mut g, 0, 1, cell(9608, 7, 0, 0))
+    assert(!plain_ok(g), "a block element is not plain")
+}
+
+fn test_bounds_are_soft() {
+    var g = new(2, 2)
+    put(mut g, 5, 5, cell(65, 0, 0, 0))
+    assert(at(g, 5, 5).cp == 32 && at(g, -1, 0).cp == 32, "outside reads blank")
+}

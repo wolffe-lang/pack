@@ -1,0 +1,448 @@
+//! grid.model — a small terminal model: the bytes `diff` writes (and the
+//! few more `term` writes around a frame) applied to a grid, so a test can
+//! prove the stream means what the grid says, and the pty runner can turn
+//! a captured session back into cells.
+//!
+//! What it understands is what pack emits and what the alternate screen
+//! needs: printable UTF-8 (one cell a code point; a malformed sequence is
+//! U+FFFD and resynchronises at the next lead byte), CR, LF (down a row,
+//! scrolling the grid at the bottom), BS, `ESC [ … H`/`f` (CUP), `ESC [ … J`
+//! (ED, 2 and 0), `ESC [ … K` (EL 0), the cursor moves `A`-`D`, SGR (0, 1,
+//! 2, 7, 22, 27, 30-37, 90-97, 40-47, 100-107, 38;5;n, 48;5;n, 38;2;r;g;b
+//! and 48;2 mapped back to the nearest cube index, 39, 49) and the private
+//! modes `ESC [ ? … h/l` (recorded: 1049 the alternate screen, 25 the
+//! cursor). Anything else in a CSI is consumed and counted in `unknown`.
+//! Wrapping is deferred as a real terminal defers it: a glyph in the last
+//! column leaves the cursor there with a wrap pending.
+
+/// The model: a grid, the cursor, the current style and what the private
+/// modes recorded.
+pub struct Model {
+    grid: Grid,
+    row: int,
+    col: int,
+    wrap_pending: bool,
+    style: Cell,
+    alt_screen: bool,
+    cursor_visible: bool,
+    alt_enters: int,
+    alt_leaves: int,
+    unknown: int,
+    esc: int,
+    params: List[int],
+    param: int,
+    have_param: bool,
+    private: bool,
+    utf8_need: int,
+    utf8_cp: int,
+}
+
+const ESC_NONE: int = 0
+
+const ESC_SEEN: int = 1
+
+const ESC_CSI: int = 2
+
+/// A model of a `rows` by `cols` terminal, blank, the cursor at home, the
+/// cursor visible and the main screen showing.
+pub fn model_new(rows: int, cols: int) -> Model {
+    Model {
+        grid: new(rows, cols),
+        row: 0,
+        col: 0,
+        wrap_pending: false,
+        style: blank(),
+        alt_screen: false,
+        cursor_visible: true,
+        alt_enters: 0,
+        alt_leaves: 0,
+        unknown: 0,
+        esc: ESC_NONE,
+        params: List[int](),
+        param: 0,
+        have_param: false,
+        private: false,
+        utf8_need: 0,
+        utf8_cp: 0,
+    }
+}
+
+/// Resize the model's grid (the alternate screen's contents are cleared,
+/// as a terminal clears and repaints after a resize) and home the cursor.
+pub fn model_resize(mut m: Model, rows: int, cols: int) {
+    m.grid = new(rows, cols)
+    m.row = 0
+    m.col = 0
+    m.wrap_pending = false
+}
+
+/// Feed every byte of `bytes` to the model.
+pub fn model_feed(mut m: Model, bytes: List[byte]) {
+    for b in bytes {
+        model_byte(mut m, b as int)
+    }
+}
+
+fn param_or(m: Model, i: int, dflt: int) -> int {
+    if i < m.params.len && m.params[i] > 0 {
+        return m.params[i]
+    }
+    dflt
+}
+
+fn param_at(m: Model, i: int) -> int {
+    if i < m.params.len then m.params[i] else 0
+}
+
+fn clamp_cursor(mut m: Model) {
+    if m.row < 0 {
+        m.row = 0
+    }
+    if m.row >= m.grid.rows {
+        m.row = m.grid.rows - 1
+    }
+    if m.col < 0 {
+        m.col = 0
+    }
+    if m.col >= m.grid.cols {
+        m.col = m.grid.cols - 1
+    }
+    m.wrap_pending = false
+}
+
+fn scroll_up(mut m: Model) {
+    let cols = m.grid.cols
+    var i = 0
+    while i + cols < m.grid.cells.len {
+        m.grid.cells[i] = m.grid.cells[i + cols]
+        i += 1
+    }
+    let b = blank()
+    while i < m.grid.cells.len {
+        m.grid.cells[i] = b
+        i += 1
+    }
+}
+
+fn put_glyph(mut m: Model, cp: int) {
+    if m.wrap_pending {
+        m.wrap_pending = false
+        m.col = 0
+        m.row += 1
+        if m.row >= m.grid.rows {
+            m.row = m.grid.rows - 1
+            scroll_up(mut m)
+        }
+    }
+    var c = copy m.style
+    c.cp = cp
+    put(mut m.grid, m.row, m.col, c)
+    if m.col + 1 >= m.grid.cols {
+        m.wrap_pending = true
+    } else {
+        m.col += 1
+    }
+}
+
+fn erase_cells(mut m: Model, from: int, to: int) {
+    var i = from
+    var c = copy m.style
+    c.cp = 32
+    while i < to && i < m.grid.cells.len {
+        m.grid.cells[i] = c
+        i += 1
+    }
+}
+
+fn nearest_cube(r: int, g: int, b: int) -> int {
+    // The inverse of rgb_of over the cube and the greys: the nearest level
+    // on each axis, then the grey ramp when the colour is nearly grey and
+    // a grey is closer.
+    let ri = level_index(r)
+    let gi = level_index(g)
+    let bi = level_index(b)
+    let cube = 16 + ri * 36 + gi * 6 + bi
+    let (cr, cg, cb) = rgb_of(cube)
+    let dcube = (cr - r) * (cr - r) + (cg - g) * (cg - g) + (cb - b) * (cb - b)
+    var gray = (r + g + b) / 3
+    var gidx = (gray - 8 + 5) / 10
+    if gidx < 0 {
+        gidx = 0
+    }
+    if gidx > 23 {
+        gidx = 23
+    }
+    let gv = 8 + gidx * 10
+    let dgray = (gv - r) * (gv - r) + (gv - g) * (gv - g) + (gv - b) * (gv - b)
+    if dgray < dcube then 232 + gidx else cube
+}
+
+fn level_index(v: int) -> int {
+    if v < 48 {
+        return 0
+    }
+    if v < 115 {
+        return 1
+    }
+    (v - 35) / 40
+}
+
+fn apply_sgr(mut m: Model) {
+    if m.params.len == 0 {
+        m.style = blank()
+        return
+    }
+    var i = 0
+    while i < m.params.len {
+        let p = m.params[i]
+        if p == 0 {
+            m.style = blank()
+        } else if p == 1 {
+            m.style.attrs = m.style.attrs | ATTR_BOLD
+        } else if p == 2 {
+            m.style.attrs = m.style.attrs | ATTR_DIM
+        } else if p == 7 {
+            m.style.attrs = m.style.attrs | ATTR_INVERSE
+        } else if p == 22 {
+            m.style.attrs = m.style.attrs & ATTR_INVERSE
+        } else if p == 27 {
+            m.style.attrs = m.style.attrs & (ATTR_BOLD | ATTR_DIM)
+        } else if p >= 30 && p <= 37 {
+            m.style.fg = p - 30
+        } else if p >= 90 && p <= 97 {
+            m.style.fg = p - 90 + 8
+        } else if p >= 40 && p <= 47 {
+            m.style.bg = p - 40
+        } else if p >= 100 && p <= 107 {
+            m.style.bg = p - 100 + 8
+        } else if p == 39 {
+            m.style.fg = COLOR_DEFAULT
+        } else if p == 49 {
+            m.style.bg = COLOR_DEFAULT
+        } else if p == 38 || p == 48 {
+            let kind = param_at(m, i + 1)
+            var index = COLOR_DEFAULT
+            if kind == 5 {
+                index = param_at(m, i + 2)
+                i += 2
+            } else if kind == 2 {
+                index = nearest_cube(param_at(m, i + 2), param_at(m, i + 3), param_at(m, i + 4))
+                i += 4
+            }
+            if index > 255 {
+                index = COLOR_DEFAULT
+            }
+            if p == 38 {
+                m.style.fg = index
+            } else {
+                m.style.bg = index
+            }
+        } else {
+            m.unknown += 1
+        }
+        i += 1
+    }
+}
+
+fn finish_csi(mut m: Model, final: int) {
+    if m.have_param {
+        (mut m.params).push(m.param)
+    }
+    if m.private {
+        let mode = param_at(m, 0)
+        if final == 104 {
+            if mode == 1049 {
+                m.alt_screen = true
+                m.alt_enters += 1
+                clear(mut m.grid)
+                m.row = 0
+                m.col = 0
+                m.wrap_pending = false
+            } else if mode == 25 {
+                m.cursor_visible = true
+            } else {
+                m.unknown += 1
+            }
+        } else if final == 108 {
+            if mode == 1049 {
+                m.alt_screen = false
+                m.alt_leaves += 1
+            } else if mode == 25 {
+                m.cursor_visible = false
+            } else {
+                m.unknown += 1
+            }
+        } else {
+            m.unknown += 1
+        }
+        return
+    }
+    if final == 72 || final == 102 {
+        m.row = param_or(m, 0, 1) - 1
+        m.col = param_or(m, 1, 1) - 1
+        clamp_cursor(mut m)
+    } else if final == 109 {
+        apply_sgr(mut m)
+    } else if final == 74 {
+        let k = param_at(m, 0)
+        let here = m.row * m.grid.cols + m.col
+        if k == 2 {
+            erase_cells(mut m, 0, m.grid.cells.len)
+        } else if k == 0 {
+            erase_cells(mut m, here, m.grid.cells.len)
+        } else if k == 1 {
+            erase_cells(mut m, 0, here + 1)
+        } else {
+            m.unknown += 1
+        }
+        m.wrap_pending = false
+    } else if final == 75 {
+        let k = param_at(m, 0)
+        let start = m.row * m.grid.cols
+        if k == 0 {
+            erase_cells(mut m, start + m.col, start + m.grid.cols)
+        } else if k == 2 {
+            erase_cells(mut m, start, start + m.grid.cols)
+        } else if k == 1 {
+            erase_cells(mut m, start, start + m.col + 1)
+        } else {
+            m.unknown += 1
+        }
+        m.wrap_pending = false
+    } else if final == 65 {
+        m.row -= param_or(m, 0, 1)
+        clamp_cursor(mut m)
+    } else if final == 66 {
+        m.row += param_or(m, 0, 1)
+        clamp_cursor(mut m)
+    } else if final == 67 {
+        m.col += param_or(m, 0, 1)
+        clamp_cursor(mut m)
+    } else if final == 68 {
+        m.col -= param_or(m, 0, 1)
+        clamp_cursor(mut m)
+    } else {
+        m.unknown += 1
+    }
+}
+
+fn model_byte(mut m: Model, b: int) {
+    if m.esc == ESC_SEEN {
+        if b == 91 {
+            m.esc = ESC_CSI
+            m.params = List[int]()
+            m.param = 0
+            m.have_param = false
+            m.private = false
+        } else {
+            // ESC followed by anything else: two bytes, ignored.
+            m.esc = ESC_NONE
+            m.unknown += 1
+        }
+        return
+    }
+    if m.esc == ESC_CSI {
+        if b >= 48 && b <= 57 {
+            m.param = m.param * 10 + (b - 48)
+            if m.param > 9999 {
+                m.param = 9999
+            }
+            m.have_param = true
+        } else if b == 59 || b == 58 {
+            (mut m.params).push(if m.have_param then m.param else 0)
+            m.param = 0
+            m.have_param = false
+        } else if b == 63 {
+            m.private = true
+        } else if b >= 64 && b <= 126 {
+            m.esc = ESC_NONE
+            finish_csi(mut m, b)
+        } else if b < 32 {
+            // A C0 byte ends the sequence and is acted on.
+            m.esc = ESC_NONE
+            m.unknown += 1
+            model_byte(mut m, b)
+        } else {
+            // An intermediate byte: read on, counted once at the final.
+        }
+        return
+    }
+    if m.utf8_need > 0 {
+        if b >= 128 && b < 192 {
+            m.utf8_cp = m.utf8_cp * 64 + (b - 128)
+            m.utf8_need -= 1
+            if m.utf8_need == 0 {
+                put_glyph(mut m, m.utf8_cp)
+            }
+            return
+        }
+        // Malformed: the sequence so far is one U+FFFD, and this byte is
+        // read again on its own.
+        m.utf8_need = 0
+        put_glyph(mut m, 65533)
+    }
+    if b == 27 {
+        m.esc = ESC_SEEN
+    } else if b == 13 {
+        m.col = 0
+        m.wrap_pending = false
+    } else if b == 10 {
+        m.wrap_pending = false
+        m.row += 1
+        if m.row >= m.grid.rows {
+            m.row = m.grid.rows - 1
+            scroll_up(mut m)
+        }
+    } else if b == 8 {
+        m.wrap_pending = false
+        if m.col > 0 {
+            m.col -= 1
+        }
+    } else if b < 32 || b == 127 {
+        // Every other C0 byte and DEL do nothing.
+    } else if b < 128 {
+        put_glyph(mut m, b)
+    } else if b >= 192 && b < 224 {
+        m.utf8_need = 1
+        m.utf8_cp = b - 192
+    } else if b >= 224 && b < 240 {
+        m.utf8_need = 2
+        m.utf8_cp = b - 224
+    } else if b >= 240 && b < 248 {
+        m.utf8_need = 3
+        m.utf8_cp = b - 240
+    } else {
+        put_glyph(mut m, 65533)
+    }
+}
+
+/// Whether the model's grid equals `g` cell for cell.
+pub fn model_equals(m: Model, g: Grid) -> bool {
+    if m.grid.rows != g.rows || m.grid.cols != g.cols {
+        return false
+    }
+    var i = 0
+    while i < g.cells.len {
+        if !same(m.grid.cells[i], g.cells[i]) {
+            return false
+        }
+        i += 1
+    }
+    true
+}
+
+/// The first cell where the model's grid and `g` differ, as `(row, col)`,
+/// or `(-1, -1)` when they agree.
+pub fn model_first_diff(m: Model, g: Grid) -> (int, int) {
+    if m.grid.rows != g.rows || m.grid.cols != g.cols {
+        return (-2, -2)
+    }
+    var i = 0
+    while i < g.cells.len {
+        if !same(m.grid.cells[i], g.cells[i]) {
+            return (i / g.cols, i % g.cols)
+        }
+        i += 1
+    }
+    (-1, -1)
+}
