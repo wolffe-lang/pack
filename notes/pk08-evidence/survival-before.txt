@@ -1,0 +1,50 @@
+B 11 754 0
+B 11 1102 1
+B 11 1276 2
+B 11 1420 3
+seed 11 deer=true: DEAD at 1692 health 0 landed 21 vanquished 0 fed 0 of 3 leaps 0 sprints 0 dist 168 score 280
+B 11 754 0
+B 11 1102 1
+B 11 1276 2
+B 11 1420 3
+seed 11 deer=false: DEAD at 1692 health 0 landed 21 vanquished 0 fed 0 of 3 leaps 0 sprints 0 dist 168 score 280
+B 7 694 0
+B 7 1236 1
+seed 7 deer=true: DEAD at 1480 health 0 landed 18 vanquished 0 fed 0 of 2 leaps 0 sprints 0 dist 187 score 285
+B 7 694 0
+B 7 1236 1
+seed 7 deer=false: DEAD at 1455 health 0 landed 18 vanquished 0 fed 0 of 2 leaps 0 sprints 0 dist 184 score 280
+B 3 974 0
+B 3 1524 1
+B 3 1644 2
+B 3 1728 3
+  seed 3 deer=true t 1800 health 55 down 2 shadows 4 landed 7 vanq 0 fed 1 dist 242 rate 5
+B 3 2010 4
+B 3 2094 5
+seed 3 deer=true: DEAD at 2128 health 0 landed 17 vanquished 0 fed 1 of 7 leaps 0 sprints 2 dist 272 score 412
+B 3 974 0
+B 3 1524 1
+B 3 1644 2
+B 3 1728 3
+  seed 3 deer=false t 1800 health 55 down 2 shadows 4 landed 7 vanq 0 fed 0 dist 242 rate 5
+B 3 2010 4
+B 3 2094 5
+seed 3 deer=false: DEAD at 2127 health 0 landed 17 vanquished 0 fed 0 of 9 leaps 0 sprints 0 dist 272 score 412
+B 5 166 0
+B 5 712 1
+B 5 773 2
+B 5 776 3
+seed 5 deer=true: DEAD at 1136 health 0 landed 21 vanquished 0 fed 0 of 5 leaps 0 sprints 0 dist 146 score 220
+B 5 166 0
+B 5 712 1
+B 5 773 2
+B 5 776 3
+seed 5 deer=false: DEAD at 1136 health 0 landed 21 vanquished 0 fed 0 of 5 leaps 0 sprints 0 dist 146 score 220
+B 16 136 0
+B 16 690 1
+B 16 810 2
+seed 16 deer=true: DEAD at 897 health 0 landed 19 vanquished 0 fed 0 of 2 leaps 0 sprints 1 dist 140 score 198
+B 16 136 0
+B 16 690 1
+B 16 810 2
+seed 16 deer=false: DEAD at 893 health 0 landed 19 vanquished 0 fed 0 of 2 leaps 0 sprints 0 dist 136 score 194

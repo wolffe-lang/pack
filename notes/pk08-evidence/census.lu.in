@@ -1,0 +1,81 @@
+use sim
+use trail
+use world
+fn abs(v: int) -> int { if v < 0 then 0 - v else v }
+// Connected lurker components, same bank, edges <=6 cells / <=4 rows.
+fn visible(s: sim.Sim, sh: sim.Shadow) -> bool {
+ let row = sim.wolf_row(s)-(sh.y/world.FP-sim.alpha(s).y/world.FP)
+ row >= 0 && row < s.rows
+}
+fn largest(s: sim.Sim) -> int {
+    var best = 0
+    var root = 0
+    while root < s.shadows.len {
+        if s.shadows[root].state == sim.LURKING && visible(s, s.shadows[root]) {
+            var members = List[int]()
+            (mut members).push(root)
+            var at = 0
+            while at < members.len {
+                let sh = copy s.shadows[members[at]]
+                let (c, _) = trail.path(s.seed, s.cols, sh.y / world.FP)
+                var j = 0
+                while j < s.shadows.len {
+                    let other = copy s.shadows[j]
+                    let (oc, _) = trail.path(s.seed, s.cols, other.y / world.FP)
+                    var seen = false
+                    for k in members { if k == j { seen = true } }
+                    if !seen && other.state == sim.LURKING && visible(s, other) && (sh.x < c) == (other.x < oc) && abs(sh.x-other.x) <= 6*world.FP && abs(sh.y-other.y) <= 4*world.FP {
+                        (mut members).push(j)
+                    }
+                    j += 1
+                }
+                at += 1
+            }
+            if members.len > best { best = members.len }
+        }
+        root += 1
+    }
+    best
+}
+fn main() {
+    var mode = 0
+    while mode < 4 {
+    print("MODE {mode}")
+    var seed = 1
+    while seed <= 20 {
+        var s = sim.new(seed, 80, 24)
+        var biggest = 0
+        var first = -1
+        while s.tick < 5400 {
+            let (centre, _) = trail.path(seed, 80, s.py / world.FP + 4)
+            var keys = List[int]()
+            if s.tick % 2 == 0 {
+                if centre-s.px > world.FP/2 { (mut keys).push(sim.KEY_RIGHT) }
+                if s.px-centre > world.FP/2 { (mut keys).push(sim.KEY_LEFT) }
+            }
+            if mode > 0 { s.health = if mode == 1 then 100 else if mode == 2 then 50 else 25; s.dead = false }
+            let born = s.spawned
+            sim.step(mut s, keys, 0)
+            if born < s.spawned && first < 0 { first = s.tick-1 }
+            let clump = largest(s)
+            if clump > biggest { biggest = clump }
+            if s.tick % 30 == 0 {
+                var alive = 0
+                for sh in s.shadows {
+                    let row = sim.wolf_row(s)-(sh.y/world.FP-sim.alpha(s).y/world.FP)
+                    if sim.shadow_alive(sh) && row >= 0 && row < s.rows { alive += 1 }
+                }
+                var deer = 0
+                for d in s.deer {
+                    let row = sim.wolf_row(s)-(d.y/world.FP-sim.alpha(s).y/world.FP)
+                    if d.state != sim.DEER_GONE && row >= 0 && row < s.rows { deer += 1 }
+                }
+                print("S {seed} {s.tick} {alive} {clump} {deer} {s.health} {s.dead}")
+            }
+        }
+        print("END {seed} {first} {biggest}")
+        seed += 1
+    }
+    mode += 1
+    }
+}
