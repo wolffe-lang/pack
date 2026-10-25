@@ -1,0 +1,84 @@
+== census-before-80x24.txt
+  centre        all 4488/4522 99.25%   within 12 cells of centre 4477/4502 99.44%
+    band forest edge    865/886 97.63%
+    band inner verge    1368/1381 99.06%
+    band path shoulder  2255/2255 100.00%
+    band mid path       n/a
+    face down path      862/863 99.88%
+    face diagonal down  883/884 99.89%
+    face across to path 981/984 99.70%
+    face diagonal up    870/875 99.43%
+    face up path        892/916 97.38%
+  far shoulder  all 3502/4580 76.46%   within 12 cells of centre 3493/4566 76.50%
+    band forest edge    613/968 63.33%
+    band inner verge    945/1319 71.65%
+    band path shoulder  1944/2293 84.78%
+    band mid path       n/a
+    face down path      739/922 80.15%
+    face diagonal down  731/910 80.33%
+    face across to path 732/922 79.39%
+    face diagonal up    680/924 73.59%
+    face up path        620/902 68.74%
+== census-after-80x24.txt
+  centre        all 4539/4539 100.00%   within 12 cells of centre 4520/4520 100.00%
+    band forest edge    686/686 100.00%
+    band inner verge    914/914 100.00%
+    band path shoulder  1616/1616 100.00%
+    band mid path       1323/1323 100.00%
+    face down path      1745/1745 100.00%
+    face diagonal down  1212/1212 100.00%
+    face across to path 813/813 100.00%
+    face diagonal up    378/378 100.00%
+    face up path        391/391 100.00%
+  far shoulder  all 4560/4635 98.38%   within 12 cells of centre 4551/4624 98.42%
+    band forest edge    696/726 95.87%
+    band inner verge    894/913 97.92%
+    band path shoulder  1645/1652 99.58%
+    band mid path       1325/1344 98.59%
+    face down path      1701/1705 99.77%
+    face diagonal down  1228/1248 98.40%
+    face across to path 827/830 99.64%
+    face diagonal up    412/423 97.40%
+    face up path        392/429 91.38%
+== census-before-200x60.txt
+  centre        all 679/3647 18.62%   within 12 cells of centre 31/35 88.57%
+    band forest edge    84/781 10.76%
+    band inner verge    133/1046 12.72%
+    band path shoulder  462/1820 25.38%
+    band mid path       n/a
+    face down path      128/735 17.41%
+    face diagonal down  134/723 18.53%
+    face across to path 198/703 28.17%
+    face diagonal up    133/778 17.10%
+    face up path        86/708 12.15%
+  far shoulder  all 1992/3931 50.67%   within 12 cells of centre 34/48 70.83%
+    band forest edge    418/816 51.23%
+    band inner verge    574/1127 50.93%
+    band path shoulder  1000/1988 50.30%
+    band mid path       n/a
+    face down path      398/775 51.35%
+    face diagonal down  407/772 52.72%
+    face across to path 411/791 51.96%
+    face diagonal up    380/786 48.35%
+    face up path        396/807 49.07%
+== census-after-200x60.txt
+  centre        all 4436/4513 98.29%   within 12 cells of centre 1356/1362 99.56%
+    band forest edge    687/712 96.49%
+    band inner verge    848/865 98.03%
+    band path shoulder  1548/1577 98.16%
+    band mid path       1353/1359 99.56%
+    face down path      1678/1695 99.00%
+    face diagonal down  1244/1249 99.60%
+    face across to path 789/789 100.00%
+    face diagonal up    406/411 98.78%
+    face up path        319/369 86.45%
+  far shoulder  all 3291/4503 73.08%   within 12 cells of centre 1211/1425 84.98%
+    band forest edge    439/685 64.09%
+    band inner verge    568/887 64.04%
+    band path shoulder  1089/1518 71.74%
+    band mid path       1195/1413 84.57%
+    face down path      1451/1746 83.10%
+    face diagonal down  858/1259 68.15%
+    face across to path 537/717 74.90%
+    face diagonal up    236/376 62.77%
+    face up path        209/405 51.60%

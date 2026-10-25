@@ -1,0 +1,46 @@
+use sim
+use world
+
+fn abs(v: int) -> int { if v < 0 then 0 - v else v }
+
+fn main() {
+    var shoulder = 0
+    while shoulder < 2 {
+        print("MODE {shoulder}")
+        var seed = 1
+        while seed <= 20 {
+            var s = sim.new(seed, 80, 24)
+            var milestone = 600
+            while sim.distance_cells(s) < 1835 && s.tick < 30000 {
+                let (centre, half) = world.path(seed, 80, s.py / world.FP + 4)
+                let aim = centre + shoulder * (half - 2 * world.FP)
+                var keys = List[int]()
+                // Autorepeat every two ticks. The script is generated only
+                // from the seed's path and reference position at this tick.
+                if s.tick % 2 == 0 {
+                    if aim - s.px > world.FP / 2 { (mut keys).push(sim.KEY_RIGHT) }
+                    if s.px - aim > world.FP / 2 { (mut keys).push(sim.KEY_LEFT) }
+                }
+                sim.step(mut s, keys, 0)
+                // Measurement fixture: no death or health slowdown censoring
+                // perception; actual movement, bodies, spawning and AI run.
+                s.health = sim.HEALTH_MAX
+                // Sensor-only traversal census. Retire a detected shadow
+                // after its first perception so twelve permanent chasers
+                // cannot fill the spawn cap and censor the remaining rows.
+                var lurkers = List[sim.Shadow]()
+                for sh in s.shadows {
+                    if sh.state == sim.LURKING { (mut lurkers).push(copy sh) }
+                }
+                s.shadows = lurkers
+                if sim.distance_cells(s) >= milestone && milestone <= 1800 {
+                    print("M {seed} {milestone} {s.tick}")
+                    milestone += 600
+                }
+            }
+            print("END {seed} {s.tick} {s.spawned} {sim.distance_cells(s)}")
+            seed += 1
+        }
+        shoulder += 1
+    }
+}
