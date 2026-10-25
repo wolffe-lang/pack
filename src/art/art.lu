@@ -170,7 +170,9 @@ fn on_screen(t: int, row: int, rows: int) -> bool {
     top >= 0 && row < rows
 }
 
-/// Draw shadow `k` where the alpha's eye puts it, if on the screen.
+/// Draw shadow `k` where the alpha's eye puts it, if on the screen. Under
+/// the card the world stands still, eyes included: the pulse reads the
+/// death's tick.
 fn draw_sim_shadow(s: sim.Sim, t: int, k: int, mut g: grid.Grid) {
     let sh = copy s.shadows[k]
     if sh.state == sim.GONE {
@@ -184,7 +186,7 @@ fn draw_sim_shadow(s: sim.Sim, t: int, k: int, mut g: grid.Grid) {
             t,
             row,
             col,
-            sim.shadow_eyes(sh, s.tick),
+            sim.shadow_eyes(sh, if s.dead then s.died_tick else s.tick),
             sh.dir > 0,
             if sh.state == sim.VANQUISHED then sh.fade + 1 else 0,
             sim.FADE_TICKS + 1,
@@ -213,7 +215,7 @@ fn draw_pack_wolf(s: sim.Sim, t: int, i: int, mut g: grid.Grid) {
             sim.trot_frame(s, i),
             sim.wolf_posture(s, i),
             sim.band(s),
-            s.tick,
+            if s.dead then s.died_tick else s.tick,
             w.in_forest,
         )
     }

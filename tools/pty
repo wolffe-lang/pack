@@ -2,7 +2,7 @@
 """tools/pty — drive the real binary in a pseudo-terminal and measure what
 the terminal layer promises (campaign rule 4: restored on every exit path).
 
-    python3 -I tools/pty [--bin target/release/pack] [--rows quit,ctrl-c,trap,agree-rich,agree-plain,held-run]
+    python3 -I tools/pty [--bin target/release/pack] [--rows quit,ctrl-c,trap,agree-rich,agree-plain,held-run,card]
                          [--keep]
 
 A holder process is the pty's session leader so the terminal outlives the
@@ -35,6 +35,17 @@ does, and records the terminal's settings before and after. The rows:
               column at rest, within HELD_STRAIGHT_TICKS: the hold ends when
               the repeats end, and the heading returns at the turn rate, not
               by a slow relaxation.
+
+  card        the complete loop (pk02): `--seed 16 --debug --trace --record
+              target/pty/card.pk`, the debug key `-` typed ten times (health
+              to zero: the alpha alone), the shadows' first landed attack
+              ends the run (the trace's `dead 1`), then `s` saves the replay
+              and `q` leaves: exit 0 and the restore assertions; the closing
+              line names the death and the saved file; the saved `.pk`
+              parses, ends with the quit, and re-run headless twice gives
+              byte-identical frames; the screen captured before `s` (the
+              card) equals the headless final frame of the saved replay,
+              cell for cell: a replay reproduces the run through its death.
 
 Exit 0 when every row passes; each row prints one line. Captures are kept
 under target/pty/ with --keep (and always for a failed row).
@@ -344,6 +355,92 @@ def row_held_run(bin):
     return s, problems
 
 
+def row_card(bin):
+    d = os.path.join(ROOT, "target", "pty")
+    os.makedirs(d, exist_ok=True)
+    rec = os.path.join(d, "card.pk")
+    if os.path.exists(rec):
+        os.unlink(rec)
+    s = Session([bin, "--seed", "16", "--debug", "--trace", "--record", rec], 24, 80, env_for())
+    s.pump(0.4)
+    for _ in range(10):
+        s.type(b"-", settle=0.04)
+    # Wait for the death: the trace line says `dead 1` once the first landed
+    # attack ends the run (seed 16: within about ten seconds).
+    end = time.monotonic() + 40.0
+    while time.monotonic() < end and b" dead 1 " not in s.err:
+        s.pump(0.2)
+    problems = []
+    if b" dead 1 " not in s.err:
+        s.type(b"q")
+        s.finish()
+        problems.append("the run did not end within 40 s: %r" % s.err[-300:])
+        return s, problems
+    s.pump(0.3)
+    before_save = len(s.out)
+    s.type(b"s", settle=0.3)
+    s.type(b"q")
+    s.finish()
+    common_checks(s, 0, problems)
+    closing = [l for l in s.err.decode(errors="replace").splitlines() if l.startswith("pack: ended")]
+    line = closing[-1] if closing else ""
+    if "dead at tick" not in line:
+        problems.append("the closing line does not name the death: %r" % line[-300:])
+    if ("saved %s" % rec) not in line:
+        problems.append("the closing line does not name the saved file: %r" % line[-300:])
+    if not os.path.exists(rec):
+        problems.append("no replay at %s" % rec)
+        return s, problems
+    text = open(rec, encoding="utf-8").read()
+    events = [l for l in text.splitlines() if l.startswith("t ")]
+    if not events or events[-1].split()[2] != "quit":
+        problems.append("the saved replay does not end with the quit: %r" % events[-3:])
+        return s, problems
+    if not any(l.split()[2] == "health" for l in events):
+        problems.append("the saved replay carries no health event: %r" % events[:3])
+    last_tick = int(events[-1].split()[1])
+    frames = str(last_tick + 1)
+    # The saved replay, re-run twice: byte-identical frames (the complete
+    # loop reproduces).
+    outs = []
+    for n in (1, 2):
+        hd = os.path.join(d, "card-rerun-%d" % n)
+        run = subprocess.run([bin, "--headless", "--script", rec, "--frames", frames, "--every", "25",
+                              "--tier", "rich", "--dump", hd], capture_output=True)
+        if run.returncode != 0:
+            problems.append("the headless re-run %d failed: %r" % (n, run.stderr[-200:]))
+            return s, problems
+        outs.append(hd)
+    cmp = subprocess.run(["diff", "-r", outs[0], outs[1]], capture_output=True)
+    if cmp.returncode != 0:
+        problems.append("the two re-runs differ: %r" % cmp.stdout[:300])
+    # The card the player saw (the capture up to the save) equals the
+    # headless final frame of the saved replay.
+    cap = os.path.join(d, "card.bin")
+    with open(cap, "wb") as f:
+        f.write(s.out[:before_save])
+    applied = subprocess.run([bin, "--apply", cap, "--size", "80x24"], capture_output=True)
+    if applied.returncode != 0:
+        problems.append("--apply failed: %r" % applied.stderr[-200:])
+        return s, problems
+    text_pty, sty_pty, _ = applied.stdout.decode("utf-8").split("--\n")
+    want_text = open(os.path.join(outs[0], "final.txt"), encoding="utf-8").read()
+    want_sty = open(os.path.join(outs[0], "final.sty"), encoding="utf-8").read()
+    if "the pack is gone" not in text_pty:
+        problems.append("the captured screen shows no card")
+    if text_pty != want_text:
+        for i, (a, b) in enumerate(zip(text_pty.splitlines(), want_text.splitlines())):
+            if a != b:
+                problems.append("the card differs from the replay's at row %d:\n  pty    %r\n  replay %r" % (i, a, b))
+                break
+        else:
+            problems.append("glyphs differ in length")
+    if sty_pty != want_sty:
+        problems.append("the card's styles differ from the replay's")
+    s.evidence = "death in the trace, %d events saved, last tick %d, re-run twice identical" % (len(events), last_tick)
+    return s, problems
+
+
 def mac_memory_ok():
     """RULES section 4's gate, nomad's alone: tools/memgate.py decides."""
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -354,7 +451,7 @@ def mac_memory_ok():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--bin", default=os.path.join(ROOT, "target", "release", "pack"))
-    ap.add_argument("--rows", default="quit,ctrl-c,trap,agree-rich,agree-plain,held-run")
+    ap.add_argument("--rows", default="quit,ctrl-c,trap,agree-rich,agree-plain,held-run,card")
     ap.add_argument("--keep", action="store_true")
     a = ap.parse_args()
     if not mac_memory_ok():
@@ -374,6 +471,8 @@ def main():
                 s, problems = row_agree(bin, name.split("-", 1)[1])
             elif name == "held-run":
                 s, problems = row_held_run(bin)
+            elif name == "card":
+                s, problems = row_card(bin)
             else:
                 print("pty: %s: no such row" % name)
                 failed += 1
