@@ -70,26 +70,26 @@ use input
 use trail
 use world
 
-/// Trot speed `v` in FP units a tick: 0.156 cells a tick, 4.7 a second.
-/// The maintainer's word from play (2026-10-25): "think of them as
-/// migrating, not running the 100 m"; pk00's 96 was cut to 40.
-pub const TROT_V: int = 40
+/// Trot speed `v`: 46 FP/tick, 5.39 cells/s. The maintainer's word
+/// (2026-10-25): "only 15 % faster" than pk01's migrating trot of 40.
+/// ACCEL 5 and BRAKE 10 preserve ten ticks to trot and five to stop.
+pub const TROT_V: int = 46
 
 /// Sprint speed, 1.8 v (the campaign's bar): a bounded burst, clearly
 /// faster than the trot.
-pub const SPRINT_V: int = 72
+pub const SPRINT_V: int = 83
 
 /// The speed a fainted wolf returns at (R-pk01-3 A: the sprint).
-pub const RETURN_V: int = 72
+pub const RETURN_V: int = 83
 
 /// The speed cap in the forest edge, v/2.
-pub const FOREST_V: int = 20
+pub const FOREST_V: int = 23
 
 /// Acceleration, FP units a tick each tick: the trot from a stop in 10 ticks.
-pub const ACCEL: int = 4
+pub const ACCEL: int = 5
 
 /// Braking, FP units a tick each tick (a wolf stops faster than it starts).
-pub const BRAKE: int = 8
+pub const BRAKE: int = 10
 
 /// The heading's reference: 64 is 45 degrees off the path's axis (the
 /// small-angle split of the speed is written against it).
@@ -191,11 +191,11 @@ pub const BUMP: int = 128
 // The shadows (pk02). Every number proposed 2026-10-25, the maintainer's
 // to tune by play (R-PK-7); mirrored in docs/DESIGN.md.
 
-/// A shadow's chase speed, 1.3 v (the campaign's bar: faster than the
-/// trot, slower than the sprint).
+/// Shadow chase stays 52 after the pack's 15% increase: above the trot
+/// 46, below the sprint 83 (the escape bar, not the old 1.3 ratio).
 pub const CHASE_V: int = 52
 
-/// A shadow stalking down the path toward the oncoming pack moves at v/2,
+/// A shadow stalking down the path keeps its original speed of 20,
 /// so its turn happens on the screen rather than below it.
 pub const STALK_V: int = 20
 
@@ -295,15 +295,15 @@ pub const EYE_PULSE: int = 4
 
 /// A deer's walk, 0.4 v: it grazes and wanders, slower than anything else
 /// on the path.
-pub const DEER_WALK_V: int = 16
+pub const DEER_WALK_V: int = 18
 
 /// A deer's flight, 1.5 v (the campaign's bar): faster than the trot and
 /// slower than the sprint, so a trot cannot close on a fresh deer and a
 /// sprint can.
-pub const FLEE_V: int = 60
+pub const FLEE_V: int = 69
 
 /// A tired deer's flight, below the trot: the pack runs it down.
-pub const DEER_TIRED_V: int = 32
+pub const DEER_TIRED_V: int = 37
 
 /// A deer's acceleration, FP units a tick each tick: it bolts (the
 /// wolves' `ACCEL` is 4).
