@@ -49,13 +49,14 @@ os.write(fd, b's')          # save the replay with its score
 pump(1.0)
 os.write(fd, b'q')          # leave the card (to the title, when the run began there)
 pump(1.0)
-if os.waitpid(pid, os.WNOHANG) == (0, 0):
+done, st = os.waitpid(pid, os.WNOHANG)
+if done == 0:
     try:
         os.write(fd, b'q')  # and leave the title
     except OSError:
         pass
     pump(1.0)
-_, st = os.waitpid(pid, 0)
+    _, st = os.waitpid(pid, 0)
 print('exit', os.WEXITSTATUS(st) if os.WIFEXITED(st) else -1, 'dead', dead, 'bytes', len(buf))
 if os.path.exists(a.out):
     print(open(a.out).read())
