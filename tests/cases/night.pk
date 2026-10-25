@@ -1,0 +1,10 @@
+# frames 30 every 30
+# Night (pk03): the run starts at NIGHT_FULL (1800 rows) and the palette
+# holds there: the path 59, the canopy 17 and 16, the floor 232, the fur
+# 245; the plain tier's path bright black, its foliage black on black,
+# its fur white; the red eyes unchanged.
+pk 1
+seed 11
+tier rich
+size 80x24
+start 1800

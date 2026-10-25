@@ -1,0 +1,11 @@
+# frames 30 every 30
+# Full dusk (pk03): the run starts at DUSK_FULL (1200 rows): the dusk
+# keyframe on both tiers — the path 95, the canopy 22 and 17, the floor
+# 233, the fur 248 (plain: the greens dimmed, the canopy's bold gone),
+# the red eyes unchanged so the shadows come with the dark. Seed 11's
+# forest here, where the curve is near its ceiling.
+pk 1
+seed 11
+tier rich
+size 80x24
+start 1200

@@ -1,0 +1,12 @@
+# frames 30 every 30
+# Dusk coming (pk03): the run starts 750 rows up the path (the replay
+# header's `start`), a quarter of the way from DUSK_START (600) to
+# DUSK_FULL (1200): the palette is a blend of the afternoon's and the
+# dusk's keyframes, quantized to the 256-colour cube (the path a step
+# darker, the canopy already dusk's), the red eyes unchanged. The plain
+# tier is still the afternoon's (it steps at the midpoint).
+pk 1
+seed 11
+tier rich
+size 80x24
+start 750
