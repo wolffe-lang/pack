@@ -12,10 +12,12 @@
 //! five wolves in formation, health as fainting and return, the forest's
 //! density, posture as the HUD); pk02 made it a fight (M-PK2: the shadows,
 //! the leap and the parry, damage into health, the death card and the
-//! score, the replay saved from the card). The deer, dusk and the title
-//! card are pk03's.
+//! score, the replay saved from the card); pk03 made it the game (M-PK3:
+//! the deer, the difficulty curve, dusk, the title card with the best and
+//! the last, replays loaded and verified).
 
 use art
+use best
 use clock
 use grid
 use input
@@ -23,6 +25,7 @@ use replay
 use sim
 use std.env
 use std.fs
+use std.time
 use term
 use tier
 
@@ -54,13 +57,14 @@ struct Options {
     bench_shadows: int,
     bench_deer: int,
     start_rows: int,
+    no_title: bool,
     help: bool,
     version: bool,
 }
 
 fn usage_text() -> str {
     "pack — lead a pack of wolves up an endless forest path\n\n" +
-        "  pack [--seed N] [--tier rich|plain] [--record FILE]\n" +
+        "  pack [--seed N] [--tier rich|plain] [--record FILE] [--no-title]\n" +
         "  pack --replay FILE                reproduce a recorded run\n" +
         "  pack --headless --seed N [--script FILE] --frames N [--every K] [--from T]\n" +
         "       --tier T --size WxH --dump DIR\n" +
@@ -71,8 +75,12 @@ fn usage_text() -> str {
         "                                    time render + diff a frame\n" +
         "  pack --selftest                   the decoder table and the diff property, on THIS binary\n\n" +
         "  keys: arrows steer, Up sprints, Down stops, Space leaps,\n" +
-        "        Shift+Down or z parries, q or Esc quits; on the death card s saves the replay\n" +
-        "        (pack-SEED-SCORE.pk in the working directory, or --record's path)\n" +
+        "        Shift+Down or z parries, q or Esc leaves the run for the title (or quits\n" +
+        "        under --no-title); on the death card s saves the replay (pack-SEED-SCORE.pk\n" +
+        "        in the working directory, or --record's path) with its score, q leaves it\n" +
+        "  the title: any key runs, r the same seed again, p the last saved replay,\n" +
+        "        / a replay by name, q leaves; the best and the last are kept in ~/.pack/best\n" +
+        "  --no-title                        the run at once, no title card (the pty rows)\n" +
         "  --truecolor / --no-truecolor      override COLORTERM\n" +
         "  --ticks N                         quit after N ticks\n" +
         "  --start N                         begin N rows up the path (the replay header's start N):\n" +
@@ -111,6 +119,7 @@ fn options_default() -> Options {
         bench_shadows: 0,
         bench_deer: 0,
         start_rows: -1,
+        no_title: false,
         help: false,
         version: false,
     }
@@ -140,6 +149,8 @@ fn parse_args(args: List[str]) -> Options ! {usage, parse} {
             o.trace = true
         } else if a == "--debug" {
             o.debug = true
+        } else if a == "--no-title" {
+            o.no_title = true
         } else if more && a == "--speed-scale" {
             i += 1
             o.speed_scale = args[i].to_int()?
@@ -644,6 +655,9 @@ fn run_selftest() -> int {
     (mut rows).push("+|10")
     (mut rows).push("s|11")
     (mut rows).push("S|11")
+    (mut rows).push("r|14")
+    (mut rows).push("P|15")
+    (mut rows).push("/|16")
     (mut rows).push("\x1b|7")
     (mut rows).push("\x1b |7 6")
     (mut rows).push("\x1b[57;2u|")
@@ -727,36 +741,105 @@ fn card_save_name(seed: int, score: int) -> str {
 }
 
 /// Save the recording to `path` with a `quit` at `tick` appended (the card
-/// is up at that tick; a replay of the file shows it until then). `io` on a
+/// is up at that tick; a replay of the file shows it until then) and the
+/// run's score as a `# score N` comment (pk03, R-pk03-2 A). `io` on a
 /// failed write; the card then says nothing was saved.
-fn save_replay(rec: replay.Replay, tick: int, path: str) -> () ! {io} {
+fn save_replay(rec: replay.Replay, tick: int, path: str, score: int) -> () ! {io} {
     var r = copy rec
     replay.push_key(mut r, tick, input.KEY_QUIT)
     var text = List[byte]()
-    replay.format(r, mut text)
+    replay.format_scored(r, score, mut text)
     fs.write_bytes(path, text) else |_| {
         return io
     }
 }
 
-/// The live game.
-fn run_live(o: Options, args: List[str]) -> int {
-    var t = term.open() else |e| {
-        eprint(term.message("{e}"))
-        return 2
+/// A path as the best file records it: absolute, so a replay saved in one
+/// working directory plays from another.
+fn absolute(path: str) -> str {
+    if path.starts_with("/") {
+        return path
     }
-    let (tr, truecolor) = pick_tier(o)
-    var rp = load_replay(o, t.cols, t.rows) else |e| {
-        eprint("pack: the replay could not be read ({e})")
-        return 2
+    let cwd = env.cwd() else {
+        return path
     }
-    let replaying = o.replay_path != ""
-    if !replaying {
-        rp.tier = tr
-        if seed_given(args) {
-            rp.seed = o.seed
+    "{cwd}/{path}"
+}
+
+/// The score a replay reaches, by a headless re-run of the simulation
+/// alone (no render) up to its last tick: the state the card's `s` saw.
+fn rerun_score(rp: replay.Replay) -> int {
+    var s = sim.new_at(rp.seed, rp.cols, rp.rows, rp.start)
+    var keys = List[int]()
+    let last = replay.last_tick(rp)
+    var k = 0
+    while k < last {
+        (mut keys).reset()
+        let (c, rows, health) = replay.at(rp, k, mut keys)
+        if c > 0 {
+            sim.resize(mut s, c, rows)
         }
+        sim.step(mut s, keys, health)
+        k += 1
     }
+    sim.score(s)
+}
+
+/// The verdict on a replay's `# score N` against a headless re-run
+/// (R-pk03-2 A): verified, UNVERIFIED with both numbers, or the re-run's
+/// score alone when the file carries none. Never silently accepted.
+fn verdict_of(rp: replay.Replay, text: str) -> str {
+    let got = rerun_score(rp)
+    let filed = replay.score_of(text) else {
+        return "score {got}, the file carries none"
+    }
+    if filed == got {
+        return "score {got} verified"
+    }
+    "UNVERIFIED: the file says {filed}, the run gives {got}"
+}
+
+/// A replay read for playing from the title (pk03): the file and the
+/// verdict. `io` when the file cannot be read, `parse` when it is not a
+/// replay.
+fn load_for_play(path: str) -> (replay.Replay, str) ! {parse, io} {
+    let text = fs.read_text(path) else |_| {
+        return io
+    }
+    let rp = replay.from_text(text)?
+    let v = verdict_of(rp, text)
+    (rp, v)
+}
+
+/// What a run ended with (pk03): why; whether the program leaves (a
+/// signal, `--ticks`, a quit with no title to return to, a failed wait or
+/// write); the score; whether the pack died; the saved replay's path;
+/// the seed; the ticks.
+struct Outcome {
+    ended: str,
+    leave: bool,
+    score: int,
+    dead: bool,
+    saved: str,
+    seed: int,
+    ticks: int,
+}
+
+/// One run on the open terminal: the live loop (one wait a tick on the
+/// terminal and the signals, the simulation stepped once a tick, the
+/// screen diffed once a frame), to its end. `titled` says a title card is
+/// waiting behind it (a quit returns there, else it leaves); `verdict` is
+/// a replay's, for the card's last line.
+fn play(
+    o: Options,
+    mut t: term.Term,
+    rp: replay.Replay,
+    replaying: bool,
+    titled: bool,
+    verdict: str,
+    truecolor: bool,
+    record: bool,
+) -> Outcome {
     var cols = t.cols
     var rows = t.rows
     if replaying {
@@ -777,13 +860,10 @@ fn run_live(o: Options, args: List[str]) -> int {
     var keys = List[int]()
     var tick_keys = List[int]()
     var d = input.new()
-    term.enter(mut t) else |_| {
-        eprint(term.message("io"))
-        return 3
-    }
     var c = clock.new(clock.now_ns())
     var full = true
     var quit = false
+    var leave = false
     var frames = 0
     var render_ns = 0
     var render_max_ns = 0
@@ -812,6 +892,7 @@ fn run_live(o: Options, args: List[str]) -> int {
         let w = clock.wait_until(mut c, deadline, term.signal_set()) else |_| {
             ended = "a failed wait"
             quit = true
+            leave = true
             break
         }
         let now = clock.now_ns()
@@ -841,6 +922,7 @@ fn run_live(o: Options, args: List[str]) -> int {
             } else {
                 ended = if w.meaning == 16 then "the interrupt" else "a signal ({w.meaning})"
                 quit = true
+                leave = true
             }
         }
         if w.input_ready {
@@ -849,6 +931,7 @@ fn run_live(o: Options, args: List[str]) -> int {
                 eprint("pack: standard input: {e}")
                 ended = "standard input ({e})"
                 quit = true
+                leave = true
                 List[byte]()
             }
             let before = keys.len
@@ -877,12 +960,29 @@ fn run_live(o: Options, args: List[str]) -> int {
                 if s.tick > replay.last_tick(rp) && o.ticks == 0 {
                     ended = "the replay's end"
                     quit = true
+                    leave = !titled
+                }
+                if n == 0 {
+                    // The keyboard is ignored during a replay, except that
+                    // q, Esc and Ctrl-C leave it (pk03).
+                    for k in keys {
+                        if k == input.KEY_QUIT || k == input.KEY_INTERRUPT {
+                            ended = if k == input.KEY_QUIT {
+                                "the quit key"
+                            } else {
+                                "Ctrl-C as a byte"
+                            }
+                            quit = true
+                            leave = !titled || k == input.KEY_INTERRUPT
+                        }
+                    }
                 }
             } else if n == 0 {
                 for k in keys {
                     if k == input.KEY_QUIT || k == input.KEY_INTERRUPT {
                         ended = if k == input.KEY_QUIT then "the quit key" else "Ctrl-C as a byte"
                         quit = true
+                        leave = !titled || k == input.KEY_INTERRUPT
                         // Recorded, so a replay of the file ends where the
                         // run did (the card shown for as long as it was).
                         replay.push_key(mut rec, s.tick, k)
@@ -893,7 +993,7 @@ fn run_live(o: Options, args: List[str]) -> int {
                             } else {
                                 card_save_name(rp.seed, sim.score(s))
                             }
-                            save_replay(rec, s.tick, path) else |_| {
+                            save_replay(rec, s.tick, path, sim.score(s)) else |_| {
                                 save_failed = true
                             }
                             if !save_failed {
@@ -908,7 +1008,9 @@ fn run_live(o: Options, args: List[str]) -> int {
                             health += delta
                             replay.push_health(mut rec, s.tick, delta)
                         }
-                    } else if !s.dead {
+                    } else if k >= sim.KEY_UP && k <= sim.KEY_LEAP && !s.dead {
+                        // The simulation's keys alone are applied and
+                        // recorded; the title's keys are dropped in play.
                         (mut tick_keys).push(k)
                         replay.push_key(mut rec, s.tick, k)
                     }
@@ -929,6 +1031,7 @@ fn run_live(o: Options, args: List[str]) -> int {
             if o.ticks > 0 && s.tick >= o.ticks {
                 ended = "--ticks"
                 quit = true
+                leave = true
             }
             n += 1
         }
@@ -940,7 +1043,9 @@ fn run_live(o: Options, args: List[str]) -> int {
             (mut keys).reset()
             let r0 = clock.now_ns()
             art.render(s, rp.tier, mut back)
-            if s.dead && saved != "" {
+            if s.dead && replaying {
+                art.card_offer(s, rp.tier, mut back, "replay: {verdict}; q leaves")
+            } else if s.dead && saved != "" {
                 art.card_with(s, rp.tier, mut back, saved)
             }
             grid.diff(front, back, full, mut pen, mut out, dialect)
@@ -952,6 +1057,7 @@ fn run_live(o: Options, args: List[str]) -> int {
             term.write(out) else |_| {
                 ended = "a failed write"
                 quit = true
+                leave = true
             }
             (mut out).reset()
             let tmp = front
@@ -974,8 +1080,9 @@ fn run_live(o: Options, args: List[str]) -> int {
             break
         }
     }
-    term.leave(mut t)
-    if o.record_path != "" {
+    if o.record_path != "" && !replaying && record && saved != o.record_path {
+        // The run as played, to --record's path, unless the card saved it
+        // there already (that file carries the score and ends at the save).
         var text = List[byte]()
         replay.format(rec, mut text)
         fs.write_bytes(o.record_path, text) else |_| {
@@ -985,9 +1092,251 @@ fn run_live(o: Options, args: List[str]) -> int {
     let avg_us = if frames > 0 then render_ns / frames / 1000 else 0
     let late_avg_us = if late_n > 0 then late_ns / late_n / 1000 else 0
     eprint(
-        "pack: ended by {ended}; {s.tick} ticks, {frames} frames, {c.dropped} dropped, {c.waits} waits, {sim.distance_cells(s)} cells, health {s.health} ({s.down} down), stamina {s.stamina}; shadows {s.spawned} spawned {s.vanquished} vanquished {s.landed} landed {s.turned} turned; deer {s.deer_spawned} seen {s.fed} fed; {if s.dead then "dead at tick {s.died_tick}, score {sim.score(s)}" else "alive"}{if saved != "" then ", saved {saved}" else ""}{if save_failed then ", the save FAILED" else ""}; render avg {avg_us} us max {render_max_ns / 1000} us; wait late avg {late_avg_us} us max {late_max_ns / 1000} us over {late_n}; seed {rp.seed} tier {tier.name(rp.tier)} {cols}x{rows}{if o.speed_scale != 100 then " speed-scale {o.speed_scale}" else ""}",
+        "pack: ended by {ended}; {s.tick} ticks, {frames} frames, {c.dropped} dropped, {c.waits} waits, {sim.distance_cells(s)} cells, health {s.health} ({s.down} down), stamina {s.stamina}; shadows {s.spawned} spawned {s.vanquished} vanquished {s.landed} landed {s.turned} turned; deer {s.deer_spawned} seen {s.fed} fed; {if s.dead then "dead at tick {s.died_tick}, score {sim.score(s)}" else "alive, score {sim.score(s)}"}{if saved != "" then ", saved {saved}" else ""}{if save_failed then ", the save FAILED" else ""}{if replaying then "; replay {verdict}" else ""}; render avg {avg_us} us max {render_max_ns / 1000} us; wait late avg {late_avg_us} us max {late_max_ns / 1000} us over {late_n}; seed {rp.seed} tier {tier.name(rp.tier)} {cols}x{rows}{if o.speed_scale != 100 then " speed-scale {o.speed_scale}" else ""}{if rp.start != 0 then " start {rp.start}" else ""}",
     )
+    Outcome {
+        ended: ended,
+        leave: leave,
+        score: sim.score(s),
+        dead: s.dead,
+        saved: saved,
+        seed: rp.seed,
+        ticks: s.tick,
+    }
+}
+
+/// The live game: the terminal opened and entered once, the title card
+/// (pk03) between runs — the seed, the last score and the best, `any key
+/// to run`, `r` the same seed again, `p` the last saved replay, `/` a
+/// replay by name, `q` leaves — and the runs. `--replay FILE` and
+/// `--no-title` play one run and leave, as every build before pk03 did.
+/// The terminal is restored on every path out, the title's included.
+fn run_live(o: Options, args: List[str]) -> int {
+    var t = term.open() else |e| {
+        eprint(term.message("{e}"))
+        return 2
+    }
+    let (tr, truecolor) = pick_tier(o)
+    var rp = load_replay(o, t.cols, t.rows) else |e| {
+        eprint("pack: the replay could not be read ({e})")
+        return 2
+    }
+    let replaying = o.replay_path != ""
+    var verdict = ""
+    if replaying {
+        let text = fs.read_text(o.replay_path) else ""
+        verdict = verdict_of(rp, text)
+    } else {
+        rp.tier = tr
+        if seed_given(args) {
+            rp.seed = o.seed
+        }
+    }
+    term.enter(mut t) else |_| {
+        eprint(term.message("io"))
+        return 3
+    }
+    if replaying || o.no_title {
+        let _ = play(o, mut t, rp, replaying, false, verdict, truecolor, true)
+        term.leave(mut t)
+        return 0
+    }
+    // The title card.
+    let best_path = best.path() else ""
+    var record = best.empty()
+    var info = art.title_new(rp.seed)
+    if best_path == "" {
+        info.message = "no HOME in the environment: the best score is not kept"
+    } else {
+        record = best.load(best_path) else |_| {
+            info.message = "{best_path} does not parse; left alone"
+            best.empty()
+        }
+    }
+    refresh_title(mut info, record)
+    let dialect = tier.dialect(tr, truecolor)
+    var front = grid.new(t.rows, t.cols)
+    var back = grid.new(t.rows, t.cols)
+    var pen = grid.pen_new()
+    var out = List[byte]()
+    var keys = List[int]()
+    var d = input.new()
+    var c = clock.new(clock.now_ns())
+    var full = true
+    var ran = false
+    var leave = false
+    var seed = rp.seed
+    // --record's file is written by the run that ends on it, until a card
+    // saves there: that file is then kept for the session.
+    var record_saved = false
+    while !leave {
+        // The card over the seed's forest at its start.
+        let field = sim.new_at(seed, t.cols, t.rows, rp.start)
+        if back.rows != t.rows || back.cols != t.cols {
+            front = grid.new(t.rows, t.cols)
+            back = grid.new(t.rows, t.cols)
+            pen = grid.pen_new()
+            full = true
+        }
+        art.render(field, tr, mut back)
+        art.title(tr, sim.phase(field), info, t.rows, t.cols, mut back)
+        grid.diff(front, back, full, mut pen, mut out, dialect)
+        term.write(out) else |_| {
+            leave = true
+        }
+        (mut out).reset()
+        let tmp = front
+        front = back
+        back = tmp
+        full = false
+        // Wait for a key, a resize or a signal: one wait a second, never
+        // a spin; a lone ESC resolves on its timeout.
+        var redraw = false
+        while !redraw && !leave && keys.len == 0 {
+            let now = clock.now_ns()
+            var deadline = now + 1000000000
+            if input.esc_pending(d) {
+                let esc = input.esc_deadline_ms(d) * 1000000
+                if esc < deadline {
+                    deadline = esc
+                }
+            }
+            let w = clock.wait_until(mut c, deadline, term.signal_set()) else |_| {
+                leave = true
+                break
+            }
+            if w.meaning != 0 {
+                if w.meaning == 16384 {
+                    if term.resize(mut t) {
+                        redraw = true
+                    }
+                } else {
+                    leave = true
+                }
+            }
+            if w.input_ready {
+                let got = term.read_keys(64) else |_| {
+                    leave = true
+                    List[byte]()
+                }
+                input.feed_all(mut d, got, clock.now_ns() / 1000000, mut keys)
+            }
+            input.flush(mut d, clock.now_ns() / 1000000, mut keys)
+        }
+        if leave || redraw {
+            continue
+        }
+        // Act on the keys: 0 nothing, 1 run this seed, 2 run the next seed
+        // (R-pk03-4 A: the seed advances by one after a run; `r` keeps it),
+        // 3 play the last saved replay, 4 play the named one.
+        var action = 0
+        for k in keys {
+            if info.prompt_open {
+                if k == input.KEY_ENTER {
+                    info.prompt_open = false
+                    input.set_text(mut d, false)
+                    if info.prompt != "" {
+                        action = 4
+                    }
+                } else if k == input.KEY_QUIT {
+                    info.prompt_open = false
+                    info.prompt = ""
+                    input.set_text(mut d, false)
+                } else if k == input.KEY_BACKSPACE {
+                    if info.prompt.len > 0 {
+                        info.prompt = info.prompt[0..info.prompt.len - 1]
+                    }
+                } else if k == input.KEY_INTERRUPT {
+                    leave = true
+                } else {
+                    let ch = input.char_of(k)
+                    if ch >= 0 && info.prompt.len < 200 {
+                        info.prompt += ch as char
+                    }
+                }
+            } else if k == input.KEY_QUIT || k == input.KEY_INTERRUPT {
+                leave = true
+            } else if k == input.KEY_RESTART {
+                action = 1
+            } else if k == input.KEY_PLAY {
+                action = 3
+            } else if k == input.KEY_PROMPT {
+                info.prompt_open = true
+                info.prompt = ""
+                info.message = ""
+                input.set_text(mut d, true)
+            } else if action == 0 {
+                action = if ran then 2 else 1
+            }
+        }
+        (mut keys).reset()
+        if leave || action == 0 {
+            continue
+        }
+        if action == 2 {
+            seed += 1
+        }
+        info.seed = seed
+        info.message = ""
+        if action == 1 || action == 2 {
+            var run_rp = replay.new(seed, tr, t.cols, t.rows)
+            run_rp.start = rp.start
+            let outcome = play(o, mut t, run_rp, false, true, "", truecolor, !record_saved)
+            ran = true
+            if outcome.saved != "" && outcome.saved == o.record_path {
+                record_saved = true
+            }
+            let date = time.now_iso8601()
+            let name = if outcome.saved == "" then "-" else absolute(outcome.saved)
+            best.record(mut record, outcome.score, seed, date, name)
+            if outcome.saved != "" {
+                best.saved_at(mut record, name, outcome.score, seed)
+            }
+            if best_path != "" {
+                best.store(best_path, record) else |_| {
+                    info.message = "the best file could not be written: {best_path}"
+                }
+            }
+            info.last_note = if outcome.dead then "" else "left alive"
+            leave = outcome.leave
+        } else {
+            let path = if action == 3 then record.saved else info.prompt
+            if path == "" {
+                info.message = "no replay saved yet"
+                full = true
+                continue
+            }
+            let (loaded, v) = load_for_play(path) else |e| {
+                info.message = if "{e}" == "io" {
+                    "{path}: cannot be read"
+                } else {
+                    "{path}: not a replay (parse)"
+                }
+                full = true
+                continue
+            }
+            let outcome = play(o, mut t, loaded, true, true, v, truecolor, false)
+            ran = true
+            // The replay's verdict on the message line; the last run's
+            // score stays the last.
+            info.message = "{best.basename(path)}: {v}"
+            leave = outcome.leave
+        }
+        refresh_title(mut info, record)
+        full = true
+    }
+    term.leave(mut t)
     0
+}
+
+/// The title's lines from the record.
+fn refresh_title(mut info: art.Title, record: best.Best) {
+    info.last_score = record.last_score
+    info.best_score = record.best_score
+    info.best_seed = record.best_seed
+    info.best_date = copy record.best_date
+    info.best_name = copy record.best_name
+    info.saved = copy record.saved
 }
 
 fn main() -> int {
@@ -1006,7 +1355,7 @@ fn main() -> int {
         return 2
     }
     if o.version {
-        print("pack 0.2.0 (pk02: the shadows)")
+        print("pack 0.3.0 (pk03: the game)")
         return 0
     }
     if o.apply_path != "" {
