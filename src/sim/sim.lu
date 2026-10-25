@@ -337,7 +337,7 @@ pub fn held_arrows(s: Sim) -> int {
 
 /// Recent arrow presses remain eligible for aim for 500 ms, inclusive.
 /// Steering still uses the engine's shorter autorepeat Hold lifetime.
-pub const AIM_WINDOW_TICKS: int = 15
+pub const AIM_WINDOW_TICKS: int = 0
 
 fn aim_recent(h: input.Hold, tick: int) -> bool {
     input.held(h, tick) || AIM_WINDOW_TICKS > 0 && tick - h.last <= AIM_WINDOW_TICKS
