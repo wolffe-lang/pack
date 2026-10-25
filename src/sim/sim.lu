@@ -1,8 +1,8 @@
-//! sim — the simulation skeleton: one wolf on the path, stepped once a
-//! tick from the keys that arrived, and nothing else. No clock, no
-//! randomness but the seed (the world's), integer arithmetic only, so a
-//! run is a pure function of (seed, inputs, size) and the same bytes on
-//! every machine (campaign rule 3).
+//! sim — the pack on the path: five wolves in formation, steered as one,
+//! stepped once a tick from the keys that arrived, and nothing else. No
+//! clock, no randomness but the seed (the world's), integer arithmetic
+//! only, so a run is a pure function of (seed, inputs, size) and the same
+//! bytes on every machine (campaign rule 3).
 //!
 //! Every creature has a position, a heading, a speed, an acceleration and
 //! a maximum turn rate (the realism bars): nothing teleports, nothing
@@ -10,9 +10,24 @@
 //! `docs/DESIGN.md` with the date they were last tuned (R-PK-7: tuning is
 //! the maintainer's, by play). Units: positions and speeds in `world.FP`
 //! units a cell (a tick), headings in `HEADING_MAX`ths of a 45-degree
-//! turn, stamina in points.
+//! turn, stamina and health in points.
 //!
-//! The alpha's eye (innovation 2): the wolf sits `WOLF_ROW_FROM_BOTTOM`
+//! **The formation** (R-pk01-2 C, the maintainer's ruling): a reference
+//! point moves under the steer at lag zero; each wolf has a slot relative
+//! to it (two leading, two flanking, the alpha trailing at the centre), its
+//! own heading that follows the steer `slot_lag` ticks late (so a turn
+//! ripples back through the pack), its own speed, a seeded wander around
+//! its slot, a bounded pull toward the slot, and a separation rule: two
+//! bodies that would overlap are nudged apart, never through each other.
+//!
+//! **Health** is the pack's (campaign): at each floor the farthest wolf
+//! faints and is left behind as the world scrolls past; at each recovery
+//! threshold a fainted wolf sprints back from the bottom edge to its slot
+//! (R-pk01-3 A: at `RETURN_V`). Health moves only by the replay's `health`
+//! events (the goldens) and the debug keys until pk02's shadows. **Stamina**
+//! is one value for the pack (R-pk01-1 A): an exhausted pack pants.
+//!
+//! The alpha's eye (innovation 2): the alpha sits `WOLF_ROW_FROM_BOTTOM`
 //! rows above the bottom of the screen, and the screen shows the path
 //! ahead; `world_row` maps a screen row to a world row.
 
@@ -26,6 +41,9 @@ pub const TROT_V: int = 40
 /// Sprint speed, 1.8 v (the campaign's bar): a bounded burst, clearly
 /// faster than the trot.
 pub const SPRINT_V: int = 72
+
+/// The speed a fainted wolf returns at (R-pk01-3 A: the sprint).
+pub const RETURN_V: int = 72
 
 /// The speed cap in the forest edge, v/2.
 pub const FOREST_V: int = 20
@@ -68,6 +86,12 @@ pub const HOLD_MARGIN: int = 1
 /// Stamina's ceiling.
 pub const STAMINA_MAX: int = 300
 
+/// Below this the pack reads tired (ears back).
+pub const STAMINA_TIRED: int = 200
+
+/// Below this the pack reads spent (ears flat, tail low).
+pub const STAMINA_SPENT: int = 100
+
 /// A sprint burst's length in ticks (0.8 s): a tap starts one, since a
 /// terminal has no key-up.
 pub const SPRINT_BURST_TICKS: int = 24
@@ -87,8 +111,59 @@ pub const SPRINT_MIN: int = 60
 /// Stamina that ends the pant.
 pub const EXHAUST_RECOVER: int = 90
 
-/// The wolf's screen row, counted from the bottom.
+/// Health's ceiling.
+pub const HEALTH_MAX: int = 100
+
+/// The floors are every `HEALTH_FLOOR` points below the ceiling: at 80, 60,
+/// 40 and 20 one more wolf faints; at 0 the alpha is alone (pk02's card).
+pub const HEALTH_FLOOR: int = 20
+
+/// A fainted wolf returns once health is this far back above its floor.
+pub const HEALTH_HYST: int = 10
+
+/// The percent of the speed lost at zero health, linearly: the gait slows
+/// as the pack weakens.
+pub const HEALTH_SLOW: int = 25
+
+/// The alpha's screen row, counted from the bottom.
 pub const WOLF_ROW_FROM_BOTTOM: int = 5
+
+/// Wolves in the pack.
+pub const PACK_SIZE: int = 5
+
+/// The alpha's index: the trailing slot at the centre.
+pub const ALPHA: int = 4
+
+/// The longest slot lag.
+pub const LAG_MAX: int = 6
+
+/// The wander's amplitude, sideways (`WANDER_X`) and along the path
+/// (`WANDER_Y`), in half cells either way: slow seeded noise around the
+/// slot (a lattice of 64 ticks, two seconds). Three is a cell and a half.
+pub const WANDER_X: int = 3
+
+/// Along the path, half a cell either way.
+pub const WANDER_Y: int = 1
+
+/// The pull toward the slot: a wolf closes this fraction of its offset a
+/// tick (1/16), at most `PULL_MAX` FP units a tick.
+pub const PULL: int = 16
+
+/// The pull's bound, FP units a tick.
+pub const PULL_MAX: int = 24
+
+/// A body's footprint for the separation rule, cells: three wide, two tall
+/// (the rich sprite; the plain tier is smaller and never overlaps either).
+pub const BODY_W: int = 3
+
+/// Two tall.
+pub const BODY_H: int = 2
+
+/// A bump moves each wolf this far apart in the tick the bodies touch, FP
+/// units: half a cell each, a visible nudge (the wander closes on a
+/// neighbour a few units a tick, so half the overlap alone would be
+/// invisible), never through each other.
+pub const BUMP: int = 128
 
 /// Postures (the HUD is posture, innovation 5).
 pub const POSTURE_TROT: int = 0
@@ -101,6 +176,24 @@ pub const POSTURE_SPRINT: int = 2
 
 /// Panting: exhausted, no sprint until `EXHAUST_RECOVER`.
 pub const POSTURE_PANT: int = 3
+
+/// Stamina bands, read in the ears and the tail.
+pub const BAND_FRESH: int = 0
+
+/// Tired: ears back.
+pub const BAND_TIRED: int = 1
+
+/// Spent: ears flat, tail low.
+pub const BAND_SPENT: int = 2
+
+/// A wolf's states.
+pub const RUNNING: int = 0
+
+/// Fainted: left where it lies.
+pub const FAINTED: int = 1
+
+/// Returning from the bottom edge to its slot.
+pub const RETURNING: int = 2
 
 /// A held key, from ticks alone (so a replay reproduces it): the ticks of
 /// the last two presses and the tick the hold ends.
@@ -143,29 +236,41 @@ pub fn held(h: Hold, tick: int) -> bool {
     tick < h.until
 }
 
-/// One wolf.
+/// One wolf: its own position, heading, speed and state; the forest edge's
+/// touch and its scratches.
 pub struct Wolf {
     x: int,
     y: int,
     heading: int,
-    heading_target: int,
     speed: int,
-    stopping: bool,
-    sprint_left: int,
-    stamina: int,
-    exhausted: bool,
+    state: int,
     in_forest: bool,
     scratches: int,
 }
 
-/// The simulation: the seed, the screen's size, the tick count, the wolf,
-/// and counts of the keys the engine does not yet act on (pk02's).
+/// The simulation: the seed, the screen's size, the tick count, the pack
+/// (the reference point and its steer, the five wolves, the shared stamina
+/// and health), and counts of the keys the engine does not yet act on
+/// (pk02's).
 pub struct Sim {
     seed: int,
     cols: int,
     rows: int,
     tick: int,
-    wolf: Wolf,
+    wolves: List[Wolf],
+    px: int,
+    py: int,
+    heading: int,
+    heading_target: int,
+    steer_hist: List[int],
+    speed: int,
+    stopping: bool,
+    sprint_left: int,
+    stamina: int,
+    exhausted: bool,
+    health: int,
+    down: int,
+    bumps: int,
     hold_left: Hold,
     hold_right: Hold,
     speed_scale: int,
@@ -173,28 +278,85 @@ pub struct Sim {
     parries: int,
 }
 
-/// A new simulation: the wolf at the path's centre on world row 0, at
-/// trot, full stamina.
+/// A slot's sideways offset from the reference, in cells: the leaders two
+/// cells either side (a four-cell gap between three-cell bodies, so their
+/// wander meets and they bump), the flankers five.
+pub fn slot_dx(i: int) -> int {
+    match i {
+        0 => -2,
+        1 => 2,
+        2 => -5,
+        3 => 5,
+        _ => 0,
+    }
+}
+
+/// A slot's offset ahead of the reference, in cells.
+pub fn slot_dy(i: int) -> int {
+    match i {
+        0 => 5,
+        1 => 5,
+        2 => 2,
+        3 => 2,
+        _ => 0,
+    }
+}
+
+/// The ticks a slot's heading follows the steer late: the leaders turn
+/// first, the flankers next, the alpha last.
+pub fn slot_lag(i: int) -> int {
+    match i {
+        0 => 0,
+        1 => 0,
+        2 => 3,
+        3 => 3,
+        _ => LAG_MAX,
+    }
+}
+
+/// A new simulation: the reference at the path's centre on world row 0,
+/// every wolf in its slot, at trot, full stamina and health.
 pub fn new(seed: int, cols: int, rows: int) -> Sim {
     let (centre, _) = world.path(seed, cols, 0)
+    var wolves = List[Wolf]()
+    var i = 0
+    while i < PACK_SIZE {
+        (mut wolves).push(Wolf {
+            x: clamp_x(centre + slot_dx(i) * world.FP, cols),
+            y: slot_dy(i) * world.FP,
+            heading: 0,
+            speed: TROT_V,
+            state: RUNNING,
+            in_forest: false,
+            scratches: 0,
+        })
+        i += 1
+    }
+    var hist = List[int]()
+    var k = 0
+    while k <= LAG_MAX {
+        (mut hist).push(0)
+        k += 1
+    }
     Sim {
         seed: seed,
         cols: cols,
         rows: rows,
         tick: 0,
-        wolf: Wolf {
-            x: centre,
-            y: 0,
-            heading: 0,
-            heading_target: 0,
-            speed: TROT_V,
-            stopping: false,
-            sprint_left: 0,
-            stamina: STAMINA_MAX,
-            exhausted: false,
-            in_forest: false,
-            scratches: 0,
-        },
+        wolves: wolves,
+        px: centre,
+        py: 0,
+        heading: 0,
+        heading_target: 0,
+        steer_hist: hist,
+        speed: TROT_V,
+        stopping: false,
+        sprint_left: 0,
+        stamina: STAMINA_MAX,
+        exhausted: false,
+        health: HEALTH_MAX,
+        down: 0,
+        bumps: 0,
         hold_left: hold_new(),
         hold_right: hold_new(),
         speed_scale: 100,
@@ -211,26 +373,48 @@ pub fn scaled(s: Sim, v: int) -> int {
 }
 
 /// The screen changed size: the field scales to it (never below the
-/// minimum, which the terminal layer refuses). The wolf keeps its world
-/// position; its lateral position is rescaled to the new width so it
+/// minimum, which the terminal layer refuses). The pack keeps its world
+/// rows; every lateral position is rescaled to the new width so the pack
 /// stays on the same part of the path.
 pub fn resize(mut s: Sim, cols: int, rows: int) {
     if cols > 0 && s.cols > 0 {
-        s.wolf.x = s.wolf.x * cols / s.cols
+        s.px = s.px * cols / s.cols
+        var i = 0
+        while i < s.wolves.len {
+            var w = copy s.wolves[i]
+            w.x = w.x * cols / s.cols
+            s.wolves[i] = w
+            i += 1
+        }
     }
     s.cols = cols
     s.rows = rows
 }
 
-/// The screen row the wolf is drawn on.
+/// The alpha.
+pub fn alpha(s: Sim) -> Wolf {
+    copy s.wolves[ALPHA]
+}
+
+/// The screen row the alpha is drawn on.
 pub fn wolf_row(s: Sim) -> int {
     s.rows - WOLF_ROW_FROM_BOTTOM
 }
 
-/// The world row a screen row shows: the wolf's row shows the wolf's
+/// The world row a screen row shows: the alpha's row shows the alpha's
 /// world row, and rows above show rows ahead.
 pub fn world_row(s: Sim, screen_row: int) -> int {
-    s.wolf.y / world.FP + (wolf_row(s) - screen_row)
+    alpha(s).y / world.FP + (wolf_row(s) - screen_row)
+}
+
+/// The screen row of wolf `i` (may be off the screen).
+pub fn screen_row(s: Sim, i: int) -> int {
+    wolf_row(s) - (s.wolves[i].y / world.FP - alpha(s).y / world.FP)
+}
+
+/// The screen column of wolf `i`'s centre.
+pub fn screen_col(s: Sim, i: int) -> int {
+    s.wolves[i].x / world.FP
 }
 
 /// Keys, as `input` names them; the simulation knows them by number so it
@@ -262,6 +446,10 @@ fn clamp(v: int, lo: int, hi: int) -> int {
     v
 }
 
+fn clamp_x(x: int, cols: int) -> int {
+    clamp(x, world.FP * 3 / 2, cols * world.FP - world.FP * 3 / 2)
+}
+
 fn toward(v: int, target: int, step: int) -> int {
     if v < target {
         return if v + step > target then target else v + step
@@ -276,8 +464,116 @@ fn abs(v: int) -> int {
     if v < 0 then 0 - v else v
 }
 
-/// One tick: apply `keys` (in order), then move the wolf.
-pub fn step(mut s: Sim, keys: List[int]) {
+/// The pack's speed target by its state (stopping, a burst, the trot),
+/// slowed by lost health.
+fn pack_target(s: Sim) -> int {
+    var target = scaled(s, TROT_V)
+    if s.stopping {
+        target = 0
+    } else if s.sprint_left > 0 {
+        target = scaled(s, SPRINT_V)
+    }
+    target * (100 - HEALTH_SLOW * (HEALTH_MAX - s.health) / HEALTH_MAX) / 100
+}
+
+/// The wander of wolf `i` at `tick`: slow seeded noise around its slot,
+/// `(dx, dy)` in FP units.
+fn wander(s: Sim, i: int, tick: int) -> (int, int) {
+    let nx = world.noise(s.seed + 1000 + i, 5, tick) - world.FP / 2
+    let ny = world.noise(s.seed + 2000 + i, 6, tick) - world.FP / 2
+    (nx * WANDER_X, ny * WANDER_Y)
+}
+
+/// Where wolf `i` wants to be: its slot off the reference, plus its wander.
+fn desired(s: Sim, i: int) -> (int, int) {
+    let (wx, wy) = wander(s, i, s.tick)
+    (clamp_x(s.px + slot_dx(i) * world.FP + wx, s.cols), s.py + slot_dy(i) * world.FP + wy)
+}
+
+/// The floors crossed at `health`: how many wolves it puts down.
+fn floors_below(health: int) -> int {
+    var n = 0
+    var f = HEALTH_MAX - HEALTH_FLOOR
+    while f >= HEALTH_FLOOR {
+        if health <= f {
+            n += 1
+        }
+        f -= HEALTH_FLOOR
+    }
+    if n > PACK_SIZE - 1 then PACK_SIZE - 1 else n
+}
+
+/// The farthest running wolf from the alpha (never the alpha), or -1.
+fn farthest(s: Sim) -> int {
+    let a = alpha(s)
+    var best = -1
+    var best_d = -1
+    var i = 0
+    while i < PACK_SIZE {
+        if i != ALPHA && s.wolves[i].state != FAINTED {
+            let d = abs(s.wolves[i].x - a.x) + abs(s.wolves[i].y - a.y)
+            if d > best_d {
+                best_d = d
+                best = i
+            }
+        }
+        i += 1
+    }
+    best
+}
+
+/// One wolf faints: it stops where it is and is left behind.
+fn faint_one(mut s: Sim) {
+    let i = farthest(s)
+    if i < 0 {
+        return
+    }
+    var w = copy s.wolves[i]
+    w.state = FAINTED
+    w.speed = 0
+    w.heading = 0
+    s.wolves[i] = w
+    s.down += 1
+}
+
+/// One fainted wolf returns: from where it lies if that is still on the
+/// screen, else from one row below the bottom edge at its slot's column,
+/// sprinting back to its slot.
+fn return_one(mut s: Sim) {
+    var i = 0
+    while i < PACK_SIZE {
+        if s.wolves[i].state == FAINTED {
+            var w = copy s.wolves[i]
+            let row = screen_row(s, i)
+            if row < 0 || row >= s.rows {
+                let (dx, _) = desired(s, i)
+                w.x = dx
+                w.y = alpha(s).y - (s.rows - wolf_row(s) + 1) * world.FP
+            }
+            w.state = RETURNING
+            w.speed = 0
+            s.wolves[i] = w
+            s.down -= 1
+            return
+        }
+        i += 1
+    }
+}
+
+/// Health: faint one wolf per floor crossed downward, return one per
+/// recovery threshold crossed upward, at most one change a tick.
+fn health_step(mut s: Sim) {
+    let target = floors_below(s.health)
+    if s.down < target {
+        faint_one(mut s)
+    } else if s.down > 0 && s.health >= HEALTH_MAX - s.down * HEALTH_FLOOR + HEALTH_HYST {
+        return_one(mut s)
+    }
+}
+
+/// One tick: apply `keys` (in order) and `health_delta` (the replay's
+/// `health` event or a debug key; zero otherwise), then move the pack.
+pub fn step(mut s: Sim, keys: List[int], health_delta: int) {
     // A run of the same key in one tick is one press (autorepeat bytes
     // that arrived together); the hold decides how long it lasts.
     var left = false
@@ -285,18 +581,18 @@ pub fn step(mut s: Sim, keys: List[int]) {
     for k in keys {
         if k == KEY_LEFT {
             left = true
-            s.wolf.stopping = false
+            s.stopping = false
         } else if k == KEY_RIGHT {
             right = true
-            s.wolf.stopping = false
+            s.stopping = false
         } else if k == KEY_UP {
-            s.wolf.stopping = false
-            if !s.wolf.exhausted && s.wolf.stamina >= SPRINT_MIN {
-                s.wolf.sprint_left = SPRINT_BURST_TICKS
+            s.stopping = false
+            if !s.exhausted && s.stamina >= SPRINT_MIN {
+                s.sprint_left = SPRINT_BURST_TICKS
             }
         } else if k == KEY_DOWN {
-            s.wolf.stopping = true
-            s.wolf.sprint_left = 0
+            s.stopping = true
+            s.sprint_left = 0
         } else if k == KEY_LEAP {
             s.leaps += 1
         } else if k == KEY_PARRY {
@@ -309,10 +605,12 @@ pub fn step(mut s: Sim, keys: List[int]) {
     if right {
         hold_press(mut s.hold_right, s.tick)
     }
+    s.health = clamp(s.health + health_delta, 0, HEALTH_MAX)
+    health_step(mut s)
     // Steering: the heading target is the held steer (both held cancel),
-    // and the heading turns toward it at the turn rate; released, it
-    // returns to straight at the same rate and the sideways motion ends
-    // with it.
+    // and the reference's heading turns toward it at the turn rate;
+    // released, it returns to straight at the same rate and the sideways
+    // motion ends with it. The target's history feeds the slots' lags.
     var steer = 0
     if held(s.hold_left, s.tick) {
         steer -= 1
@@ -320,99 +618,268 @@ pub fn step(mut s: Sim, keys: List[int]) {
     if held(s.hold_right, s.tick) {
         steer += 1
     }
-    s.wolf.heading_target = steer * STEER_HEADING
-    s.wolf.heading = toward(s.wolf.heading, s.wolf.heading_target, TURN_RATE)
-    // Speed: toward the target the posture names, capped in the forest.
-    var target = scaled(s, TROT_V)
-    if s.wolf.stopping {
-        target = 0
-    } else if s.wolf.sprint_left > 0 {
-        target = scaled(s, SPRINT_V)
+    s.heading_target = steer * STEER_HEADING
+    var k = LAG_MAX
+    while k > 0 {
+        s.steer_hist[k] = s.steer_hist[k - 1]
+        k -= 1
     }
-    if s.wolf.in_forest && target > scaled(s, FOREST_V) {
+    s.steer_hist[0] = s.heading_target
+    s.heading = toward(s.heading, s.heading_target, TURN_RATE)
+    // The pack's speed: toward the target its state names, capped while
+    // the alpha is in the forest edge.
+    var target = pack_target(s)
+    if alpha(s).in_forest && target > scaled(s, FOREST_V) {
         target = scaled(s, FOREST_V)
     }
-    s.wolf.speed = toward(
-        s.wolf.speed,
+    s.speed = toward(
+        s.speed,
         target,
-        if target < s.wolf.speed then scaled(s, BRAKE) else scaled(s, ACCEL),
+        if target < s.speed then scaled(s, BRAKE) else scaled(s, ACCEL),
     )
     // Stamina: a sprint drains, standing and trotting regenerate.
-    if s.wolf.sprint_left > 0 {
-        s.wolf.sprint_left -= 1
-        s.wolf.stamina -= SPRINT_DRAIN
-        if s.wolf.stamina <= 0 {
-            s.wolf.stamina = 0
-            s.wolf.exhausted = true
-            s.wolf.sprint_left = 0
+    if s.sprint_left > 0 {
+        s.sprint_left -= 1
+        s.stamina -= SPRINT_DRAIN
+        if s.stamina <= 0 {
+            s.stamina = 0
+            s.exhausted = true
+            s.sprint_left = 0
         }
-    } else if s.wolf.speed == 0 {
-        s.wolf.stamina = clamp(s.wolf.stamina + REGEN_STAND, 0, STAMINA_MAX)
+    } else if s.speed == 0 {
+        s.stamina = clamp(s.stamina + REGEN_STAND, 0, STAMINA_MAX)
     } else {
-        s.wolf.stamina = clamp(s.wolf.stamina + REGEN_TROT, 0, STAMINA_MAX)
+        s.stamina = clamp(s.stamina + REGEN_TROT, 0, STAMINA_MAX)
     }
-    if s.wolf.exhausted && s.wolf.stamina >= EXHAUST_RECOVER {
-        s.wolf.exhausted = false
+    if s.exhausted && s.stamina >= EXHAUST_RECOVER {
+        s.exhausted = false
     }
-    // Motion: the heading's small-angle split of the speed.
-    let h = s.wolf.heading
-    let vx = s.wolf.speed * h / HEADING_MAX
-    let vy = s.wolf.speed - s.wolf.speed * h * h / (2 * HEADING_MAX * HEADING_MAX)
-    s.wolf.x = clamp(s.wolf.x + vx, world.FP / 2, s.cols * world.FP - world.FP / 2)
-    s.wolf.y += vy
-    // The forest edge slows and scratches.
-    let (centre, half) = world.path(s.seed, s.cols, s.wolf.y / world.FP)
-    s.wolf.in_forest = abs(s.wolf.x - centre) > half
-    if s.wolf.in_forest {
-        s.wolf.scratches += 1
+    // The reference moves: the heading's small-angle split of the speed.
+    let (rvx, rvy) = split(s.speed, s.heading)
+    s.px = clamp_x(s.px + rvx, s.cols)
+    s.py += rvy
+    // Each wolf: its heading follows the steer its slot's lag late, its
+    // speed follows the pack's target (capped in the forest edge; the
+    // return sprint for a returning wolf), it moves, and the pull closes
+    // on its slot and wander.
+    var i = 0
+    while i < PACK_SIZE {
+        var w = copy s.wolves[i]
+        if w.state == FAINTED {
+            i += 1
+            continue
+        }
+        let (dx, dy) = desired(s, i)
+        var wt = target
+        if w.state == RETURNING {
+            wt = scaled(s, RETURN_V)
+            // Aim at the slot's column while far from it.
+            let off = dx - w.x
+            let aim = if off > world.FP {
+                STEER_HEADING
+            } else if off < 0 - world.FP {
+                0 - STEER_HEADING
+            } else {
+                0
+            }
+            w.heading = toward(w.heading, aim, TURN_RATE)
+            if w.y >= dy - world.FP / 2 {
+                w.state = RUNNING
+            }
+        } else {
+            w.heading = toward(w.heading, s.steer_hist[slot_lag(i)], TURN_RATE)
+        }
+        if w.in_forest && wt > scaled(s, FOREST_V) {
+            wt = scaled(s, FOREST_V)
+        }
+        w.speed = toward(w.speed, wt, if wt < w.speed then scaled(s, BRAKE) else scaled(s, ACCEL))
+        let (vx, vy) = split(w.speed, w.heading)
+        let pull_x = clamp((dx - w.x) / PULL, 0 - PULL_MAX, PULL_MAX)
+        let pull_y = clamp((dy - w.y) / PULL, 0 - PULL_MAX, PULL_MAX)
+        w.x = clamp_x(w.x + vx + pull_x, s.cols)
+        w.y += vy + pull_y
+        s.wolves[i] = w
+        i += 1
+    }
+    separate(mut s)
+    // The forest edge slows and scratches the wolves that touch it.
+    i = 0
+    while i < PACK_SIZE {
+        var w = copy s.wolves[i]
+        if w.state != FAINTED {
+            let (centre, half) = world.path(s.seed, s.cols, w.y / world.FP)
+            w.in_forest = abs(w.x - centre) > half
+            if w.in_forest {
+                w.scratches += 1
+            }
+            s.wolves[i] = w
+        }
+        i += 1
     }
     s.tick += 1
 }
 
-/// The wolf's posture now.
+/// The heading's small-angle split of a speed into sideways and forward.
+fn split(speed: int, h: int) -> (int, int) {
+    let vx = speed * h / HEADING_MAX
+    let vy = speed - speed * h * h / (2 * HEADING_MAX * HEADING_MAX)
+    (vx, vy)
+}
+
+/// The separation rule: two running bodies whose footprints overlap are
+/// nudged apart sideways, each by `BUMP` or by half the overlap if that is
+/// more, the one on the left to the left; a tie goes by slot order. Pairs
+/// in a fixed order, and the pass repeats while a push made a new pair
+/// touch (at most `PACK_SIZE` passes), so the result is the seed's alone
+/// and no overlap survives; `bumps` counts the nudges.
+fn separate(mut s: Sim) {
+    var pass = 0
+    while pass < PACK_SIZE && separate_pass(mut s) {
+        pass += 1
+    }
+}
+
+/// One pass over the pairs; true when something was pushed.
+fn separate_pass(mut s: Sim) -> bool {
+    let sep_x = BODY_W * world.FP
+    let sep_y = BODY_H * world.FP
+    var pushed = false
+    var i = 0
+    while i < PACK_SIZE {
+        var j = i + 1
+        while j < PACK_SIZE {
+            var a = copy s.wolves[i]
+            var b = copy s.wolves[j]
+            if a.state != FAINTED && b.state != FAINTED {
+                let dx = b.x - a.x
+                let dy = b.y - a.y
+                if abs(dx) < sep_x && abs(dy) < sep_y {
+                    var push = (sep_x - abs(dx) + 1) / 2
+                    if push < BUMP {
+                        push = BUMP
+                    }
+                    s.bumps += 1
+                    pushed = true
+                    // The one on the left goes left, the other right; the
+                    // share the field's edge refuses one goes to the other.
+                    if dx < 0 {
+                        let t = a
+                        a = b
+                        b = t
+                    }
+                    let ax = clamp_x(a.x - push, s.cols)
+                    let lost_a = ax - (a.x - push)
+                    let bx = clamp_x(b.x + push + lost_a, s.cols)
+                    let lost_b = b.x + push + lost_a - bx
+                    a.x = clamp_x(ax - lost_b, s.cols)
+                    b.x = bx
+                    if dx < 0 {
+                        let t = a
+                        a = b
+                        b = t
+                    }
+                    s.wolves[i] = a
+                    s.wolves[j] = b
+                }
+            }
+            j += 1
+        }
+        i += 1
+    }
+    pushed
+}
+
+/// Whether any two running bodies overlap now (a test's and the trace's
+/// question; the separation rule keeps it false).
+pub fn any_overlap(s: Sim) -> bool {
+    let sep_x = BODY_W * world.FP
+    let sep_y = BODY_H * world.FP
+    var i = 0
+    while i < PACK_SIZE {
+        var j = i + 1
+        while j < PACK_SIZE {
+            let a = copy s.wolves[i]
+            let b = copy s.wolves[j]
+            if a.state != FAINTED && b.state != FAINTED {
+                if abs(b.x - a.x) < sep_x && abs(b.y - a.y) < sep_y {
+                    return true
+                }
+            }
+            j += 1
+        }
+        i += 1
+    }
+    false
+}
+
+/// The pack's posture now (the alpha's reading of it).
 pub fn posture(s: Sim) -> int {
-    if s.wolf.exhausted {
+    wolf_posture(s, ALPHA)
+}
+
+/// Wolf `i`'s posture.
+pub fn wolf_posture(s: Sim, i: int) -> int {
+    if s.exhausted {
         return POSTURE_PANT
     }
-    if s.wolf.speed == 0 {
+    let w = copy s.wolves[i]
+    if w.speed == 0 {
         return POSTURE_STAND
     }
-    if s.wolf.sprint_left > 0 && s.wolf.speed > scaled(s, TROT_V) {
+    if w.state == RETURNING || s.sprint_left > 0 && w.speed > scaled(s, TROT_V) {
         return POSTURE_SPRINT
     }
     POSTURE_TROT
 }
 
-/// The trot frame (0-3), advancing with distance so the gait matches the
-/// speed; a standing wolf holds frame 0.
-pub fn trot_frame(s: Sim) -> int {
-    if s.wolf.speed == 0 {
+/// The stamina band the ears and tail show.
+pub fn band(s: Sim) -> int {
+    if s.exhausted || s.stamina < STAMINA_SPENT {
+        return BAND_SPENT
+    }
+    if s.stamina < STAMINA_TIRED {
+        return BAND_TIRED
+    }
+    BAND_FRESH
+}
+
+/// Wolf `i`'s trot frame (0-3), advancing with its own distance so the
+/// gait matches its speed; a standing wolf holds frame 0.
+pub fn trot_frame(s: Sim, i: int) -> int {
+    let w = copy s.wolves[i]
+    if w.speed == 0 {
         return 0
     }
-    s.wolf.y / (world.FP / 2) % 4
+    abs(w.y) / (world.FP / 2) % 4
 }
 
 /// The steer: the heading target the keys set (the trace reads it).
 pub fn steer_target(s: Sim) -> int {
-    s.wolf.heading_target
+    s.heading_target
 }
 
-/// The steered heading now.
+/// The reference's heading now.
 pub fn steer_heading(s: Sim) -> int {
-    s.wolf.heading
+    s.heading
 }
 
-/// The steered wolf's lateral position, FP units.
+/// The reference's lateral position, FP units.
 pub fn steer_x(s: Sim) -> int {
-    s.wolf.x
+    s.px
 }
 
-/// The steered wolf's world row position, FP units.
+/// The reference's world row position, FP units.
 pub fn steer_y(s: Sim) -> int {
-    s.wolf.y
+    s.py
 }
 
-/// Distance travelled, in cells.
+/// Distance travelled by the alpha, in cells.
 pub fn distance_cells(s: Sim) -> int {
-    s.wolf.y / world.FP
+    alpha(s).y / world.FP
+}
+
+/// The spawn-rate input pk02 reads: a function of the alpha's distance
+/// and the forest's density at its row (`world.spawn_rate`).
+pub fn spawn_rate(s: Sim) -> int {
+    world.spawn_rate(s.seed, alpha(s).y / world.FP)
 }

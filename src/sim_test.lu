@@ -1,7 +1,9 @@
 //! member: false
 //!
 //! The simulation's bars as tests: determinism, the speeds, the turn
-//! rate, stamina's drain and regeneration, the stop, the forest edge.
+//! rate, the held key, stamina's drain and regeneration, the stop, the
+//! forest edge, the formation (slots, lag, wander, no overlap), health as
+//! fainting and return, the spawn rate.
 
 use sim
 use world
@@ -19,16 +21,29 @@ fn one(k: int) -> List[int] {
 fn run(mut s: sim.Sim, n: int) {
     var i = 0
     while i < n {
-        sim.step(mut s, none())
+        sim.step(mut s, none(), 0)
         i += 1
     }
+}
+
+fn same_pack(a: sim.Sim, b: sim.Sim) -> bool {
+    var i = 0
+    while i < sim.PACK_SIZE {
+        let p = copy a.wolves[i]
+        let q = copy b.wolves[i]
+        if p.x != q.x || p.y != q.y || p.heading != q.heading || p.state != q.state {
+            return false
+        }
+        i += 1
+    }
+    a.stamina == b.stamina && a.health == b.health && a.px == b.px
 }
 
 fn test_two_runs_are_one() {
     var a = sim.new(11, 80, 24)
     var b = sim.new(11, 80, 24)
     var i = 0
-    while i < 200 {
+    while i < 300 {
         let keys = if i % 17 == 0 {
             one(sim.KEY_LEFT)
         } else if i % 23 == 0 {
@@ -36,12 +51,10 @@ fn test_two_runs_are_one() {
         } else {
             none()
         }
-        sim.step(mut a, keys)
-        sim.step(mut b, keys)
-        assert(
-            a.wolf.x == b.wolf.x && a.wolf.y == b.wolf.y && a.wolf.stamina == b.wolf.stamina,
-            "tick {i}",
-        )
+        let h = if i == 100 then -45 else if i == 200 then 40 else 0
+        sim.step(mut a, keys, h)
+        sim.step(mut b, keys, h)
+        assert(same_pack(a, b), "tick {i}")
         i += 1
     }
 }
@@ -49,35 +62,40 @@ fn test_two_runs_are_one() {
 fn test_trot_advances_at_v() {
     var s = sim.new(1, 80, 24)
     run(mut s, 100)
-    assert(s.wolf.y == 100 * sim.TROT_V, "y {s.wolf.y}")
+    assert(s.py == 100 * sim.TROT_V, "the reference's y {s.py}")
     assert(sim.posture(s) == sim.POSTURE_TROT, "trotting")
+    // The alpha follows the reference's slot (its wander aside).
+    let a = sim.alpha(s)
+    assert(
+        a.y > 100 * sim.TROT_V - 2 * world.FP && a.y < 100 * sim.TROT_V + 2 * world.FP,
+        "the alpha near its slot: {a.y}",
+    )
 }
 
 fn test_sprint_is_bounded_and_drains() {
     var s = sim.new(1, 80, 24)
-    sim.step(mut s, one(sim.KEY_UP))
+    sim.step(mut s, one(sim.KEY_UP), 0)
     var ticks_fast = 0
     var i = 0
     while i < 60 {
-        if s.wolf.speed > sim.TROT_V {
+        if s.speed > sim.TROT_V {
             ticks_fast += 1
         }
-        sim.step(mut s, none())
+        sim.step(mut s, none(), 0)
         i += 1
     }
-    // The burst, plus the ticks spent braking back to the trot.
     let brake_ticks = (sim.SPRINT_V - sim.TROT_V) / sim.BRAKE + 1
     assert(
         ticks_fast > 0 && ticks_fast <= sim.SPRINT_BURST_TICKS + brake_ticks,
         "fast for {ticks_fast} ticks",
     )
-    assert(s.wolf.speed == sim.TROT_V, "back to the trot")
-    assert(s.wolf.stamina < sim.STAMINA_MAX, "stamina spent: {s.wolf.stamina}")
+    assert(s.speed == sim.TROT_V, "back to the trot")
+    assert(s.stamina < sim.STAMINA_MAX, "stamina spent: {s.stamina}")
 }
 
 fn test_speed_never_jumps() {
     var s = sim.new(1, 80, 24)
-    var prev = s.wolf.speed
+    var prev = s.speed
     var i = 0
     while i < 120 {
         let keys = if i == 5 {
@@ -89,49 +107,59 @@ fn test_speed_never_jumps() {
         } else {
             none()
         }
-        sim.step(mut s, keys)
-        let d = if s.wolf.speed > prev then s.wolf.speed - prev else prev - s.wolf.speed
+        sim.step(mut s, keys, 0)
+        let d = if s.speed > prev then s.speed - prev else prev - s.speed
         assert(d <= sim.BRAKE, "a jump of {d} at tick {i}")
-        prev = s.wolf.speed
+        prev = s.speed
         i += 1
     }
 }
 
 fn test_stop_regenerates_fastest() {
     var s = sim.new(1, 80, 24)
-    sim.step(mut s, one(sim.KEY_UP))
+    sim.step(mut s, one(sim.KEY_UP), 0)
     run(mut s, sim.SPRINT_BURST_TICKS)
-    let spent = s.wolf.stamina
+    let spent = s.stamina
     var standing = sim.new(1, 80, 24)
-    standing.wolf.stamina = spent
-    sim.step(mut standing, one(sim.KEY_DOWN))
+    standing.stamina = spent
+    sim.step(mut standing, one(sim.KEY_DOWN), 0)
     run(mut standing, 30)
     var trotting = sim.new(1, 80, 24)
-    trotting.wolf.stamina = spent
+    trotting.stamina = spent
     run(mut trotting, 31)
-    assert(standing.wolf.speed == 0 && sim.posture(standing) == sim.POSTURE_STAND, "stopped")
+    assert(standing.speed == 0 && sim.posture(standing) == sim.POSTURE_STAND, "stopped")
     assert(
-        standing.wolf.stamina > trotting.wolf.stamina,
-        "standing {standing.wolf.stamina} > trotting {trotting.wolf.stamina}",
+        standing.stamina > trotting.stamina,
+        "standing {standing.stamina} > trotting {trotting.stamina}",
     )
 }
 
 fn test_exhaustion_pants_and_recovers() {
     var s = sim.new(1, 80, 24)
     var i = 0
-    while i < 400 && !s.wolf.exhausted {
-        sim.step(mut s, one(sim.KEY_UP))
+    while i < 400 && !s.exhausted {
+        sim.step(mut s, one(sim.KEY_UP), 0)
         i += 1
     }
-    assert(s.wolf.exhausted && sim.posture(s) == sim.POSTURE_PANT, "exhausted after {i} ticks")
-    sim.step(mut s, one(sim.KEY_UP))
-    assert(s.wolf.sprint_left == 0, "no sprint while panting")
+    assert(s.exhausted && sim.posture(s) == sim.POSTURE_PANT, "exhausted after {i} ticks")
+    assert(sim.band(s) == sim.BAND_SPENT, "spent")
+    sim.step(mut s, one(sim.KEY_UP), 0)
+    assert(s.sprint_left == 0, "no sprint while panting")
     var j = 0
-    while j < 400 && s.wolf.exhausted {
-        sim.step(mut s, none())
+    while j < 400 && s.exhausted {
+        sim.step(mut s, none(), 0)
         j += 1
     }
-    assert(!s.wolf.exhausted, "recovered after {j} ticks")
+    assert(!s.exhausted, "recovered after {j} ticks")
+}
+
+fn test_bands_follow_stamina() {
+    var s = sim.new(1, 80, 24)
+    assert(sim.band(s) == sim.BAND_FRESH, "fresh at the start")
+    s.stamina = sim.STAMINA_TIRED - 1
+    assert(sim.band(s) == sim.BAND_TIRED, "tired below the band")
+    s.stamina = sim.STAMINA_SPENT - 1
+    assert(sim.band(s) == sim.BAND_SPENT, "spent below the band")
 }
 
 fn test_turn_rate_bounds_the_heading_change() {
@@ -139,29 +167,33 @@ fn test_turn_rate_bounds_the_heading_change() {
     var prev = 0
     var i = 0
     while i < 90 {
-        sim.step(mut s, if i < 6 then one(sim.KEY_RIGHT) else none())
-        let d = s.wolf.heading - prev
+        sim.step(mut s, if i < 6 then one(sim.KEY_RIGHT) else none(), 0)
+        let d = s.heading - prev
         assert(d <= sim.TURN_RATE && d >= 0 - sim.TURN_RATE, "turned {d} in one tick")
-        assert(s.wolf.heading <= sim.STEER_HEADING, "bounded by the steer")
-        prev = s.wolf.heading
+        assert(s.heading <= sim.STEER_HEADING, "bounded by the steer")
+        prev = s.heading
         i += 1
     }
-    assert(s.wolf.heading_target == 0 && s.wolf.heading == 0, "straight again")
+    assert(s.heading_target == 0 && s.heading == 0, "straight again")
 }
 
 fn test_a_tap_holds_for_the_tap_ticks() {
     var s = sim.new(1, 80, 24)
-    sim.step(mut s, one(sim.KEY_LEFT))
+    sim.step(mut s, one(sim.KEY_LEFT), 0)
     var held_ticks = 0
     var i = 0
     while i < 40 {
-        if s.wolf.heading_target != 0 {
+        if s.heading_target != 0 {
             held_ticks += 1
         }
-        sim.step(mut s, none())
+        sim.step(mut s, none(), 0)
         i += 1
     }
     assert(held_ticks == sim.HOLD_TAP_TICKS, "held for {held_ticks} ticks")
+}
+
+fn pressed(i: int) -> bool {
+    i == 0 || i >= 10 && i <= 70 && (i - 10) % 3 == 0
 }
 
 fn test_a_held_run_releases_within_the_interval_and_margin() {
@@ -169,39 +201,26 @@ fn test_a_held_run_releases_within_the_interval_and_margin() {
     // every 3 ticks for 60 ticks, then nothing.
     var s = sim.new(1, 80, 24)
     var last_press = 0
+    var released_at = -1
     var i = 0
     while i < 120 {
-        let press = i == 0 || i >= 10 && i <= 70 && (i - 10) % 3 == 0
-        if press {
+        if pressed(i) {
             last_press = i
         }
-        sim.step(mut s, if press then one(sim.KEY_LEFT) else none())
+        sim.step(mut s, if pressed(i) then one(sim.KEY_LEFT) else none(), 0)
         if i >= 20 && i <= 70 {
-            assert(s.wolf.heading_target == 0 - sim.STEER_HEADING, "held through the run at {i}")
+            assert(s.heading_target == 0 - sim.STEER_HEADING, "held through the run at {i}")
+        }
+        if i > 70 && released_at < 0 && s.heading_target == 0 {
+            released_at = i
         }
         i += 1
-    }
-    // The hold ended within the interval plus the margin of the last press.
-    var t = sim.new(1, 80, 24)
-    var j = 0
-    var released_at = -1
-    while j < 120 {
-        let press = j == 0 || j >= 10 && j <= 70 && (j - 10) % 3 == 0
-        sim.step(mut t, if press then one(sim.KEY_LEFT) else none())
-        if j > 70 && released_at < 0 && t.wolf.heading_target == 0 {
-            released_at = j
-        }
-        j += 1
     }
     assert(
         released_at > last_press && released_at <= last_press + 3 + sim.HOLD_MARGIN + 1,
         "released at {released_at}, the last press at {last_press}",
     )
-    // Straight again at the turn rate, not by a slow relaxation.
-    assert(
-        t.wolf.heading == 0 && released_at + sim.STEER_HEADING / sim.TURN_RATE + 1 < 120,
-        "straight by tick 120",
-    )
+    assert(s.heading == 0, "straight by tick 120")
 }
 
 fn test_both_steer_keys_held_cancel() {
@@ -209,50 +228,234 @@ fn test_both_steer_keys_held_cancel() {
     var keys = List[int]()
     (mut keys).push(sim.KEY_LEFT)
     (mut keys).push(sim.KEY_RIGHT)
-    sim.step(mut s, keys)
-    assert(s.wolf.heading_target == 0, "cancelled")
+    sim.step(mut s, keys, 0)
+    assert(s.heading_target == 0, "cancelled")
 }
 
 fn test_speed_scale_scales_the_trot() {
     var s = sim.new(1, 80, 24)
     s.speed_scale = 150
     run(mut s, 60)
-    assert(s.wolf.speed == sim.TROT_V * 3 / 2, "speed {s.wolf.speed}")
+    assert(s.speed == sim.TROT_V * 3 / 2, "speed {s.speed}")
 }
 
-fn test_steering_moves_the_wolf_sideways() {
+fn test_steering_moves_the_pack_sideways() {
     var s = sim.new(1, 80, 24)
-    let x0 = s.wolf.x
-    sim.step(mut s, one(sim.KEY_RIGHT))
-    run(mut s, 20)
-    assert(s.wolf.x > x0, "moved right: {s.wolf.x} from {x0}")
+    let x0 = s.px
+    let a0 = sim.alpha(s).x
+    sim.step(mut s, one(sim.KEY_RIGHT), 0)
+    run(mut s, 30)
+    assert(s.px > x0, "the reference moved right: {s.px} from {x0}")
+    assert(sim.alpha(s).x > a0, "the alpha followed: {sim.alpha(s).x} from {a0}")
+}
+
+fn test_the_turn_ripples_back_through_the_pack() {
+    // Hold Right: the leaders' heading turns first, the flankers' three
+    // ticks later, the alpha's six; a slot lag of zero would turn all five
+    // in the same tick (the plant).
+    var s = sim.new(1, 80, 24)
+    var lead_turned = -1
+    var flank_turned = -1
+    var alpha_turned = -1
+    var i = 0
+    while i < 30 {
+        sim.step(mut s, if i % 2 == 0 then one(sim.KEY_RIGHT) else none(), 0)
+        if lead_turned < 0 && s.wolves[0].heading > 0 {
+            lead_turned = i
+        }
+        if flank_turned < 0 && s.wolves[2].heading > 0 {
+            flank_turned = i
+        }
+        if alpha_turned < 0 && s.wolves[sim.ALPHA].heading > 0 {
+            alpha_turned = i
+        }
+        i += 1
+    }
+    assert(lead_turned >= 0 && flank_turned >= 0 && alpha_turned >= 0, "all turned")
+    assert(
+        flank_turned - lead_turned == sim.slot_lag(2) &&
+            alpha_turned - lead_turned == sim.slot_lag(sim.ALPHA),
+        "lead {lead_turned} flank {flank_turned} alpha {alpha_turned}",
+    )
+}
+
+fn test_bodies_never_overlap() {
+    // Steer hard both ways and sprint over a long run on several seeds;
+    // after every tick the separation rule leaves no two bodies overlapping.
+    var seed = 1
+    while seed <= 2 {
+        var s = sim.new(seed, 80, 24)
+        var i = 0
+        while i < 300 {
+            let keys = if i % 90 < 30 {
+                one(sim.KEY_LEFT)
+            } else if i % 90 < 60 {
+                one(sim.KEY_RIGHT)
+            } else if i % 90 == 61 {
+                one(sim.KEY_UP)
+            } else {
+                none()
+            }
+            sim.step(mut s, keys, 0)
+            assert(!sim.any_overlap(s), "seed {seed} tick {i}: two bodies overlap")
+            i += 1
+        }
+        seed += 1
+    }
+}
+
+fn test_the_pack_bumps_and_wanders() {
+    // Over a trot the wolves drift off their slots (the wander) and, on
+    // some seed, two of them meet and are nudged apart (a bump, counted).
+    var bumps = 0
+    var drifted = false
+    var seed = 1
+    while seed <= 4 {
+        var s = sim.new(seed, 80, 24)
+        var i = 0
+        while i < 300 {
+            sim.step(mut s, none(), 0)
+            var k = 0
+            while k < sim.PACK_SIZE {
+                let slot_x = s.px + sim.slot_dx(k) * world.FP
+                let off = s.wolves[k].x - slot_x
+                if off > world.FP || off < 0 - world.FP {
+                    drifted = true
+                }
+                k += 1
+            }
+            i += 1
+        }
+        bumps += s.bumps
+        seed += 1
+    }
+    assert(drifted, "a wolf drifted a cell off its slot")
+    assert(bumps > 0, "a bump happened on some seed in 1200 ticks")
 }
 
 fn test_forest_edge_slows_and_scratches() {
     var s = sim.new(1, 80, 24)
     var i = 0
-    while i < 200 && !s.wolf.in_forest {
-        sim.step(mut s, one(sim.KEY_LEFT))
+    while i < 400 && !sim.alpha(s).in_forest {
+        sim.step(mut s, one(sim.KEY_LEFT), 0)
         i += 1
     }
-    assert(s.wolf.in_forest, "reached the forest")
+    assert(sim.alpha(s).in_forest, "the alpha reached the forest")
     run(mut s, 40)
-    assert(s.wolf.speed <= sim.FOREST_V, "capped at {s.wolf.speed}")
-    assert(s.wolf.scratches > 0, "scratched")
-    assert(s.wolf.x >= world.FP / 2, "never off the screen")
+    assert(s.speed <= sim.FOREST_V, "the pack capped at {s.speed}")
+    assert(sim.alpha(s).scratches > 0, "scratched")
+    var k = 0
+    while k < sim.PACK_SIZE {
+        assert(s.wolves[k].x >= world.FP, "never off the screen")
+        k += 1
+    }
+}
+
+fn test_health_floors_faint_the_farthest_and_recovery_returns() {
+    var s = sim.new(3, 80, 24)
+    run(mut s, 20)
+    sim.step(mut s, none(), -25)
+    assert(s.down == 1 && s.health == 75, "one down at 75: {s.down}")
+    var fainted = -1
+    var k = 0
+    while k < sim.PACK_SIZE {
+        if s.wolves[k].state == sim.FAINTED {
+            fainted = k
+        }
+        k += 1
+    }
+    assert(fainted >= 0 && fainted != sim.ALPHA, "a wolf, not the alpha, fainted: {fainted}")
+    let fy = s.wolves[fainted].y
+    run(mut s, 60)
+    assert(s.wolves[fainted].y == fy, "the fainted wolf lies where it fell")
+    assert(sim.screen_row(s, fainted) > sim.wolf_row(s), "left behind, below the alpha")
+    // A second floor: another faints. Then recovery: one returns at a time,
+    // each once health is HEALTH_HYST back above the floor that put it down.
+    sim.step(mut s, none(), -20)
+    assert(s.down == 2, "two down at 55")
+    sim.step(mut s, none(), 10)
+    assert(s.down == 2, "65 is under the second floor's threshold (70): still two down")
+    run(mut s, 5)
+    assert(s.down == 2, "hysteresis holds")
+    sim.step(mut s, none(), 5)
+    assert(s.down == 1, "70 is not; one returned")
+    sim.step(mut s, none(), 15)
+    assert(s.down == 1, "85 is under the first floor's threshold (90): still one down")
+    var returning = -1
+    k = 0
+    while k < sim.PACK_SIZE {
+        if s.wolves[k].state == sim.RETURNING {
+            returning = k
+        }
+        k += 1
+    }
+    assert(returning >= 0, "a wolf is returning")
+    assert(sim.wolf_posture(s, returning) != sim.POSTURE_STAND, "it moves")
+    var j = 0
+    while j < 400 && s.wolves[returning].state == sim.RETURNING {
+        sim.step(mut s, none(), 0)
+        j += 1
+    }
+    assert(s.wolves[returning].state == sim.RUNNING, "back in its slot after {j} ticks")
+    assert(j > 10, "the return took time, no teleport: {j} ticks")
+}
+
+fn test_return_speed_is_the_sprint() {
+    var s = sim.new(3, 80, 24)
+    run(mut s, 300)
+    sim.step(mut s, none(), -25)
+    run(mut s, 200)
+    sim.step(mut s, none(), 25)
+    var fastest = 0
+    var k = 0
+    var i = 0
+    while i < 60 {
+        sim.step(mut s, none(), 0)
+        k = 0
+        while k < sim.PACK_SIZE {
+            if s.wolves[k].state == sim.RETURNING && s.wolves[k].speed > fastest {
+                fastest = s.wolves[k].speed
+            }
+            k += 1
+        }
+        i += 1
+    }
+    assert(fastest == sim.RETURN_V, "the return reaches RETURN_V: {fastest}")
+}
+
+fn test_health_slows_the_gait() {
+    var hurt = sim.new(1, 80, 24)
+    sim.step(mut hurt, none(), -90)
+    run(mut hurt, 40)
+    assert(hurt.speed < sim.TROT_V, "slowed at health {hurt.health}: {hurt.speed}")
+    assert(hurt.speed >= sim.TROT_V * 3 / 4, "never below three quarters")
 }
 
 fn test_resize_keeps_the_path_position() {
     var s = sim.new(3, 80, 24)
-    let frac = s.wolf.x * 1000 / (80 * world.FP)
+    let frac = s.px * 1000 / (80 * world.FP)
     sim.resize(mut s, 160, 48)
     assert(s.cols == 160 && s.rows == 48, "resized")
-    assert(s.wolf.x * 1000 / (160 * world.FP) == frac, "same part of the path")
-    assert(sim.wolf_row(s) == 48 - sim.WOLF_ROW_FROM_BOTTOM, "the wolf's row follows the bottom")
+    assert(s.px * 1000 / (160 * world.FP) == frac, "same part of the path")
+    assert(sim.wolf_row(s) == 48 - sim.WOLF_ROW_FROM_BOTTOM, "the alpha's row follows the bottom")
 }
 
 fn test_world_rows_lead_ahead() {
     let s = sim.new(3, 80, 24)
-    assert(sim.world_row(s, sim.wolf_row(s)) == 0, "the wolf's row is world row 0")
+    assert(sim.world_row(s, sim.wolf_row(s)) == 0, "the alpha's row is world row 0")
     assert(sim.world_row(s, 0) == sim.wolf_row(s), "the top shows the rows ahead")
+    assert(
+        sim.screen_row(s, 0) == sim.wolf_row(s) - sim.slot_dy(0),
+        "a leader is ahead on the screen",
+    )
+}
+
+fn test_spawn_rate_is_the_worlds_at_the_alphas_row() {
+    var s = sim.new(3, 80, 24)
+    run(mut s, 100)
+    assert(
+        sim.spawn_rate(s) == world.spawn_rate(3, sim.distance_cells(s)),
+        "the alpha's row feeds the rate: {sim.spawn_rate(s)}",
+    )
+    assert(world.spawn_rate(3, 4000) > world.spawn_rate(3, 0), "and it rises with distance")
 }
