@@ -40,13 +40,13 @@ next.
 | Left, Right | steer the pack; hold to keep turning, release to straighten; the forest edge slows and scratches |
 | Up | a sprint burst, while stamina lasts |
 | Down | stop; stamina returns fastest standing |
-| arrows + Space | aim the leap: Space alone or Up forward; Left/Right sideways, two arrows diagonally, Down backward then resume forward. Leaders and one flanker, then the other flanker and alpha; up to 2.14/s while stamina lasts; a one-tick compass tell precedes the arc |
+| arrows + Space | aim the leap: Space alone or Up forward; Left/Right sideways, two recent arrows diagonally in either order, Down backward then resume forward. Leaders and one flanker, then the other flanker and alpha; up to 2.14/s while stamina lasts; a one-tick compass tell precedes the arc |
 | Shift+Down, or `z` | parry: an attack that lands within 400 ms of the press is turned and the shadow knocked back; a press, never a held stance |
 | `s` | on the death card: save the replay as `pack-SEED-SCORE.pk` in the working directory (or at `--record`'s path), with its score |
 | `q` or Esc | leave: a run or the death card for the title, the title for the shell (under `--no-title`, the program quits at once); the terminal is restored on every exit |
 | on the title | any key runs the next seed; `r` runs the same seed again; `p` plays the last saved replay; `/` asks for a replay's name (type it, Enter plays, Esc cancels); `q` leaves |
 
-A leap hits within six cells in a ±45-degree sector along its aim, or two cells all round, from the leaping group. Contradictory arrows default forward; the terminal infers held arrows from presses and autorepeat (`docs/KEYS.md`).
+A leap hits within six cells in a ±45-degree sector along its aim, or two cells all round, from the leaping group. Arrows held or pressed within 500 ms of Space choose the aim, since a keyboard can repeat only its last key; the later opposing arrow wins on each axis. Steering releases as before (`docs/KEYS.md`).
 
 The pack moves at a migrating trot, not a run. An exhausted pack pants and cannot sprint or leap until it
 has recovered; a tired pack's ears go back and its tails drop. Posture is the only gauge: there are no bars,
@@ -88,20 +88,20 @@ dense stand, and `--seed 16 --start 600` puts a group of three shadows on you wi
 ## Tests
 
 Determinism is the oracle. A run is a pure function of the seed, the inputs, the tier and the size, so
-`tests/cases/*.pk` (thirty cases: a standstill, a trot, a steer into the forest, a sprint to exhaustion, a
+`tests/cases/*.pk` (thirty-eight cases: a standstill, a trot, a steer into the forest, a sprint to exhaustion, a
 formation turn with a bump, a faint and a return, a clearing, a dense stand, a resize mid-run, the wide
 field, the shadows' five — a spawn and a chase with the turn, a group attack, a leap that lands and the
 fade, a parry that turns an attack, a death and its card, all from row 600 where the curve has groups — a
 deer fleeing and run down, dusk coming, dusk and night, alternating pack leaps, and a shadow
-windup captured every tick, plus nine aimed-leap cases including the default and Up) are run headless on both tiers and diffed
+windup captured every tick, plus nine aimed-leap cases including the default and Up, and eight last-key-only repeat cases covering every diagonal in both orders) are run headless on both tiers and diffed
 against `tests/goldens/` cell for cell (`.lair/tools/goldens`), with the art study's sheets and the title card.
 Shadows and deer are the seed's, never a replay event, so the same file meets the same on every machine.
-The unit tests (`.lair/tools/test`, 158 of them (pack 97, pinned engine 61)) cover the diff renderer with a terminal model, the key decoder
+The unit tests (`.lair/tools/test`, 160 of them (pack 99, pinned engine 61)) cover the diff renderer with a terminal model, the key decoder
 with every sequence split at every byte and the prompt's text mode, the clock, the world's noise and
 density, the curve and the deer's rate, the simulation's bars (the speeds, the turn rate, the held key, the
 formation's lag, the wander and the bumps, health's floors and returns, the shadows' roll, perception, the
 turn at rest and the chase, the sprint that shakes, bodies never overlapping, group and lone damage, the
-sixteen-subset held-aim table, sector/contact boundaries, backward trail progress, alternating leap and its refusals, clipped animation arcs, directional sensing, the two-beat lunge,
+realistic aim timing table (both orders of each diagonal, cardinals, default, window expiry and latest opposing press), sector/contact boundaries, backward trail progress, alternating leap and its refusals, clipped animation arcs, directional sensing, the two-beat lunge,
 the parry's window and recoil, frozen death frames and recorded replay scores, the deer's roll, walk, flight,
 tiring, catch and feed, the spawn side on a bend, the phase of the day), the palette's blend (the keyframes
 met, the eyes fixed, the cube round-tripped, the plain tier's promise at night), the replay's `start` and
@@ -112,7 +112,7 @@ mode is undone and the alternate screen left on `q`, on Ctrl-C (the interrupt th
 and on a planted trap, that the bytes it captured, replayed through the model, equal the headless frames,
 that a held key releases within two ticks of its last byte, that a run played to its death, saved from the
 card and re-run, gives the same card byte for byte, and that the title card runs the same seed on `r`,
-records the score and the saved replay in its own `HOME`, and plays the replay back verified. Eighteen fresh terminal sessions also type the default and every held leap aim on both glyph tiers and check their live tells and restoration. `.lair/tools/perf`
+records the score and the saved replay in its own `HOME`, and plays the replay back verified. Eighteen fresh terminal sessions also type the default and every held leap aim on both glyph tiers and check their live tells and restoration. Another 58 timed sessions repeat only the last arrow, press Space 200–400 ms later, and check the raw Hold snapshot and aim; these cover the diagonal failure that simultaneous bytes cannot reproduce. `.lair/tools/perf`
 holds the render under a millisecond at 80x24 and under four at 200x60 with a dozen shadows and three deer
 at dusk, counts the loop's wake-ups at idle, and times a key to the frame that carries it (median under a
 tick and a render, p90 under two ticks). `.lair/tools/check` runs the unit tests, builds, goldens and pty rows; `.lair/tools/perf` runs the
