@@ -2,7 +2,7 @@
 """tools/pty — drive the real binary in a pseudo-terminal and measure what
 the terminal layer promises (campaign rule 4: restored on every exit path).
 
-    python3 -I tools/pty [--bin target/release/pack] [--rows quit,sigint,trap,agree-rich,agree-plain]
+    python3 -I tools/pty [--bin target/release/pack] [--rows quit,ctrl-c,trap,agree-rich,agree-plain]
                          [--keep]
 
 A holder process is the pty's session leader so the terminal outlives the

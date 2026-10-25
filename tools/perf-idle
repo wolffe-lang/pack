@@ -70,7 +70,14 @@ def row_latency(bin):
         while time.monotonic() < deadline:
             r, _, _ = select.select([s.master], [], [], 0.001)
             if r:
-                chunk = os.read(s.master, 65536)
+                try:
+                    chunk = os.read(s.master, 65536)
+                except OSError:
+                    chunk = b""
+                if not chunk:
+                    s.finish()
+                    print("perf-idle: latency FAILED: the game ended after %d keys (exit %d, stderr %r)" % (i, s.status, s.err[-300:]))
+                    return False
                 s.out += chunk
                 if len(s.out) > before:
                     samples.append((time.monotonic() - t0) * 1000)
