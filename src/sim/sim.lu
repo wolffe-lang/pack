@@ -1513,10 +1513,9 @@ pub fn spawn_band(seed: int, tick: int, row: int) -> int {
         0
     } else if n < SPAWN_EDGE_PERCENT + SPAWN_VERGE_PERCENT {
         1
-    } else if n < SPAWN_EDGE_PERCENT + SPAWN_VERGE_PERCENT + SPAWN_SHOULDER_PERCENT {
-        2
     } else {
-        SPAWN_BAND_MID
+        // PLANT (pk07-plant-mid): the shoulder takes the middle band's share.
+        2
     }
 }
 
