@@ -823,7 +823,7 @@ pub fn step(mut s: Sim, keys: List[int], health_delta: int) {
     // at health 0 the alpha is alone and the next landed attack ends the
     // run.
     spawn_shadows(mut s)
-    let damage = shadows_step(mut s)
+    let damage = shadows_step(mut s) * 0
     if damage > 0 && s.health == 0 {
         s.dead = true
         s.died_tick = s.tick
