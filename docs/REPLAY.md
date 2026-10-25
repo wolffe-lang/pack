@@ -17,6 +17,7 @@ size 80x24
 t 30 up
 t 30 left
 t 95 size 100x30
+t 110 health -25
 t 120 quit
 ```
 
@@ -28,6 +29,7 @@ t 120 quit
 | `size WxH` | the field's columns and rows at the start |
 | `t TICK KEY` | a key at a tick: `up`, `down`, `left`, `right`, `parry`, `leap`, `quit`, `interrupt` |
 | `t TICK size WxH` | the terminal was resized at that tick |
+| `t TICK health N` | the pack's health changed by N (negative or positive) at that tick: the goldens' channel for fainting and return until pk02's shadows deal damage, and what the debug keys `-` and `=` record under `--debug` |
 
 Ticks count from 0 and never decrease; several events may share a tick and are applied in file order. The
 four header lines must all be present; a missing one, an unknown word, a bad number or a tick that goes
@@ -43,5 +45,8 @@ backwards is a parse failure, and `pack` says so and exits 2.
   runs of `fg,bg,attrs*count` a row), and the last frame as `final.txt` and `final.sty`. Flags given on the
   command line override the file's header; `--seed` given overrides the file's seed.
 - `pack --record FILE` saves the run you just played, in this format, when the game ends.
+
+A held key is in the file as what the terminal sent: its first press and every autorepeat, each at its tick.
+The simulation reads the hold from those ticks alone, so a replay steers exactly as the hand did.
 
 A high score, once pk02 brings the card, is a replay anyone can verify by re-running it.

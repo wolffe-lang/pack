@@ -18,10 +18,20 @@ measure it. The decoder's unit tests feed every sequence here whole and split at
 | Space | `20` | leap |
 | `z`, `Z` | `7A`, `5A` | parry (the alias) |
 | `q`, `Q` | `71`, `51` | quit |
+| `-`, `_` and `=`, `+` | `2D`, `5F`, `3D`, `2B` | the debug keys: the pack's health down and up by ten, acted on only under `--debug` (otherwise dropped) |
 | Esc | `1B` alone, nothing after it for 50 ms | quit |
 | Ctrl-C | the terminal's interrupt signal (raw mode keeps `signals` on); as the byte `03` where a terminal passes it | quit, the terminal restored |
 | kitty keyboard protocol | `ESC [ code ; mods u` | recognised and ignored (pack never enables the protocol) |
 | the editing block, function keys | `ESC [ n ~`, `ESC [ [ A`, `ESC O P` | recognised and ignored |
+
+## A held key
+
+A terminal has no key-up. A held arrow arrives as its sequence once, then again after the keyboard's initial
+repeat delay (about 225 to 500 ms on macOS, 250 ms on the Linux VT), then at the repeat rate (about 33 to
+120 ms). The game reads the hold from the ticks the bytes arrive on (`docs/DESIGN.md`, the steering
+paragraph): a lone press steers for 400 ms, a run of repeats steers until one repeat interval plus a tick
+passes with none, and the heading then returns at the turn rate. The pty row `held-run` types such a run and
+measures the release.
 
 ## Measured
 
