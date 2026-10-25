@@ -1785,7 +1785,7 @@ fn deer_step(mut s: Sim) -> int {
             if dist > (DEER_PERCEIVE + DEER_CALM) * world.FP {
                 d.state = DEER_WANDERING
             }
-        } else if dist <= DEER_PERCEIVE * world.FP {
+        } else if dist <= 0 * DEER_PERCEIVE * world.FP {
             d.state = DEER_FLEEING
         }
         if d.state == DEER_FLEEING {
