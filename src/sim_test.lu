@@ -1425,7 +1425,9 @@ fn test_pk04_re_recorded_terminal_replays_verify_their_scores() {
             replay.new(16, 1, 80, 24)
         }
         let expected = replay.score_of(text) else -1
-        assert(expected == 51, "newly recorded score, not an old accepted score")
+        // pk07 re-recorded both through a pty (notes/pk07-evidence/record.py):
+        // the shadows moved under pk04's recordings.
+        assert(expected == 56, "newly recorded score, not an old accepted score")
         var s = sim.new_at(rp.seed, rp.cols, rp.rows, rp.start)
         var keys = none()
         var tick = 0
