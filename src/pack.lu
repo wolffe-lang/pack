@@ -580,7 +580,9 @@ fn run_live(o: Options, args: List[str]) -> int {
             }
         }
         if w.input_ready {
-            term.read_keys(mut buf, 64) else |_| {
+            term.read_keys(mut buf, 64) else |e| {
+                // A hang-up (eof) or a failed read ends the game; say which.
+                eprint("pack: standard input: {e}")
                 quit = true
                 (mut buf).reset()
             }
