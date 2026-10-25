@@ -7,7 +7,8 @@
 #                                 (1 on a kasumi-class host, 3 on CI)
 #
 # The render bars come from `pack --bench` (render + diff a frame, release,
-# 300 frames of a scripted steer, both tiers, both sizes: the average is
+# 300 frames of a scripted steer with a dozen shadows chasing the pack
+# (pk02, `--bench-shadows 12`), both tiers, both sizes: the average is
 # gated, the p99 and max recorded). The idle and latency rows come from
 # tools/perf-idle, which drives the real binary in a pty: the voluntary
 # context switches of a standing game over 10 s (Linux's /proc; a loud
@@ -35,7 +36,7 @@ for spec in "80x24 1000" "200x60 4000"; do
     size=${spec% *}
     bar=${spec#* }
     for tier in rich plain; do
-        line=$("$bin" --bench --size "$size" --tier "$tier" --frames 300 --seed 7)
+        line=$("$bin" --bench --size "$size" --tier "$tier" --frames 300 --seed 7 --bench-shadows 12)
         echo "$line" | tee -a target/perf/summary.txt
         avg=$(echo "$line" | sed -n 's/.*avg_us \([0-9]*\).*/\1/p')
         limit=$((bar * slack))
