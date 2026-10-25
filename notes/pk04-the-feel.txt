@@ -1,0 +1,33 @@
+# pk04 — the feel
+
+## Prediction (2026-10-25, before implementation)
+Twenty seeds (1–20), 80x24, centre-following trot to row 1800: I predict
+35% of spawned shadows perceive a wolf before, 65% after. Centre following
+will be tick-scripted from the seeded path, not a stationary screen column.
+The shoulder run uses the same controller with a half-width offset.
+I predict a fixed parry ten ticks before landing succeeds 0/20 before,
+20/20 after a twelve-tick window (six crouch, six lunge). Offset six should
+succeed on both; the extra window is proposed, not a ruling.
+Cooldown rhythm is 30/20 = 1.50 versus 30/14 = 2.14 leaps/s while stamina
+lasts, not sustained indefinitely. The alternating groups are slots 0,1,2
+then 3,4; alpha second. A shared triangular integer arc animates both.
+Dusk onset at row 600: ideal flat trot 128.0 s before, 111.3 s after;
+full dusk 256.0 to 222.6 s, night 384.0 to 333.9 s. Fifteen percent more
+speed means 13.04% less elapsed time, not literally fifteen percent less.
+Goldens predicted to move: trot, steer-forest, sprint-exhaust, formation-turn,
+faint-return, clearing, dense-stand, resize, wide, spawn-chase, group-attack,
+leap-lands, parry-turns, death-card, deer-flee, dusk-early, dusk, night;
+standstill should hold unless braking distance moves its first frames.
+Art sheets move for the leap poses; title sheets should hold.
+
+## Forbidden
+No engine modules, other games, extra dependencies, server operations,
+planning or memory edits. No merge, label, release or issue actions.
+
+## Rulings recommended (not decided)
+R-pk04-1: A, a 60-degree forward half-cone plus a 3-cell all-round radius;
+seeded outward facings and forest-edge/verge/shoulder columns.
+R-pk04-2: A, leaders+left flanker, then right flanker+alpha.
+R-pk04-3: keep an unchanged hit envelope: attacks resolve as before, with
+bounded presentation offsets and collision checks, so no sprite passes
+through another body. The offset is not a new hitbox or camera anchor.
