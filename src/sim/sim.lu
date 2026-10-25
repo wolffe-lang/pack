@@ -66,6 +66,8 @@
 //! rows above the bottom of the screen, and the screen shows the path
 //! ahead; `world_row` maps a screen row to a world row.
 
+use input
+use trail
 use world
 
 /// Trot speed `v` in FP units a tick: 0.156 cells a tick, 4.7 a second.
@@ -103,20 +105,6 @@ pub const STEER_HEADING: int = 48
 /// two seconds; this is the realism bar's decay, and it is the whole of
 /// the residual motion after a release (the maintainer's ruling, 2026-10-25).
 pub const TURN_RATE: int = 12
-
-/// A terminal has no key-up: a held key arrives as its first byte and then
-/// the keyboard's autorepeat. A lone press is held this many ticks (400 ms,
-/// the span of a keyboard's initial repeat delay, so a key held for less
-/// than its own delay steers for the delay and a tap is a readable swerve).
-pub const HOLD_TAP_TICKS: int = 12
-
-/// An interval between two presses at most this long is the autorepeat
-/// rate (33 to 120 ms on the terminals measured); longer is the initial
-/// delay, or a second tap.
-pub const HOLD_RATE_MAX: int = 5
-
-/// The hold outlives the last repeat by the measured interval plus this.
-pub const HOLD_MARGIN: int = 1
 
 /// Stamina's ceiling.
 pub const STAMINA_MAX: int = 300
@@ -471,47 +459,6 @@ pub const FAINTED: int = 1
 /// Returning from the bottom edge to its slot.
 pub const RETURNING: int = 2
 
-/// A held key, from ticks alone (so a replay reproduces it): the ticks of
-/// the last two presses and the tick the hold ends.
-pub struct Hold {
-    last: int,
-    prev: int,
-    until: int,
-}
-
-/// No press yet.
-pub fn hold_new() -> Hold {
-    Hold { last: -1000, prev: -1000, until: -1 }
-}
-
-/// A press (the first byte or an autorepeat) at `tick`. A lone press holds
-/// `HOLD_TAP_TICKS`; a repeat holds the measured interval (the larger of
-/// the last two, since a 90 ms rate lands on alternating 2- and 3-tick
-/// gaps) plus the margin; the first repeat after the keyboard's initial
-/// delay holds `HOLD_RATE_MAX` plus the margin, the rate not yet known.
-pub fn hold_press(mut h: Hold, tick: int) {
-    let gap = tick - h.last
-    let prev_gap = h.last - h.prev
-    if gap <= HOLD_RATE_MAX {
-        var rate = gap
-        if prev_gap <= HOLD_RATE_MAX && prev_gap > rate {
-            rate = prev_gap
-        }
-        h.until = tick + rate + HOLD_MARGIN
-    } else if gap <= HOLD_TAP_TICKS + HOLD_MARGIN {
-        h.until = tick + HOLD_RATE_MAX + HOLD_MARGIN
-    } else {
-        h.until = tick + HOLD_TAP_TICKS
-    }
-    h.prev = h.last
-    h.last = tick
-}
-
-/// Whether the key is held at `tick`.
-pub fn held(h: Hold, tick: int) -> bool {
-    tick < h.until
-}
-
 /// One wolf: its own position, heading, speed and state; the forest edge's
 /// touch and its scratches.
 pub struct Wolf {
@@ -547,8 +494,8 @@ pub struct Sim {
     health: int,
     down: int,
     bumps: int,
-    hold_left: Hold,
-    hold_right: Hold,
+    hold_left: input.Hold,
+    hold_right: input.Hold,
     speed_scale: int,
     leaps: int,
     parries: int,
@@ -614,7 +561,7 @@ pub fn new(seed: int, cols: int, rows: int) -> Sim {
 /// header's `start N`, pk03): the same forest, the pack placed there, so
 /// the distance (and with it the curve and the dusk) begins at `start`.
 pub fn new_at(seed: int, cols: int, rows: int, start: int) -> Sim {
-    let (centre, _) = world.path(seed, cols, start)
+    let (centre, _) = trail.path(seed, cols, start)
     var wolves = List[Wolf]()
     var i = 0
     while i < PACK_SIZE {
@@ -654,8 +601,8 @@ pub fn new_at(seed: int, cols: int, rows: int, start: int) -> Sim {
         health: HEALTH_MAX,
         down: 0,
         bumps: 0,
-        hold_left: hold_new(),
-        hold_right: hold_new(),
+        hold_left: input.hold_new(),
+        hold_right: input.hold_new(),
         speed_scale: 100,
         leaps: 0,
         parries: 0,
@@ -936,10 +883,10 @@ pub fn step(mut s: Sim, keys: List[int], health_delta: int) {
         }
     }
     if left {
-        hold_press(mut s.hold_left, s.tick)
+        input.hold_press(mut s.hold_left, s.tick)
     }
     if right {
-        hold_press(mut s.hold_right, s.tick)
+        input.hold_press(mut s.hold_right, s.tick)
     }
     // The shadows: spawn, perceive, chase, flock, attack. Their landed
     // attacks join the replay's and the debug keys' channel into health;
@@ -964,10 +911,10 @@ pub fn step(mut s: Sim, keys: List[int], health_delta: int) {
     // released, it returns to straight at the same rate and the sideways
     // motion ends with it. The target's history feeds the slots' lags.
     var steer = 0
-    if held(s.hold_left, s.tick) {
+    if input.held(s.hold_left, s.tick) {
         steer -= 1
     }
-    if held(s.hold_right, s.tick) {
+    if input.held(s.hold_right, s.tick) {
         steer += 1
     }
     s.heading_target = steer * STEER_HEADING
@@ -1059,7 +1006,7 @@ pub fn step(mut s: Sim, keys: List[int], health_delta: int) {
     while i < PACK_SIZE {
         var w = copy s.wolves[i]
         if w.state != FAINTED {
-            let (centre, half) = world.path(s.seed, s.cols, w.y / world.FP)
+            let (centre, half) = trail.path(s.seed, s.cols, w.y / world.FP)
             w.in_forest = abs(w.x - centre) > half
             if w.in_forest {
                 w.scratches += 1
@@ -1279,7 +1226,7 @@ pub fn distance_cells(s: Sim) -> int {
 /// The spawn-rate input pk02 reads: a function of the alpha's distance
 /// and the forest's density at its row (`world.spawn_rate`).
 pub fn spawn_rate(s: Sim) -> int {
-    world.spawn_rate(s.seed, alpha(s).y / world.FP)
+    trail.spawn_rate(s.seed, alpha(s).y / world.FP)
 }
 
 // The shadows (pk02).
@@ -1340,7 +1287,7 @@ pub fn spawn_roll(seed: int, tick: int, rate: int) -> int {
 /// A shadow lurking at the forest edge of world row `row`, on `side` (-1
 /// left, 1 right): half a cell into the verge, facing down the path.
 fn lurker(s: Sim, row: int, side: int) -> Shadow {
-    let (centre, half) = world.path(s.seed, s.cols, row)
+    let (centre, half) = trail.path(s.seed, s.cols, row)
     Shadow {
         x: clamp_x(centre + side * (half + world.FP / 2), s.cols),
         y: row * world.FP,
@@ -1363,8 +1310,8 @@ fn lurker(s: Sim, row: int, side: int) -> Shadow {
 /// a wide path from it; on a straight (under a cell of bend) the seed's
 /// coin.
 pub fn spawn_side(s: Sim, top: int) -> int {
-    let (here, _) = world.path(s.seed, s.cols, alpha(s).y / world.FP)
-    let (there, _) = world.path(s.seed, s.cols, top)
+    let (here, _) = trail.path(s.seed, s.cols, alpha(s).y / world.FP)
+    let (there, _) = trail.path(s.seed, s.cols, top)
     let bend = there - here
     if bend > world.FP {
         return -1
@@ -1674,7 +1621,7 @@ fn cohesion(s: Sim, k: int) -> (int, int) {
 /// The deer rate at the alpha's row (`world.deer_rate`), thousandths a
 /// tick.
 pub fn deer_rate(s: Sim) -> int {
-    world.deer_rate(s.seed, alpha(s).y / world.FP)
+    trail.deer_rate(s.seed, alpha(s).y / world.FP)
 }
 
 /// Whether the tick's roll brings a deer: the world's hash of the tick
@@ -1708,7 +1655,7 @@ pub fn deer_screen_col(s: Sim, k: int) -> int {
 /// path's centre, facing down the path at a walk (it grazes toward the
 /// oncoming pack until it sees it).
 pub fn grazer(s: Sim, row: int, off: int) -> Deer {
-    let (centre, _) = world.path(s.seed, s.cols, row)
+    let (centre, _) = trail.path(s.seed, s.cols, row)
     Deer {
         id: s.deer_spawned,
         x: clamp_x(centre + off, s.cols),
@@ -1731,7 +1678,7 @@ fn spawn_deer(mut s: Sim) {
         return
     }
     let row = world_row(s, 0) + 1
-    let (_, half) = world.path(s.seed, s.cols, row)
+    let (_, half) = trail.path(s.seed, s.cols, row)
     let span = 2 * half / world.FP
     let off = world.hash(s.seed + 6000, s.tick, 2, if span > 0 then span else 1) * world.FP - half
     (mut s.deer).push(grazer(s, row, off))
@@ -1800,7 +1747,7 @@ fn deer_step(mut s: Sim) -> int {
         if d.tired && d.stamina >= DEER_RECOVER {
             d.tired = false
         }
-        let (centre, half) = world.path(s.seed, s.cols, d.y / world.FP)
+        let (centre, half) = trail.path(s.seed, s.cols, d.y / world.FP)
         var want_dir = d.dir
         var want_speed = scaled(s, DEER_WALK_V)
         var aim = 0
