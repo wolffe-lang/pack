@@ -1,0 +1,9 @@
+# The Linux leg's container: ubuntu 24.04 with what the pinned wolf needs
+# to link (clang >= 15, lld, a libc) and what the tools need (python3 for
+# the pty runner and the planner). The toolchain itself is fetched on the
+# host by digest and mounted; nothing here is built from source.
+FROM docker.io/library/ubuntu:24.04
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    python3 ca-certificates curl gcc libc6-dev binutils git clang lld && rm -rf /var/lib/apt/lists/*
+ENV LC_ALL=C.UTF-8 LANG=C.UTF-8 TERM=xterm-256color
+WORKDIR /work
