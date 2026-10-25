@@ -27,7 +27,7 @@ fn terrain_row(s: sim.Sim, t: int, row: int, mut g: grid.Grid) {
         let xc = col * world.FP + world.FP / 2
         let d = abs(xc - centre)
         if d <= half {
-            if world.path_marked(s.seed, wr, col, 9) {
+            if world.path_marked(s.seed, wr, col, 10) {
                 grid.put(
                     mut g,
                     row,
@@ -178,7 +178,7 @@ pub fn sheet(t: int) -> grid.Grid {
                     tier.SP_FOREST_DARK
                 }
                 c = tier.glyph(t, sprite, world.variant(1, row, col, 4))
-            } else if world.path_marked(1, row, col, 9) {
+            } else if world.path_marked(1, row, col, 10) {
                 c = tier.glyph(t, tier.SP_PATH_MARK, world.variant(1, row, col, 4))
             }
             grid.put(mut g, row, col, c)
