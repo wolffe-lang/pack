@@ -1796,7 +1796,7 @@ fn leap(mut s: Sim) {
     s.leap_next_group = 1 - s.leap_next_group
     s.leap_marks_x = List[int]()
     s.leap_marks_y = List[int]()
-    s.stopping = false
+    if s.leap_aim.y >= 0 { s.stopping = false }
     var k = 0
     while k < s.shadows.len {
         var sh = copy s.shadows[k]
