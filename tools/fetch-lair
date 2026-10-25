@@ -45,9 +45,12 @@ rm -rf .lair
 mkdir -p .lair
 git -C "$tmp/lair" archive FETCH_HEAD | tar -x -C .lair
 echo "$have" >.lair/LAIR-REV
-for d in src/*/; do
-    if [ -L "${d%/}" ] && [ ! -e "$d" ]; then
-        echo "fetch-lair: REFUSED — $d points at nothing in the staged engine" >&2
+# `src/*`, never `src/*/`: a dangling symlink is no directory and the
+# slashed glob skipped exactly the links this looks for (cb00's pin plant
+# passed this check and died at the planner instead).
+for d in src/*; do
+    if [ -L "$d" ] && [ ! -e "$d" ]; then
+        echo "fetch-lair: REFUSED — $d points at nothing in the staged engine; the pin and the game disagree" >&2
         exit 1
     fi
 done
