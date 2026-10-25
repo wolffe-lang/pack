@@ -33,11 +33,13 @@
 //! (R-pk02-1 A: the wolves' rate), a speed moved at `SHADOW_ACCEL` and
 //! `SHADOW_BRAKE`, and a direction along the path. Shadows are the seed's:
 //! each tick the world's hash of the tick is rolled against
-//! `world.spawn_rate` (thousandths a tick) and a shadow appears at the
-//! forest edge just above the top of the screen — alone, or in a group of
+//! `world.spawn_rate` (thousandths a tick) and a shadow appears just above
+//! the top of the screen — at the forest edge, in the verge, on the path's
+//! shoulder or in the middle of the path (pk07), alone, or in a group of
 //! two or three once the rate passes `GROUP_RATE` — and lurks there, eyes
-//! on the path. A lurking shadow that sees a pack member within `PERCEIVE`
-//! cells turns toward it and stalks down the path at `STALK_V`; once the
+//! toward the path and, mostly, down it. A lurking shadow that sees a pack
+//! member within its range (`PERCEIVE` cells, or across the path on a
+//! wide field) turns toward it and stalks down the path at `STALK_V`; once the
 //! pack is past it, it decelerates, its direction flips only when its speed
 //! has reached zero (no pivot), and it chases at `CHASE_V` = 1.3 v, faster
 //! than the trot and slower than the sprint, so a sprint shakes it and a
@@ -213,17 +215,32 @@ pub const SHADOW_TURN_RATE: int = 12
 
 /// The perception radius, cells: a lurking shadow turns toward a pack
 /// member this close (the larger of the sideways and the along distance).
-pub const PERCEIVE: int = 8
+pub const PERCEIVE: int = 12
 
 /// Close contact is heard all round; farther away requires the 60-degree
 /// half-cone (4 dot² >= |f|² |d|²). R-pk04-1 A, proposed 2026-10-25.
 pub const PERCEIVE_NEAR: int = 3
 
+/// Beyond the path's half width a lurker sees this much further, cells:
+/// its range at a row is the larger of `PERCEIVE` and that row's half
+/// width plus this (pk07), so a forest-edge lurker on a wide field still
+/// sees a pack trotting the centre of the path.
+pub const PERCEIVE_ACROSS: int = 4
+
 /// Spawn bands: forest edge 20%, inner verge 30%, path shoulder 50%.
-pub const SPAWN_EDGE_PERCENT: int = 20
+pub const SPAWN_EDGE_PERCENT: int = 15
 
 /// The inner-verge share, percent.
-pub const SPAWN_VERGE_PERCENT: int = 30
+pub const SPAWN_VERGE_PERCENT: int = 20
+
+/// The shoulder share, percent; the rest of the hundred lurk in the
+/// middle of the path (pk07).
+pub const SPAWN_SHOULDER_PERCENT: int = 35
+
+/// The middle band: a lurker waits on the path itself, within half the
+/// path's half width of its centre, and scrolls into view ahead of the
+/// pack (pk07).
+pub const SPAWN_BAND_MID: int = 3
 
 /// Shoulder inset from the path edge, cells.
 pub const SPAWN_SHOULDER_CELLS: int = 3
@@ -1458,10 +1475,14 @@ pub fn lurker(s: Sim, row: int, side: int) -> Shadow {
         half + world.FP / 2
     } else if band == 1 {
         half - world.FP / 2
-    } else {
+    } else if band == 2 {
         half - SPAWN_SHOULDER_CELLS * world.FP
+    } else {
+        // The middle of the path: anywhere from the centre to half way
+        // out, by the seed.
+        half / 2 * world.hash(s.seed + 5300, s.tick, row, 1000) / 1000
     }
-    let (fx, fy) = spawn_facing(s.seed, s.tick, row, side)
+    let (fx, fy) = spawn_facing(s.seed, s.tick, row, side, band)
     Shadow {
         face_x: fx,
         face_y: fy,
@@ -1484,37 +1505,60 @@ pub fn lurker(s: Sim, row: int, side: int) -> Shadow {
     }
 }
 
-/// The seed picks a spawn band, independently of its facing.
+/// The seed picks a spawn band: 0 the forest edge, 1 the inner verge, 2
+/// the shoulder, 3 the middle of the path (`SPAWN_BAND_MID`).
 pub fn spawn_band(seed: int, tick: int, row: int) -> int {
     let n = world.hash(seed + 5100, tick, row, 100)
     if n < SPAWN_EDGE_PERCENT {
         0
     } else if n < SPAWN_EDGE_PERCENT + SPAWN_VERGE_PERCENT {
         1
-    } else {
+    } else if n < SPAWN_EDGE_PERCENT + SPAWN_VERGE_PERCENT + SPAWN_SHOULDER_PERCENT {
         2
+    } else {
+        SPAWN_BAND_MID
     }
 }
 
-/// Five evenly spaced facings across the outward half-circle: along the
-/// path both ways, diagonally toward it both ways, straight across to it.
-/// No facing has a component into the woods, even on the right bank.
-pub fn spawn_facing(seed: int, tick: int, row: int, side: int) -> (int, int) {
-    let n = world.hash(seed + 5200, tick, row, 5)
-    let fx = if n == 0 || n == 4 then 0 else 0 - side * 2
-    let fy = if n < 2 then -2 else if n == 2 then 0 else 2
+/// The five facings across the outward half-circle: along the path both
+/// ways, diagonally toward it both ways, straight across to it. No facing
+/// has a component into the woods, even on the right bank. Weighted
+/// toward the way the pack comes (pk07): down the path, diagonally down
+/// and across each twice in eight, diagonally up and up the path once
+/// each (a shadow looking up the path can only chase from behind). A
+/// lurker in the middle of the path watches the pack come: down the path
+/// twice in three, diagonally down toward the far verge once.
+pub fn spawn_facing(seed: int, tick: int, row: int, side: int, band: int) -> (int, int) {
+    if band == SPAWN_BAND_MID {
+        let n = world.hash(seed + 5200, tick, row, 3)
+        return (if n == 2 then 0 - side * 2 else 0, -2)
+    }
+    let n = world.hash(seed + 5200, tick, row, 8)
+    let fx = if n < 2 || n == 7 then 0 else 0 - side * 2
+    let fy = if n < 4 then -2 else if n < 6 then 0 else 2
     (fx, fy)
 }
 
-/// A wolf within PERCEIVE and in the forward 60-degree half-cone, or
-/// brushing past within PERCEIVE_NEAR all round. Integer dot products;
-/// the original Chebyshev range and the hit envelope do not change.
-pub fn shadow_perceives(sh: Shadow, x: int, y: int) -> bool {
+/// The range a lurker perceives over at its own row, FP units: `PERCEIVE`
+/// cells, or the path's half width there plus `PERCEIVE_ACROSS` when the
+/// field is wide (pk07): the field grows with the terminal and a
+/// forest-edge lurker must still see across to the centre of the path.
+pub fn perceive_range(s: Sim, sh: Shadow) -> int {
+    let (_, half) = trail.path(s.seed, s.cols, sh.y / world.FP)
+    let across = half + PERCEIVE_ACROSS * world.FP
+    if across > PERCEIVE * world.FP then across else PERCEIVE * world.FP
+}
+
+/// A wolf within `range` (FP units; `perceive_range`) and in the forward
+/// 60-degree half-cone, or brushing past within PERCEIVE_NEAR all round.
+/// Integer dot products; the Chebyshev measure and the hit envelope do
+/// not change.
+pub fn shadow_perceives(sh: Shadow, x: int, y: int, range: int) -> bool {
     let dx = x - sh.x
     let dy = y - sh.y
     let d = reach_dist(sh.x, sh.y, x, y)
     if d <= PERCEIVE_NEAR * world.FP { return true }
-    if d > PERCEIVE * world.FP { return false }
+    if d > range { return false }
     let dot = dx * sh.face_x + dy * sh.face_y
     dot >= 0 &&
         4 * dot * dot >= (sh.face_x * sh.face_x + sh.face_y * sh.face_y) * (dx * dx + dy * dy)
@@ -1525,10 +1569,11 @@ pub fn shadow_perceives(sh: Shadow, x: int, y: int) -> bool {
 pub fn perceived_wolf(s: Sim, sh: Shadow) -> int {
     var best = -1
     var best_d = 0
+    let range = perceive_range(s, sh)
     var i = 0
     while i < PACK_SIZE {
         let w = copy s.wolves[i]
-        if w.state != FAINTED && shadow_perceives(sh, w.x, w.y) {
+        if w.state != FAINTED && shadow_perceives(sh, w.x, w.y, range) {
             let d = reach_dist(sh.x, sh.y, w.x, w.y)
             if best < 0 || d < best_d { best = i; best_d = d }
         }
