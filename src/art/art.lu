@@ -1,12 +1,14 @@
-//! art — a frame from the simulation: the forest, the path and the wolf
+//! art — a frame from the simulation: the forest, the path and the pack
 //! drawn onto a grid through a tier. Pure: the same simulation state and
 //! tier give the same grid, which is what the goldens pin.
 //!
 //! The sprites (`docs/ART.md`): the rich wolf is 3 by 2 cells with
 //! half-blocks (R-pk00-4 B: the doubling is the wolves' alone), the plain
-//! wolf 2 by 1; the fainted wolf, the shadow wolf with red eyes and the
-//! deer are drawn here too, for the art study's mock frames (`sheet`),
-//! though no simulation places them yet (pk01, pk02, pk03).
+//! wolf 2 by 1. Posture is the HUD (innovation 5): the ears and the tail
+//! carry the stamina band, the head the pant, the gait the speed. The
+//! fainted wolf lies where it fell; the shadow wolf with red eyes and the
+//! deer are drawn for the art study's sheet, no simulation placing them
+//! yet (pk02, pk03).
 
 use grid
 use sim
@@ -17,11 +19,27 @@ fn abs(v: int) -> int {
     if v < 0 then 0 - v else v
 }
 
+/// A forest cell's sprite by `world.forest_kind`'s answer.
+fn forest_sprite(kind: int) -> int {
+    if kind == 0 {
+        return tier.SP_GRASS
+    }
+    if kind == 1 {
+        return tier.SP_TRUNK
+    }
+    if kind == 2 {
+        return tier.SP_CANOPY
+    }
+    tier.SP_FOREST_DARK
+}
+
 /// The terrain of screen row `row` into `g`: path cells inside the path,
-/// forest outside, the verge at the edge.
+/// forest outside (its cover from the row's density), the verge at the
+/// edge.
 fn terrain_row(s: sim.Sim, t: int, row: int, mut g: grid.Grid) {
     let wr = sim.world_row(s, row)
     let (centre, half) = world.path(s.seed, s.cols, wr)
+    let density = world.density(s.seed, wr)
     var col = 0
     while col < s.cols {
         let xc = col * world.FP + world.FP / 2
@@ -39,27 +57,19 @@ fn terrain_row(s: sim.Sim, t: int, row: int, mut g: grid.Grid) {
             }
         } else {
             let dist = (d - half + world.FP - 1) / world.FP
-            let kind = world.forest_kind(s.seed, wr, col, dist - 1)
+            let kind = world.forest_kind(s.seed, wr, col, dist - 1, density)
             let v = world.variant(s.seed, wr, col, 4)
-            let sprite = if kind == 0 {
-                tier.SP_GRASS
-            } else if kind == 1 {
-                tier.SP_TRUNK
-            } else if kind == 2 {
-                tier.SP_CANOPY
-            } else {
-                tier.SP_FOREST_DARK
-            }
-            grid.put(mut g, row, col, tier.glyph(t, sprite, v))
+            grid.put(mut g, row, col, tier.glyph(t, forest_sprite(kind), v))
         }
         col += 1
     }
 }
 
 /// Draw one wolf at screen `row` (its body row), centred on `col`, with
-/// a trot `frame`, a `posture` and `dim` for the forest edge. Rich: three
-/// cells wide and two tall (the head row above); plain: the head cell and
-/// a tail cell.
+/// a trot `frame`, a `posture`, a stamina `band` and `dim` for the forest
+/// edge. Rich: three cells wide and two tall (the head row above: ear,
+/// head, ear; the body row: legs, body, tail); plain: the head cell and a
+/// tail cell.
 pub fn draw_wolf(
     mut g: grid.Grid,
     t: int,
@@ -67,27 +77,28 @@ pub fn draw_wolf(
     col: int,
     frame: int,
     posture: int,
+    band: int,
     tick: int,
     dim: bool,
 ) {
     let pant = posture == sim.POSTURE_PANT && tick / 8 % 2 == 1
-    let head_v = if pant then 1 else 0
     if t == tier.RICH {
         let body = if dim then tier.SP_WOLF_BODY_DIM else tier.SP_WOLF_BODY
-        grid.put(mut g, row - 1, col - 1, tier.glyph(t, tier.SP_WOLF_EAR, 0))
+        let head_v = if pant then 1 else 0
+        grid.put(mut g, row - 1, col - 1, tier.glyph(t, tier.SP_WOLF_EAR, 2 * band))
         grid.put(mut g, row - 1, col, tier.glyph(t, tier.SP_WOLF_HEAD, head_v))
-        grid.put(mut g, row - 1, col + 1, tier.glyph(t, tier.SP_WOLF_EAR, 1))
-        grid.put(mut g, row, col - 1, tier.glyph(t, tier.SP_WOLF_TAIL, frame))
+        grid.put(mut g, row - 1, col + 1, tier.glyph(t, tier.SP_WOLF_EAR, 2 * band + 1))
+        grid.put(mut g, row, col - 1, tier.glyph(t, tier.SP_WOLF_LEGS, frame))
         grid.put(mut g, row, col, tier.glyph(t, body, 0))
-        grid.put(mut g, row, col + 1, tier.glyph(t, tier.SP_WOLF_TAIL, (frame + 2) % 4))
+        grid.put(mut g, row, col + 1, tier.glyph(t, tier.SP_WOLF_TAIL, 4 * band + frame))
         return
     }
-    var head = tier.glyph(t, tier.SP_WOLF_HEAD, head_v)
+    var head = tier.glyph(t, tier.SP_WOLF_HEAD, if pant || band == sim.BAND_SPENT then 1 else 0)
     if dim {
         head = tier.glyph(t, tier.SP_WOLF_BODY_DIM, 0)
     }
     grid.put(mut g, row, col, head)
-    grid.put(mut g, row, col + 1, tier.glyph(t, tier.SP_WOLF_TAIL, frame))
+    grid.put(mut g, row, col + 1, tier.glyph(t, tier.SP_WOLF_TAIL, 4 * band + frame))
 }
 
 /// A fainted wolf at `row`, `col`.
@@ -129,8 +140,43 @@ pub fn draw_deer(mut g: grid.Grid, t: int, row: int, col: int) {
     grid.put(mut g, row, col + 1, tier.glyph(t, tier.SP_DEER, 1))
 }
 
-/// The whole frame: terrain on every row, then the wolf. `g` must be the
-/// simulation's size (`assert`).
+/// Whether a wolf whose body row is `row` is on a screen of `rows` rows
+/// on tier `t` (the rich wolf needs the row above too).
+fn on_screen(t: int, row: int, rows: int) -> bool {
+    let top = if t == tier.RICH then row - 1 else row
+    top >= 0 && row < rows
+}
+
+/// Draw wolf `i` of the simulation where the alpha's eye puts it, if on
+/// the screen.
+fn draw_pack_wolf(s: sim.Sim, t: int, i: int, mut g: grid.Grid) {
+    let row = sim.screen_row(s, i)
+    let col = sim.screen_col(s, i)
+    let w = copy s.wolves[i]
+    if w.state == sim.FAINTED {
+        if row >= 0 && row < s.rows {
+            draw_fainted(mut g, t, row, col)
+        }
+        return
+    }
+    if on_screen(t, row, s.rows) {
+        draw_wolf(
+            mut g,
+            t,
+            row,
+            col,
+            sim.trot_frame(s, i),
+            sim.wolf_posture(s, i),
+            sim.band(s),
+            s.tick,
+            w.in_forest,
+        )
+    }
+}
+
+/// The whole frame: terrain on every row, then the pack — the fainted
+/// first (they lie under the path), then the wolves, the alpha last. `g`
+/// must be the simulation's size (`assert`).
 pub fn render(s: sim.Sim, t: int, mut g: grid.Grid) {
     assert(g.rows == s.rows && g.cols == s.cols, "art.render: the grid is the simulation's size")
     var row = 0
@@ -138,46 +184,44 @@ pub fn render(s: sim.Sim, t: int, mut g: grid.Grid) {
         terrain_row(s, t, row, mut g)
         row += 1
     }
-    let col = s.wolf.x / world.FP
-    draw_wolf(
-        mut g,
-        t,
-        sim.wolf_row(s),
-        col,
-        sim.trot_frame(s),
-        sim.posture(s),
-        s.tick,
-        s.wolf.in_forest,
-    )
+    var i = 0
+    while i < sim.PACK_SIZE {
+        if s.wolves[i].state == sim.FAINTED {
+            draw_pack_wolf(s, t, i, mut g)
+        }
+        i += 1
+    }
+    i = 0
+    while i < sim.PACK_SIZE {
+        if i != sim.ALPHA && s.wolves[i].state != sim.FAINTED {
+            draw_pack_wolf(s, t, i, mut g)
+        }
+        i += 1
+    }
+    draw_pack_wolf(s, t, sim.ALPHA, mut g)
 }
 
 /// The art study's sheet (`docs/ART.md`): every sprite the tiers know,
-/// laid out on a 24 by 60 grid over a strip of path and forest — the four
-/// trot frames, the pant, the dim wolf, the fainted wolf, the shadow wolf
-/// with each eye frame, the deer, and the terrain textures. Committed as
-/// a golden on both tiers.
+/// laid out on a 24 by 60 grid over a strip of path and forest — the
+/// forest a clearing on the top third, thin woods in the middle, a dense
+/// stand below — the four trot frames, the postures (standing, sprinting,
+/// the two pant phases, dim, tired, spent), the fainted wolf, the shadow
+/// wolf with each eye frame, the deer, and the pack in formation.
+/// Committed as a golden on both tiers.
 pub fn sheet(t: int) -> grid.Grid {
     var g = grid.new(24, 60)
     // A band of path down the middle with forest either side.
     var row = 0
     while row < 24 {
+        let density = if row < 8 then 0 else if row < 16 then world.FP / 2 else world.FP
         var col = 0
         while col < 60 {
             let d = abs(col - 30)
             var c = tier.glyph(t, tier.SP_PATH, 0)
             if d > 14 {
                 let dist = d - 14
-                let kind = world.forest_kind(1, row, col, dist - 1)
-                let sprite = if kind == 0 {
-                    tier.SP_GRASS
-                } else if kind == 1 {
-                    tier.SP_TRUNK
-                } else if kind == 2 {
-                    tier.SP_CANOPY
-                } else {
-                    tier.SP_FOREST_DARK
-                }
-                c = tier.glyph(t, sprite, world.variant(1, row, col, 4))
+                let kind = world.forest_kind(1, row, col, dist - 1, density)
+                c = tier.glyph(t, forest_sprite(kind), world.variant(1, row, col, 4))
             } else if world.path_marked(1, row, col, 9) {
                 c = tier.glyph(t, tier.SP_PATH_MARK, world.variant(1, row, col, 4))
             }
@@ -189,25 +233,38 @@ pub fn sheet(t: int) -> grid.Grid {
     // The four trot frames, side by side on row 3.
     var f = 0
     while f < 4 {
-        draw_wolf(mut g, t, 3, 20 + f * 5, f, sim.POSTURE_TROT, 0, false)
+        draw_wolf(mut g, t, 3, 20 + f * 5, f, sim.POSTURE_TROT, sim.BAND_FRESH, 0, false)
         f += 1
     }
-    // Standing, sprinting, panting (both phases), dim.
-    draw_wolf(mut g, t, 7, 20, 0, sim.POSTURE_STAND, 0, false)
-    draw_wolf(mut g, t, 7, 25, 1, sim.POSTURE_SPRINT, 0, false)
-    draw_wolf(mut g, t, 7, 30, 0, sim.POSTURE_PANT, 0, false)
-    draw_wolf(mut g, t, 7, 35, 0, sim.POSTURE_PANT, 8, false)
-    draw_wolf(mut g, t, 7, 40, 2, sim.POSTURE_TROT, 0, true)
+    // Standing, sprinting, panting (both phases), dim, tired, spent.
+    draw_wolf(mut g, t, 7, 20, 0, sim.POSTURE_STAND, sim.BAND_FRESH, 0, false)
+    draw_wolf(mut g, t, 7, 25, 1, sim.POSTURE_SPRINT, sim.BAND_FRESH, 0, false)
+    draw_wolf(mut g, t, 7, 30, 0, sim.POSTURE_PANT, sim.BAND_SPENT, 0, false)
+    draw_wolf(mut g, t, 7, 35, 0, sim.POSTURE_PANT, sim.BAND_SPENT, 8, false)
+    draw_wolf(mut g, t, 7, 40, 2, sim.POSTURE_TROT, sim.BAND_FRESH, 0, true)
+    draw_wolf(mut g, t, 7, 45, 1, sim.POSTURE_TROT, sim.BAND_TIRED, 0, false)
+    draw_wolf(mut g, t, 7, 50, 2, sim.POSTURE_TROT, sim.BAND_SPENT, 0, false)
     // The fainted wolf, the shadow wolf (two eye frames), the deer.
     draw_fainted(mut g, t, 11, 20)
     draw_shadow(mut g, t, 11, 27, 0)
     draw_shadow(mut g, t, 11, 33, 1)
     draw_deer(mut g, t, 11, 40)
-    // A pack of five in formation, the alpha trailing (pk01's shape).
-    draw_wolf(mut g, t, 16, 26, 0, sim.POSTURE_TROT, 0, false)
-    draw_wolf(mut g, t, 16, 34, 1, sim.POSTURE_TROT, 0, false)
-    draw_wolf(mut g, t, 18, 22, 2, sim.POSTURE_TROT, 0, false)
-    draw_wolf(mut g, t, 18, 38, 3, sim.POSTURE_TROT, 0, false)
-    draw_wolf(mut g, t, 21, 30, 0, sim.POSTURE_TROT, 0, false)
+    // The pack in formation, the alpha trailing at the centre: the slots
+    // of `sim.slot_dx`/`slot_dy` around the alpha at (21, 30).
+    var i = 0
+    while i < sim.PACK_SIZE {
+        draw_wolf(
+            mut g,
+            t,
+            21 - sim.slot_dy(i),
+            30 + sim.slot_dx(i),
+            i % 4,
+            sim.POSTURE_TROT,
+            sim.BAND_FRESH,
+            0,
+            false,
+        )
+        i += 1
+    }
     g
 }

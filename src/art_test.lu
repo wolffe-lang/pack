@@ -29,15 +29,74 @@ fn test_render_is_deterministic() {
     assert(frames_equal(a, b), "two renders of one state agree")
 }
 
-fn test_wolf_sits_low_on_the_screen() {
+fn test_alpha_sits_low_on_the_screen_and_the_pack_ahead() {
     let s = sim.new(5, 80, 24)
     var g = grid.new(24, 80)
     art.render(s, tier.RICH, mut g)
     let row = sim.wolf_row(s)
-    let col = s.wolf.x / 256
+    let col = sim.screen_col(s, sim.ALPHA)
     let body = tier.glyph(tier.RICH, tier.SP_WOLF_BODY, 0)
-    assert(grid.same(grid.at(g, row, col), body), "the body cell at {row},{col}")
+    assert(grid.same(grid.at(g, row, col), body), "the alpha's body cell at {row},{col}")
     assert(row == 19, "row {row} of 24")
+    var i = 0
+    while i < sim.PACK_SIZE - 1 {
+        let r = sim.screen_row(s, i)
+        let c = sim.screen_col(s, i)
+        assert(r < row, "wolf {i} ahead of the alpha")
+        assert(grid.same(grid.at(g, r, c), body), "wolf {i}'s body cell at {r},{c}")
+        i += 1
+    }
+}
+
+fn test_a_fainted_wolf_is_drawn_where_it_lies_then_leaves_the_screen() {
+    var s = sim.new(5, 80, 24)
+    var i = 0
+    while i < 20 {
+        sim.step(mut s, List[int](), 0)
+        i += 1
+    }
+    sim.step(mut s, List[int](), -25)
+    var f = -1
+    var k = 0
+    while k < sim.PACK_SIZE {
+        if s.wolves[k].state == sim.FAINTED {
+            f = k
+        }
+        k += 1
+    }
+    assert(f >= 0, "one fainted")
+    var g = grid.new(24, 80)
+    art.render(s, tier.RICH, mut g)
+    let fainted = tier.glyph(tier.RICH, tier.SP_FAINTED, 0)
+    assert(
+        grid.same(grid.at(g, sim.screen_row(s, f), sim.screen_col(s, f)), fainted),
+        "drawn fainted at {sim.screen_row(s, f)}",
+    )
+    // The world scrolls past it: it falls below the bottom edge.
+    i = 0
+    while i < 400 {
+        sim.step(mut s, List[int](), 0)
+        i += 1
+    }
+    assert(sim.screen_row(s, f) >= 24, "off the bottom: row {sim.screen_row(s, f)}")
+    var h = grid.new(24, 80)
+    art.render(s, tier.RICH, mut h)
+    assert(grid.plain_ok(h) == false, "renders without trapping")
+}
+
+fn test_posture_shows_in_the_ears() {
+    var fresh = sim.new(5, 80, 24)
+    var g = grid.new(24, 80)
+    art.render(fresh, tier.RICH, mut g)
+    let row = sim.wolf_row(fresh) - 1
+    let col = sim.screen_col(fresh, sim.ALPHA) - 1
+    let ear_fresh = grid.at(g, row, col)
+    var spent = sim.new(5, 80, 24)
+    spent.stamina = sim.STAMINA_SPENT - 1
+    var h = grid.new(24, 80)
+    art.render(spent, tier.RICH, mut h)
+    let ear_spent = grid.at(h, row, col)
+    assert(!grid.same(ear_fresh, ear_spent), "the ears differ by band")
 }
 
 fn test_plain_frame_keeps_the_promise() {
@@ -48,7 +107,7 @@ fn test_plain_frame_keeps_the_promise() {
         if i % 7 == 0 {
             (mut keys).push(sim.KEY_LEFT)
         }
-        sim.step(mut s, keys)
+        sim.step(mut s, keys, if i == 30 then -25 else 0)
         i += 1
     }
     var g = grid.new(24, 80)
@@ -62,7 +121,7 @@ fn test_frames_change_as_the_wolf_moves() {
     art.render(s, tier.RICH, mut a)
     var i = 0
     while i < 10 {
-        sim.step(mut s, List[int]())
+        sim.step(mut s, List[int](), 0)
         i += 1
     }
     var b = grid.new(24, 80)
