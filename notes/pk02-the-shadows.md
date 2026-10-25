@@ -117,9 +117,9 @@ forest's foliage texture), as its own commit.
 |---|---|---|
 | `wolf fmt --check`; 104 unit tests on the checked machine (`tools/test`), 0 SKIP | nomad; kasumi (container, CPUs 4-7) | green both |
 | both tiers built with warnings denied; `pack --selftest` on the release binary (the decoder table, now 27 rows, whole and split at every byte; the diff property) | nomad; kasumi | green both |
-| the goldens, 15 cases on both tiers and the sheets (31 directories, 3.3 MB), byte-identical | written on nomad (macOS arm64), compared on kasumi (Linux x86-64) | KASUMI_GOLDENS |
-| the pty rows quit, ctrl-c, trap, agree-rich, agree-plain, held-run and the new card | nomad; kasumi in the container | nomad all seven green; kasumi KASUMI_PTY |
-| the perf gate with a dozen shadows (`tools/perf`) | nomad (idle a loud SKIP); kasumi | green nomad; kasumi KASUMI_PERF; section 3 |
+| the goldens, 15 cases on both tiers and the sheets (31 directories, 3.3 MB), byte-identical | written on nomad (macOS arm64), compared on kasumi (Linux x86-64) | every case ok on kasumi: byte-identical at the first try |
+| the pty rows quit, ctrl-c, trap, agree-rich, agree-plain, held-run and the new card | nomad; kasumi in the container | nomad all seven green; kasumi all seven green |
+| the perf gate with a dozen shadows (`tools/perf`) | nomad (idle a loud SKIP); kasumi | green nomad; kasumi green; section 3 |
 | the plants (item 9) | three draft PRs | section 6 and the hand-back |
 
 What the probes and rows caught that the first draft of the code did not:
@@ -156,10 +156,10 @@ The prediction (`notes/pk02-evidence/prediction.md`, commit `12930d6`), scored:
 |---|---|---|---|
 | 1 the chase as a threat | the speed alone does not read; the turn does; the eyes need to pulse and the body a silhouette on the earth | the goldens read exactly so: a chaser climbing the bottom of the screen is a cell every twenty ticks, the turn below the alpha is the event; the eyes pulse while chasing, go dim lurking, steady winding up (built); the shadow stays drawn on the path's background | hit on the turn and the pulse; the maintainer judges the threat by play |
 | 2 shadows survivable without a parry | two on leaps alone; three a fight; four cost two wolves and the run | seed 16's group of three, unanswered, puts four wolves down by tick 403 and kills about tick 450 (`probes.md`): three unanswered is a death, not a fight; two (seed 5) take one wolf by tick 420 | miss by one: the group bites harder than predicted because two in reach land `DAMAGE` each every cooldown — 20 a second; the maintainer's first tuning message is predicted to be about `DAMAGE` or the cooldown |
-| 3 render with a dozen at 200x60 | within 15 percent of pk01's 235 us on kasumi; sim under the render | nomad 166 us rich (pk01 170); kasumi KASUMI_RENDER | hit on nomad |
+| 3 render with a dozen at 200x60 | within 15 percent of pk01's 235 us on kasumi; sim under the render | nomad 166 us rich (pk01 170); kasumi 247 us rich (pk01 235: +5 percent) | hit on nomad |
 | 4 new goldens | 10 directories, 31 in all; every trotting case moves; `standstill` holds | 31; every case but `standstill` moved | hit |
 | 5 the card's numbers first | yes by construction; the closing line stays after | yes: a test scans every pre-card frame for a digit on both tiers; the closing line prints after the restore | hit |
-| the goldens byte-identical across hosts at the first try | yes | KASUMI_GOLDENS_SHORT | |
+| the goldens byte-identical across hosts at the first try | yes | byte-identical on kasumi (every case ok) | |
 | the pty rows pass unchanged | yes | yes, six for six on both hosts, and the seventh | hit |
 | the first wolf gap | the step budget again; #950 on the save message | neither: the gap met was `wolf test` hiding the assert message (finding 8); no test needed more than 300 steps; the save message carries no row | miss |
 
@@ -172,25 +172,27 @@ gate found 8 GB (refused three times, waited each time behind `~/lanes/pk02/with
 
 | measurement | kasumi (Linux x86-64) | nomad (macOS arm64) | bar |
 |---|---|---|---|
-| render + diff, 80x24 rich, avg / p99 / max, 300 frames, five wolves and a dozen shadows | KASUMI_8024R | 26 / 53 / 405 us | < 1 ms |
-| render + diff, 80x24 plain | KASUMI_8024P | 24 / 44 / 46 us | < 1 ms |
-| render + diff, 200x60 rich | KASUMI_20060R | 166 / 320 / 336 us | < 4 ms |
-| render + diff, 200x60 plain | KASUMI_20060P | 158 / 263 / 272 us | < 4 ms |
+| render + diff, 80x24 rich, avg / p99 / max, 300 frames, five wolves and a dozen shadows | 38 / 71 / 90 us | 26 / 53 / 405 us | < 1 ms |
+| render + diff, 80x24 plain | 37 / 61 / 71 us | 24 / 44 / 46 us | < 1 ms |
+| render + diff, 200x60 rich | 247 / 689 / 755 us | 166 / 320 / 336 us | < 4 ms |
+| render + diff, 200x60 plain | 227 / 378 / 394 us | 158 / 263 / 272 us | < 4 ms |
 | bytes a frame, 80x24 rich / plain; 200x60 rich / plain | the same | 1,126 / 603; 17,797 / 10,081 | |
-| voluntary context switches, standing, 10 s | KASUMI_IDLE | no counter: a loud SKIP | one a tick (240-360) |
-| key to the frame that carries it, median / p90 / max, 20 keys | KASUMI_LAT | 33.1 / 33.4 / 34.1 ms | median < 40, p90 < 70 |
-| the card row: death in the trace, events saved, the last tick | KASUMI_CARD | 11 events (ten `health`, the quit), last tick 242; re-run twice identical; the card equal to the replay's | |
-| the goldens | 31 directories, 3.3 MB, KASUMI_GOLDENS_SHORT | | |
+| voluntary context switches, standing, 10 s | 300 (bar 240-360) | no counter: a loud SKIP | one a tick (240-360) |
+| key to the frame that carries it, median / p90 / max, 20 keys | 13.4 / 33.4 / 34 ms | 33.1 / 33.4 / 34.1 ms | median < 40, p90 < 70 |
+| the card row: death in the trace, events saved, the last tick | 11 events, last tick 243; re-run twice identical; the card equal | 11 events (ten `health`, the quit), last tick 242; re-run twice identical; the card equal to the replay's | |
+| the goldens | 31 directories, 3.3 MB, byte-identical on kasumi (every case ok) | | |
 | the unit tests | 104 on the checked machine, 0 SKIP, both hosts | | |
 
-The bench's bytes a frame fell from pk01's (2,739 and 18,681 at rich) because a dozen chasers around the
-pack change fewer cells than the scroll alone did at the pack's trot... (the bench's scripted steer and
-the shadows' bumps hold the pack's column steadier: fewer path cells change). The render cost with twelve
-shadows is within the noise of pk01's five wolves on nomad; the simulation's cost (136 pairs a separation
-pass over 17 bodies, up to five passes; the cohesion's 144 reads) is not in the render figure and stays
-far under it — the live loop's `render avg` on the latency run was 46 us. The latency samples are the
-phase (one tick) as pk01 found; 2.3 ms average lateness of the tick's wake on nomad against pk01's 1.4
-is the host's load, under the bar's margin.
+The bench's bytes a frame fell from pk01's (2,739 and 18,681 at rich) to 1,126 and 17,797: the dozen
+chasers hold the pack's column steadier than the bench's bare scripted steer did (the bumps), so fewer path
+cells change a frame, and the shadows themselves are 72 cells. The render cost with twelve shadows is within
+5 percent of pk01's five wolves on kasumi (247 against 235 us at 200x60 rich) and under 4 ms by a factor of
+sixteen; the simulation's cost (136 pairs a separation pass over 17 bodies, up to five passes; the
+cohesion's 144 reads) is not in the render figure and the live loop's `render avg` on the latency runs was
+42 to 46 us. The latency samples are the phase, as pk01 found: kasumi's land at 13 ms or one tick, nomad's
+at one tick; the tick's wake was 0.6 ms late on average on kasumi and 2.3 ms on nomad (the host's load),
+inside the bar's margin. The idle row holds one wake a tick with twelve shadows' worth of simulation in the
+loop's budget.
 
 ## 4. Rulings asked (recommended and implemented)
 
@@ -288,4 +290,10 @@ is PAX's view.
 | `pk02-plant-leap` | `LEAP_REACH` read as zero: a leap vanquishes nothing | #10 | `leap-lands`; `test_leap_vanquishes_in_reach_costs_stamina_and_fades` |
 | `pk02-plant-damage` | the landed damage multiplied by zero: no bite costs health, no run ends | #11 | `death-card`, `group-attack`, `spawn-chase`; the damage and death tests; the pty `card` row |
 
-The run ids, read once at the open, are in the hand-back.
+Each went red in its `linux` job at the unit tests — `check-linux` runs the tests before the goldens and
+stops at the first red step, so the goldens behind them did not run: #9 (run 40176050227)
+`test_a_lurker_perceives_within_the_radius_and_not_beyond`; #10 (run 40176053918)
+`test_leap_vanquishes_in_reach_costs_stamina_and_fades`; #11 (run 40176055972)
+`test_group_attack_lands_damage_per_shadow_a_lone_one_less` and
+`test_death_at_zero_health_on_the_next_landed_attack_freezes_the_run`. The run ids and first states
+(`in_progress`) were read once at the open; the completions once more for the rows.
