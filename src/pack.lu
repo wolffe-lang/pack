@@ -386,7 +386,8 @@ fn run_apply(o: Options) -> int {
     0
 }
 
-/// `--art-study`: the sprite sheets on both tiers into `dump`.
+/// `--art-study`: the sprite sheets on both tiers into `dump`, and the
+/// title card on both (pk03).
 fn run_art_study(o: Options) -> int {
     if o.dump == "" {
         eprint("pack: --art-study needs --dump DIR")
@@ -401,6 +402,26 @@ fn run_art_study(o: Options) -> int {
     }
     write_frame(o.dump, "sheet-plain", art.sheet(tier.PLAIN)) else |_| {
         return 2
+    }
+    // The title card (pk03) over seed 7's forest, with a record to show.
+    var info = art.title_new(7)
+    info.last_score = 1240
+    info.best_score = 3310
+    info.best_seed = 16
+    info.best_date = "2026-10-25T07:30:00Z"
+    info.best_name = "/home/wolf/pack-16-3310.pk"
+    info.saved = "/home/wolf/pack-16-3310.pk"
+    info.message = "pack-16-3310.pk: score 3310 verified"
+    var t = 0
+    while t <= 1 {
+        let field = sim.new(7, 80, 24)
+        var g = grid.new(24, 80)
+        art.render(field, t, mut g)
+        art.title(t, 0, info, 24, 80, mut g)
+        write_frame(o.dump, "title-{tier.name(t)}", g) else |_| {
+            return 2
+        }
+        t += 1
     }
     0
 }

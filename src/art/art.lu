@@ -576,7 +576,7 @@ pub fn title(t: int, phase: int, info: Title, rows: int, cols: int, mut g: grid.
         "best   -"
     } else {
         fit(
-            "best   {info.best_score}   seed {info.best_seed}   {info.best_date[0..if info.best_date.len < 10 then info.best_date.len else 10]}{if info.best_name == "-" then "" else "   {short_name(info.best_name)}"}",
+            "best   {info.best_score}  seed {info.best_seed}  {info.best_date[0..if info.best_date.len < 10 then info.best_date.len else 10]}{if info.best_name == "-" then "" else "  {short_name(info.best_name)}"}",
             inner,
             false,
         )
