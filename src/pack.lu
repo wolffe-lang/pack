@@ -41,6 +41,7 @@ struct Options {
     apply_path: str,
     art_study: bool,
     probe_glyphs: bool,
+    bench: bool,
     help: bool,
     version: bool,
 }
@@ -53,7 +54,8 @@ fn usage_text() -> str {
         "       --tier T --size WxH --dump DIR\n" +
         "  pack --apply CAPTURE --size WxH   a captured byte stream as a frame\n" +
         "  pack --art-study --dump DIR       the sprite sheets, both tiers\n" +
-        "  pack --probe-glyphs               measure the rich glyphs' widths here\n\n" +
+        "  pack --probe-glyphs               measure the rich glyphs' widths here\n" +
+        "  pack --bench --size WxH --tier T --frames N   time render + diff a frame\n\n" +
         "  keys: arrows steer, Up sprints, Down stops, Space leaps,\n" +
         "        Shift+Down or z parries, q or Esc quits\n" +
         "  --truecolor / --no-truecolor      override COLORTERM\n" +
@@ -79,6 +81,7 @@ fn options_default() -> Options {
         apply_path: "",
         art_study: false,
         probe_glyphs: false,
+        bench: false,
         help: false,
         version: false,
     }
@@ -100,6 +103,8 @@ fn parse_args(args: List[str]) -> Options ! {usage, parse} {
             o.art_study = true
         } else if a == "--probe-glyphs" {
             o.probe_glyphs = true
+        } else if a == "--bench" {
+            o.bench = true
         } else if a == "--truecolor" {
             o.truecolor = 1
         } else if a == "--no-truecolor" {
@@ -433,6 +438,70 @@ fn cpr_col(v: List[byte]) -> int {
     -1
 }
 
+/// `--bench`: `frames` ticks of a scripted steer on a field of `--size`,
+/// each frame rendered and diffed as the live loop does (no terminal, no
+/// write), the time of render + diff recorded per frame; the average, the
+/// 99th percentile and the maximum in microseconds, and the bytes a frame,
+/// printed on one line for tools/perf.
+fn run_bench(o: Options) -> int {
+    let cols = if o.cols > 0 then o.cols else 80
+    let rows = if o.rows > 0 then o.rows else 24
+    let t = if o.tier < 0 then tier.RICH else o.tier
+    var s = sim.new(o.seed, cols, rows)
+    var front = grid.new(rows, cols)
+    var back = grid.new(rows, cols)
+    var pen = grid.pen_new()
+    var out = List[byte]()
+    var keys = List[int]()
+    var times = List[int]()
+    var bytes: int = 0
+    var k = 0
+    while k < o.frames {
+        (mut keys).reset()
+        if k % 7 == 0 {
+            (mut keys).push(sim.KEY_LEFT)
+        } else if k % 11 == 0 {
+            (mut keys).push(sim.KEY_RIGHT)
+        } else if k % 50 == 0 {
+            (mut keys).push(sim.KEY_UP)
+        }
+        sim.step(mut s, keys)
+        let r0 = clock.now_ns()
+        art.render(s, t, mut back)
+        grid.diff(front, back, k == 0, mut pen, mut out, tier.dialect(t, false))
+        let r1 = clock.now_ns()
+        (mut times).push((r1 - r0) / 1000)
+        bytes += out.len
+        (mut out).reset()
+        let tmp = front
+        front = back
+        back = tmp
+        k += 1
+    }
+    // Insertion sort for the percentiles: a few hundred frames.
+    var i = 1
+    while i < times.len {
+        var j = i
+        while j > 0 && times[j - 1] > times[j] {
+            let x = times[j]
+            times[j] = times[j - 1]
+            times[j - 1] = x
+            j -= 1
+        }
+        i += 1
+    }
+    var total: int = 0
+    for x in times {
+        total += x
+    }
+    let n = times.len
+    let p99 = times[n * 99 / 100 - (if n * 99 % 100 == 0 && n > 0 then 1 else 0)]
+    print(
+        "bench {cols}x{rows} {tier.name(t)} frames {n} avg_us {total / n} p99_us {p99} max_us {times[n - 1]} bytes_avg {bytes / n}",
+    )
+    0
+}
+
 /// The live game.
 fn run_live(o: Options, args: List[str]) -> int {
     var t = term.open() else |e| {
@@ -555,8 +624,12 @@ fn run_live(o: Options, args: List[str]) -> int {
             }
             n += 1
         }
-        (mut keys).reset()
         if due > 0 {
+            // The keys were applied on the first tick above; keys read on a
+            // wake with no tick due wait for the next tick (one tick of
+            // latency at most). The pty runner's `quit` row caught a reset
+            // here that dropped them.
+            (mut keys).reset()
             let r0 = clock.now_ns()
             art.render(s, rp.tier, mut back)
             grid.diff(front, back, full, mut pen, mut out, dialect)
@@ -616,6 +689,9 @@ fn main() -> int {
     }
     if o.probe_glyphs {
         return run_probe(o)
+    }
+    if o.bench {
+        return run_bench(o)
     }
     if o.headless {
         return run_headless(o, args)
