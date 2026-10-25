@@ -9,6 +9,7 @@ cd "$PACK_ROOT"
 tools/check-fmt
 tools/test
 tools/build --all
+target/release/pack --selftest
 tools/goldens
 python3 -I tools/pty --bin target/release/pack
 echo "check-linux: green"

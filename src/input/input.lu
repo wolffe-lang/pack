@@ -134,71 +134,82 @@ fn finish_csi(mut d: Decoder, final: int, mut keys: List[int]) {
 
 /// Feed one byte at `now_ms` (any monotonic millisecond count; it only
 /// times a lone ESC), pushing the keys it completes onto `keys`.
+///
+/// Written as a loop over at most two passes rather than a self-call: the
+/// release tier (wolf 0.2.35, LLVM with the mid-end) answered the constant
+/// of the recursive branch for EVERY byte when this function called itself
+/// after a stray byte following ESC (`notes/pk00-the-engine.md`, the
+/// wolf-lang issue to file; `pack --selftest` holds the shipped binary to
+/// the table).
 pub fn feed(mut d: Decoder, b: byte, now_ms: int, mut keys: List[int]) {
     let v = b as int
-    if d.pending.len == 0 {
-        if v == 27 {
-            (mut d.pending).push(b)
-            d.esc_at_ms = now_ms
+    var again = true
+    while again {
+        again = false
+        if d.pending.len == 0 {
+            if v == 27 {
+                (mut d.pending).push(b)
+                d.esc_at_ms = now_ms
+                return
+            }
+            let k = plain_key(v)
+            if k != KEY_NONE {
+                (mut keys).push(k)
+            } else {
+                d.dropped += 1
+            }
             return
         }
-        let k = plain_key(v)
-        if k != KEY_NONE {
-            (mut keys).push(k)
-        } else {
-            d.dropped += 1
-        }
-        return
-    }
-    if d.pending.len == 1 {
-        // After ESC: `[` opens a CSI, `O` an SS3, another ESC restarts;
-        // anything else is Esc then the byte on its own (an Alt-key).
-        if v == 91 || v == 79 {
-            (mut d.pending).push(b)
-            return
-        }
-        (mut d.pending).reset()
-        if v == 27 {
-            (mut d.pending).push(b)
-            d.esc_at_ms = now_ms
-            return
-        }
-        (mut keys).push(KEY_QUIT)
-        feed(mut d, b, now_ms, mut keys)
-        return
-    }
-    if d.pending[1] as int == 79 {
-        // SS3: one final byte.
-        (mut d.pending).reset()
-        let k = arrow_key(v, 1)
-        if k != KEY_NONE {
-            (mut keys).push(k)
-        } else {
-            d.ignored += 1
-        }
-        return
-    }
-    // CSI: parameter bytes 0x30-0x3F, intermediates 0x20-0x2F, a final
-    // 0x40-0x7E.
-    if v >= 64 && v <= 126 {
-        (mut d.pending).push(b)
-        finish_csi(mut d, v, mut keys)
-        (mut d.pending).reset()
-        return
-    }
-    if v >= 32 && v <= 63 {
-        (mut d.pending).push(b)
-        if d.pending.len > 32 {
-            // Nothing pack reads is this long: drop it.
+        if d.pending.len == 1 {
+            // After ESC: `[` opens a CSI, `O` an SS3, another ESC restarts;
+            // anything else is Esc then the byte on its own (an Alt-key).
+            if v == 91 || v == 79 {
+                (mut d.pending).push(b)
+                return
+            }
             (mut d.pending).reset()
-            d.dropped += 1
+            if v == 27 {
+                (mut d.pending).push(b)
+                d.esc_at_ms = now_ms
+                return
+            }
+            (mut keys).push(KEY_QUIT)
+            again = true
+            continue
         }
-        return
+        if d.pending[1] as int == 79 {
+            // SS3: one final byte.
+            (mut d.pending).reset()
+            let k = arrow_key(v, 1)
+            if k != KEY_NONE {
+                (mut keys).push(k)
+            } else {
+                d.ignored += 1
+            }
+            return
+        }
+        // CSI: parameter bytes 0x30-0x3F, intermediates 0x20-0x2F, a final
+        // 0x40-0x7E.
+        if v >= 64 && v <= 126 {
+            (mut d.pending).push(b)
+            finish_csi(mut d, v, mut keys)
+            (mut d.pending).reset()
+            return
+        }
+        if v >= 32 && v <= 63 {
+            (mut d.pending).push(b)
+            if d.pending.len > 32 {
+                // Nothing pack reads is this long: drop it.
+                (mut d.pending).reset()
+                d.dropped += 1
+            }
+            return
+        }
+        // A C0 byte inside a sequence ends it; the byte is read on its own.
+        (mut d.pending).reset()
+        d.dropped += 1
+        again = true
     }
-    // A C0 byte inside a sequence ends it; the byte is read on its own.
-    (mut d.pending).reset()
-    d.dropped += 1
-    feed(mut d, b, now_ms, mut keys)
 }
 
 /// Feed every byte of `bytes` at `now_ms`.

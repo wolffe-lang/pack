@@ -211,11 +211,7 @@ pub fn write(bytes: List[byte]) -> () ! {io} {
 /// Read what standard input has, after a wait said it is ready: at most
 /// `max` bytes, as a fresh list in the caller's region (a key event is a
 /// few bytes; the ambient region holds them for the game's life, which is
-/// kilobytes an hour). `eof` at a hang-up. A first version pushed the bytes
-/// into a caller's list from inside a `region` block; the compiler admits
-/// that (s255's outer-write rule) but the native tier read the bytes back
-/// wrong under the pty runner (`notes/pk00-the-engine.md` names the
-/// witness), so the shape is avoided here until the witness is answered.
+/// kilobytes an hour). `eof` at a hang-up.
 pub fn read_keys(max: int) -> List[byte] ! ReadErrors {
     var tin = fs.stdin()
     fs.read_chunk(mut tin, max)?
