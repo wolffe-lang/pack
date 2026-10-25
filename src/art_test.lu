@@ -159,6 +159,11 @@ fn chaser(s: sim.Sim, dx_cells: int, dy_rows: int) -> sim.Shadow {
     sim.Shadow {
         face_x: 0,
         face_y: -2,
+        attack_age: 0,
+        attack_dx: 0,
+        attack_dy: 0,
+        pose_x: 0,
+        pose_y: 0,
         x: a.x + dx_cells * world.FP,
         y: a.y + dy_rows * world.FP,
         heading: 0,
@@ -401,6 +406,27 @@ fn test_pk04_pack_leap_has_distinct_poses_on_both_tiers() {
         if t == tier.PLAIN {
             assert(grid.plain_ok(leap), "plain leap keeps the tier promise")
             assert(grid.at(leap, 4, 6).cp == 62 && grid.at(leap, 4, 7).cp == 87, "distinct >W pair")
+        }
+        t += 1
+    }
+}
+
+fn test_pk04_shadow_crouch_and_lunge_are_distinct_on_both_tiers() {
+    var t = tier.PLAIN
+    while t <= tier.RICH {
+        var normal = grid.new(8, 12)
+        var crouch = grid.new(8, 12)
+        var lunge = grid.new(8, 12)
+        let p = tier.palette_at(t, 0)
+        art.draw_shadow(mut normal, t, p, 4, 6, 0, false, 0, sim.FADE_TICKS)
+        art.draw_shadow_attack(mut crouch, t, p, 4, 6, true, false, 0)
+        art.draw_shadow_attack(mut lunge, t, p, 4, 6, false, false, 0)
+        assert(
+            !frames_equal(normal, crouch) && !frames_equal(crouch, lunge),
+            "two distinct attack beats",
+        )
+        if t == tier.PLAIN {
+            assert(grid.plain_ok(crouch) && grid.plain_ok(lunge), "plain promise")
         }
         t += 1
     }

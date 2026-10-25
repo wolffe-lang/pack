@@ -140,7 +140,8 @@ a tick for 24 ticks: a cell a burst).
 | `SPAWN_EDGE_PERCENT`, `SPAWN_VERGE_PERCENT`, `SPAWN_SHOULDER_CELLS` | 20, 30, 3 | 20% at the former forest edge (+0.5 cells outside the path), 30% inner verge (0.5 inside), 50% shoulder (3 inside); independent seeded five-way outward facing | 2026-10-25 proposed |
 | `REACH` | 4 | the attack reach, cells, measured the same way: bodies three cells wide that touch are three apart centre to centre and a bump leaves them four, so a shadow on a wolf's flank is in reach | 2026-10-25 proposed |
 | `FLANK` | 4 | a chasing shadow stops steering toward its target's column this close to it and rides the flank | 2026-10-25 proposed |
-| `ATTACK_WINDUP` | 9 | the ticks an attack winds up before it lands (300 ms): the lunge the player reads and parries; the eyes go steady | 2026-10-25 proposed |
+| `ATTACK_WINDUP` | 12 | 400 ms: six ticks gathering in a compressed crouch, six carrying the body toward its target; steady eyes, bite on the final tick | 2026-10-25 the maintainer's word (timing proposed) |
+| `ATTACK_LUNGE_TICKS` | 6 | final half of the windup; same half-cell/tick arc as the pack, body collision clipped | 2026-10-25 proposed |
 | `ATTACK_COOLDOWN` | 30 | the ticks between one shadow's attacks (one landing a second) | 2026-10-25 proposed |
 | `DAMAGE` | 10 | health a landed attack costs when another shadow is in reach too (a group attack lands once per shadow in it: two landed cost one wolf; R-pk02-2 A) | 2026-10-25 proposed |
 | `DAMAGE_LONE` | 5 | health a lone shadow's landed attack costs | 2026-10-25 proposed |
@@ -174,7 +175,7 @@ target is still in reach.
 | `LEAP_STAMINA` | 60 | a leap's cost, a fifth of the ceiling: about five leaps, then the pant; the spent pack cannot leap (the pant refuses, nothing happens) | 2026-10-25 proposed |
 | `LEAP_COOLDOWN` | 14 | accepted leaps alternate groups at up to 2.14/s while stamina lasts | 2026-10-25 the maintainer's word (rhythm proposed) |
 | `LEAP_TICKS` | 8 | two-cell out-and-back arc at half a cell/tick, leaders+left flanker then right flanker+alpha; other group holds, one-tick landing mark | 2026-10-25 the maintainer's word (duration proposed) |
-| `PARRY_WINDOW` | 9 | Shift+Down or `z` turns any attack that lands within this many ticks of the press (300 ms; R-pk02-3 A: a press, never a held stance) | 2026-10-25 proposed |
+| `PARRY_WINDOW` | 12 | Shift+Down or `z` turns a landing within 400 ms; covers the entire lunge, still a press and never a held stance | 2026-10-25 proposed |
 | `PARRY_COOLDOWN` | 30 | the ticks between parries | 2026-10-25 proposed |
 | `PARRY_PUSH`, `PARRY_RECOIL` | 3, 6 | a turned shadow loses its speed and recoils three cells away from its target over six ticks (half a cell a tick: a visible knock-back, no teleport), eyes dim | 2026-10-25 proposed |
 
@@ -243,3 +244,9 @@ The leap keeps its hit rule and reach: every in-range shadow is vanquished on th
 Only the visible group travels; a refused press does not alternate. The arc is a
 presentation offset, clipped in eighth-cell substeps against every live body;
 it never moves the camera, the hitbox or the other group. R-pk04-2 A is proposed.
+
+The shadow gathers back at half a cell/tick for three ticks and holds for three,
+then crosses that gap in six lunge ticks. After landing it settles over six
+ticks rather than snapping back. Parry keeps the existing three-cell/six-tick
+recoil and dim eyes. Both creatures use `leap_arc`; the presentation-offset
+choice (R-pk04-3, recommended) preserves the bite and vanquish hit envelopes.

@@ -259,7 +259,10 @@ pub const FLANK: int = 4
 
 /// The ticks an attack winds up before it lands (300 ms: the lunge the
 /// player reads and parries).
-pub const ATTACK_WINDUP: int = 9
+pub const ATTACK_WINDUP: int = 12
+
+/// The windup's final six ticks: the body lunges, landing on the last.
+pub const ATTACK_LUNGE_TICKS: int = 6
 
 /// The ticks between one shadow's attacks.
 pub const ATTACK_COOLDOWN: int = 30
@@ -300,7 +303,7 @@ pub const LEAP_TICKS: int = 8
 pub const FADE_TICKS: int = 15
 
 /// The parry's window, ticks after the press (R-pk02-3 A: 300 ms).
-pub const PARRY_WINDOW: int = 9
+pub const PARRY_WINDOW: int = 12
 
 /// The ticks between parries.
 pub const PARRY_COOLDOWN: int = 30
@@ -442,6 +445,11 @@ pub struct Shadow {
     // half-circle, independent of the chase's later bounded heading.
     face_x: int,
     face_y: int,
+    attack_age: int,
+    attack_dx: int,
+    attack_dy: int,
+    pose_x: int,
+    pose_y: int,
     x: int,
     y: int,
     heading: int,
@@ -725,6 +733,17 @@ pub fn scaled(s: Sim, v: int) -> int {
 pub fn resize(mut s: Sim, cols: int, rows: int) {
     if cols > 0 && s.cols > 0 {
         s.px = s.px * cols / s.cols
+        var mark = 0
+        while mark < s.leap_marks_x.len {
+            s.leap_marks_x[mark] = s.leap_marks_x[mark] * cols / s.cols
+            mark += 1
+        }
+        var slot = 0
+        while slot < PACK_SIZE {
+            s.leap_dx[slot] = s.leap_dx[slot] * cols / s.cols
+            s.leap_x[slot] = s.leap_x[slot] * cols / s.cols
+            slot += 1
+        }
         var i = 0
         while i < s.wolves.len {
             var w = copy s.wolves[i]
@@ -736,6 +755,8 @@ pub fn resize(mut s: Sim, cols: int, rows: int) {
         while k < s.shadows.len {
             var sh = copy s.shadows[k]
             sh.x = sh.x * cols / s.cols
+            sh.attack_dx = sh.attack_dx * cols / s.cols
+            sh.pose_x = sh.pose_x * cols / s.cols
             s.shadows[k] = sh
             k += 1
         }
@@ -1101,6 +1122,7 @@ pub fn step(mut s: Sim, keys: List[int], health_delta: int) {
         }
         i += 1
     }
+    update_attack_poses(mut s)
     update_leap_poses(mut s)
     s.tick += 1
 }
@@ -1387,6 +1409,11 @@ pub fn lurker(s: Sim, row: int, side: int) -> Shadow {
     Shadow {
         face_x: fx,
         face_y: fy,
+        attack_age: 0,
+        attack_dx: 0,
+        attack_dy: 0,
+        pose_x: 0,
+        pose_y: 0,
         x: clamp_x(centre + side * off, s.cols),
         y: row * world.FP,
         heading: fx * HEADING_MAX / 2,
@@ -1578,6 +1605,10 @@ pub fn leap_arc(dx: int, dy: int, age: int, ticks: int) -> (int, int) {
 /// A presented body's offset, separate from physics and the alpha's eye.
 fn pose_offset(s: Sim, k: int) -> (int, int) {
     if k < PACK_SIZE { return (s.leap_x[k], s.leap_y[k]) }
+    if k < PACK_SIZE + s.shadows.len {
+        let sh = copy s.shadows[k - PACK_SIZE]
+        return (sh.pose_x, sh.pose_y)
+    }
     (0, 0)
 }
 
@@ -1586,6 +1617,10 @@ fn pose_offset(s: Sim, k: int) -> (int, int) {
 /// first contact. The physical hit envelope and separation stay unchanged.
 fn safe_arc(s: Sim, k: int, dx: int, dy: int, age: int, ticks: int) -> (int, int) {
     let (ox, oy) = leap_arc(dx, dy, age, ticks)
+    safe_displacement(s, k, ox, oy)
+}
+
+fn safe_displacement(s: Sim, k: int, ox: int, oy: int) -> (int, int) {
     let span = if abs(ox) > abs(oy) then abs(ox) else abs(oy)
     let steps = span / (world.FP / 8) + 1
     let (x, y, _) = body(s, k)
@@ -1619,11 +1654,6 @@ fn safe_arc(s: Sim, k: int, dx: int, dy: int, age: int, ticks: int) -> (int, int
 
 fn update_leap_poses(mut s: Sim) {
     var i = 0
-    while i < PACK_SIZE {
-        s.leap_x[i] = 0
-        s.leap_y[i] = 0
-        i += 1
-    }
     if s.leap_left == 0 { return }
     let age = LEAP_TICKS - s.leap_left + 1
     i = 0
@@ -1637,6 +1667,74 @@ fn update_leap_poses(mut s: Sim) {
     }
     s.leap_landing = s.leap_left == 1
     s.leap_left -= 1
+}
+
+fn update_attack_poses(mut s: Sim) {
+    var i = 0
+    while i < PACK_SIZE {
+        s.leap_x[i] = 0
+        s.leap_y[i] = 0
+        i += 1
+    }
+    var k = 0
+    while k < s.shadows.len {
+        var sh = copy s.shadows[k]
+        sh.pose_x = 0
+        sh.pose_y = 0
+        s.shadows[k] = sh
+        k += 1
+    }
+    k = 0
+    while k < s.shadows.len {
+        var sh = copy s.shadows[k]
+        if shadow_alive(sh) {
+            var ox = 0
+            var oy = 0
+            if shadow_crouching(sh) {
+                // Gather backwards for three half-cell beats, hold for
+                // three. This opens a readable gap even on a tight flank.
+                let elapsed = ATTACK_WINDUP - sh.windup
+                let age = if elapsed < 3 then elapsed else 3
+                let (x, y) = leap_arc(0 - sh.attack_dx, 0 - sh.attack_dy, age, 6)
+                ox = x
+                oy = y
+            } else if sh.state == ATTACKING || sh.attack_age > 0 {
+                let (x, y) = leap_arc(
+                    sh.attack_dx,
+                    sh.attack_dy,
+                    sh.attack_age,
+                    2 * ATTACK_LUNGE_TICKS,
+                )
+                let (cx, cy) = leap_arc(sh.attack_dx, sh.attack_dy, 3, 6)
+                if sh.attack_age <= ATTACK_LUNGE_TICKS {
+                    ox = x - cx
+                    oy = y - cy
+                } else {
+                    // After landing, settle back over six beats rather
+                    // than snapping to the formation-space hitbox.
+                    ox = x / 2
+                    oy = y / 2
+                }
+            }
+            let (x, y) = safe_displacement(s, PACK_SIZE + k, ox, oy)
+            sh.pose_x = x
+            sh.pose_y = y
+            s.shadows[k] = sh
+        }
+        k += 1
+    }
+}
+
+/// The shadow's animated world position: the same bounded arc as the
+/// pack, clipped against presented bodies without changing bite reach.
+pub fn shadow_draw_position(s: Sim, k: int) -> (int, int) {
+    let sh = copy s.shadows[k]
+    (sh.x + sh.pose_x, sh.y + sh.pose_y)
+}
+
+/// The first beat of the windup is compressed and steady-eyed.
+pub fn shadow_crouching(sh: Shadow) -> bool {
+    sh.state == ATTACKING && sh.windup > ATTACK_LUNGE_TICKS
 }
 
 /// A wolf's animated world position. Physics and the viewport keep the
@@ -1751,6 +1849,10 @@ fn shadows_step(mut s: Sim) -> int {
             k += 1
             continue
         }
+        if sh.attack_age >= ATTACK_LUNGE_TICKS {
+            sh.attack_age += 1
+            if sh.attack_age >= 2 * ATTACK_LUNGE_TICKS { sh.attack_age = 0 }
+        }
         // Pursuit of the nearest pack member; perception for a lurker.
         let t = if sh.state == LURKING then perceived_wolf(s, sh) else nearest_wolf(s, sh.x, sh.y)
         if t >= 0 {
@@ -1832,7 +1934,16 @@ fn shadows_step(mut s: Sim) -> int {
                 if !near {
                     sh.state = CHASING
                     sh.windup = 0
+                    // An interrupted lunge comes back along its arc.
+                    if sh.attack_age > 0 { sh.attack_age = 2 * ATTACK_LUNGE_TICKS - sh.attack_age }
                 } else {
+                    if sh.windup == ATTACK_LUNGE_TICKS {
+                        sh.attack_dx = w2.x - sh.x
+                        sh.attack_dy = w2.y - sh.y
+                    }
+                    if sh.windup <= ATTACK_LUNGE_TICKS {
+                        sh.attack_age = ATTACK_LUNGE_TICKS - sh.windup + 1
+                    }
                     sh.windup -= 1
                     if sh.windup <= 0 {
                         if s.tick < s.parry_until {
@@ -1850,6 +1961,9 @@ fn shadows_step(mut s: Sim) -> int {
             } else if near && sh.cooldown == 0 && sh.recoil == 0 {
                 sh.state = ATTACKING
                 sh.windup = ATTACK_WINDUP
+                sh.attack_age = 0
+                sh.attack_dx = w2.x - sh.x
+                sh.attack_dy = w2.y - sh.y
             }
         }
         // Shaken, or never woken: far enough behind the alpha, it is gone.

@@ -467,6 +467,11 @@ fn shadow_at(s: sim.Sim, row_ahead: int, dx_cells: int, state: int) -> sim.Shado
     sim.Shadow {
         face_x: 0,
         face_y: -2,
+        attack_age: 0,
+        attack_dx: 0,
+        attack_dy: 0,
+        pose_x: 0,
+        pose_y: 0,
         x: a.x + dx_cells * world.FP,
         y: a.y + row_ahead * world.FP,
         heading: 0,
@@ -1254,4 +1259,66 @@ fn test_pk04_shared_arc_is_bounded_out_and_back() {
     assert(prev == 0, "returned")
     let (x, y) = sim.leap_arc(-2000, 0, 6, 12)
     assert(x == -3 * world.FP && y == 0, "same arc, shadow's three-cell apex")
+}
+
+fn test_pk04_shadow_lunge_has_six_crouch_ticks_and_six_travelling_ticks() {
+    var s = sim.new(1, 80, 24)
+    var sh = shadow_at(s, 0, sim.REACH, sim.CHASING)
+    sh.dir = 1
+    sh.speed = sim.TROT_V
+    (mut s.shadows).push(sh)
+    sim.step(mut s, none(), 0)
+    assert(
+        sim.ATTACK_WINDUP == 12 && sim.ATTACK_LUNGE_TICKS == 6 && sim.PARRY_WINDOW == 12,
+        "readable two-beat",
+    )
+    var tick = 1
+    var retreated = false
+    var advanced = false
+    while tick <= sim.ATTACK_WINDUP {
+        sim.step(mut s, none(), 0)
+        let c = copy s.shadows[0]
+        if tick <= 6 {
+            assert(c.attack_age == 0, "six crouch beats before the lunge")
+            if c.pose_x != 0 || c.pose_y != 0 { retreated = true }
+        } else {
+            assert(c.attack_age == tick - 6, "one shared-arc step per lunge tick")
+            if c.pose_x > 0 || c.pose_y != 0 { advanced = true }
+        }
+        assert(!sim.any_pose_overlap(s), "crouch and lunge cannot pass through a body")
+        tick += 1
+    }
+    assert(retreated && advanced && s.landed == 1, "gathered, travelled and bit on final tick")
+}
+
+fn test_pk04_fixed_offset_parry_is_turned_at_the_landing() {
+    var s = sim.new(1, 80, 24)
+    var sh = shadow_at(s, 0, sim.REACH, sim.CHASING)
+    sh.dir = 1
+    sh.speed = sim.TROT_V
+    (mut s.shadows).push(sh)
+    sim.step(mut s, none(), 0)
+    run(mut s, 1)
+    sim.step(mut s, one(sim.KEY_PARRY), 0)
+    run(mut s, 10)
+    assert(s.turned == 1 && s.landed == 0, "ten ticks before landing still turns it")
+    assert(
+        s.shadows[0].recoil > 0 && sim.shadow_eyes(s.shadows[0], s.tick) == 1,
+        "recoil stays dim",
+    )
+}
+
+fn test_pk04_all_animated_bodies_stay_separate_in_a_fight_and_resize() {
+    var s = sim.new_at(16, 80, 24, 600)
+    var t = 0
+    while t < 260 {
+        var keys = none()
+        if t % 17 == 0 { (mut keys).push(sim.KEY_LEAP) }
+        if t % 47 == 0 { (mut keys).push(sim.KEY_PARRY) }
+        if t == 200 { sim.resize(mut s, 100, 30) }
+        sim.step(mut s, keys, 0)
+        s.stamina = sim.STAMINA_MAX
+        assert(!sim.any_pose_overlap(s), "no animated overlap in live fight")
+        t += 1
+    }
 }
