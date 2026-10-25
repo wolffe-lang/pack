@@ -4,12 +4,15 @@ Every tuning number in pack is a named constant in `src/sim/sim.lu` or `src/worl
 with its meaning and the date it was last set. The numbers are the maintainer's to tune by play (campaign
 ruling R-PK-7); a change here is a change there in the same commit, and the goldens move with it. The rows
 marked "the maintainer's word" were set from the maintainer's play of the pk00 and pk01 builds on 2026-10-25;
-the rows marked "proposed" are pk01's and pk02's first values, waiting on play.
+the rows marked "proposed" are pk01's, pk02's and pk03's first values, waiting on play.
 
 To tune by play without rebuilding: `target/pack --debug --speed-scale N` scales every speed constant to N
 percent (100 is the table), and under `--debug` the keys `-` and `=` move the pack's health by ten so the
 fainting and the return can be watched. Both are refused by name without `--debug`, and a run recorded with
-`--speed-scale` is noted on its closing line (the replay file does not carry the scale).
+`--speed-scale` is noted on its closing line (the replay file does not carry the scale). `--start N` (pk03)
+begins a run N rows up the path — the same forest, the curve and the dusk read from there — so the second
+minute's groups (`--start 600`), full dusk (`--start 1200`) or the night (`--start 1800`) can be seen at once;
+a replay carries it as its `start` header line.
 
 Units: positions and speeds are in `world.FP` units a cell (256), so a speed of 40 is 0.156 cells a tick.
 The tick is 30 a second (`clock.TICK_HZ`), so 40 is 4.7 cells a second. Headings are in 64ths of a 45-degree
@@ -86,9 +89,43 @@ are the same on every machine and in every replay.
 A fainted wolf stops where it is and lies there; the world scrolls it off the bottom edge. When it returns it
 starts from where it lies if that is still on the screen, else from one row below the bottom edge at its slot's
 column, accelerates to `RETURN_V`, aims at its slot's column, and is running again once it reaches its slot's
-row. Health falls by the shadows' landed attacks (below), by the replay's `health` events and by the debug keys;
-nothing raises it in play until pk03's deer feed the pack. At 0 the alpha is alone, and the next landed attack
-ends the run.
+row. Health falls by the shadows' landed attacks (below), by the replay's `health` events and by the debug keys,
+and rises by `FEED` when the pack brings a deer down (pk03, the deer table). At 0 the alpha is alone, and the
+next landed attack ends the run.
+
+## The deer (`src/sim/sim.lu`; pk03)
+
+| constant | value | meaning | set |
+|---|---|---|---|
+| `DEER_WALK_V` | 16 | the walk, 0.4 `v`: a deer grazes and wanders across the path and the verge, slower than anything else on the path | 2026-10-25 proposed |
+| `FLEE_V` | 60 | the flight, 1.5 `v` (the campaign's bar): faster than the trot, slower than the sprint, so a trot cannot close on a fresh deer and a sprint can | 2026-10-25 proposed |
+| `DEER_TIRED_V` | 32 | a tired deer's flight, below the trot: the pack runs it down | 2026-10-25 proposed |
+| `DEER_ACCEL`, `DEER_BRAKE` | 6, 8 | a deer bolts (the wolves accelerate at 4) and brakes as they do | 2026-10-25 proposed |
+| `DEER_TURN_RATE` | 16 | a deer's maximum turn rate, heading units a tick: a lighter animal turns quicker than a wolf's 12 | 2026-10-25 proposed |
+| `DEER_PERCEIVE` | 10 | a running wolf this close (cells, the larger of sideways and along) puts a deer to flight | 2026-10-25 proposed |
+| `DEER_CALM` | 6 | a fleeing deer calms once the nearest wolf is this far beyond `DEER_PERCEIVE` (so it does not stutter at the edge) | 2026-10-25 proposed |
+| `DEER_STAMINA` | 90 | ticks of flight before a deer tires (three seconds) | 2026-10-25 proposed |
+| `DEER_REGEN_TICKS` | 3 | a walking deer regains a point every this many ticks (flight costs one a tick): a deer put to flight again and again tires, which is how a pack at the trot runs one down | 2026-10-25 proposed |
+| `DEER_RECOVER` | 60 | a tired deer flees at `FLEE_V` again once its stamina is back to this | 2026-10-25 proposed |
+| `CATCH_REACH` | 3 | a running wolf this close (cells) brings a deer down: from behind, since the separation rule keeps bodies three cells apart sideways | 2026-10-25 proposed |
+| `FEED` | 25 | health a deer feeds the pack (R-pk03-3 A: a fixed feed, one floor and a bit): the first thing that raises health in play | 2026-10-25 proposed |
+| `DEER_MAX` | 3 | deer alive at once, at most; the spawn waits | 2026-10-25 proposed |
+| `DEER_GONE_MARGIN` | 20 | a deer this many rows beyond the top of the screen has got away and is gone; behind the alpha the shadows' `GONE_ROWS` holds for it | 2026-10-25 proposed |
+
+How a deer works, in one paragraph: each tick the world's hash of the tick (salted apart from the shadows'
+roll) is rolled against `world.deer_rate`, and a deer appears on the path one row above the top of the
+screen, at a column the seed picks across the path's width, facing down the path at a walk. It wanders: its
+lateral heading follows slow seeded noise (turned back toward the path once it is a cell past the verge), its
+direction along the path the sign of a slower channel, and a direction change is a brake to rest and a flip,
+never a pivot. When a running wolf comes within `DEER_PERCEIVE` it flees: along the path away from the
+nearest wolf, steering onto the path's centre, at `FLEE_V` while its stamina lasts and at `DEER_TIRED_V`
+once it is spent; beyond `DEER_PERCEIVE` plus `DEER_CALM` it calms and walks, regaining a point every
+`DEER_REGEN_TICKS`. A running wolf within `CATCH_REACH` brings it down: the pack's health rises by `FEED`
+through the same channel the bites take from, so a fainted wolf may return, and the deer is gone. Deer are
+bodies for the separation rule (nothing overlaps) and are the seed's, never a replay event. Measured on the
+probe bot (the note's section 3): a deer first seen at the trot is run down in about ten seconds with one
+or two sprints once it tires; a fresh deer cannot be caught by a sprint alone (the sprint closes 12 FP units
+a tick for 24 ticks: a cell a burst).
 
 ## The shadows (`src/sim/sim.lu`; pk02)
 
@@ -143,6 +180,30 @@ target is still in reach.
 | `CARD_COLS` x `CARD_ROWS` | 44 x 10 | the card's size, centred over the field on both tiers; the first numbers the player sees (shadows vanquished, seconds survived, the distance in cells, the score) with the offer `s saves the replay, q leaves` (R-pk02-4 A: nothing else on it) | 2026-10-25 proposed |
 | the score | `shadows × 100 + seconds × 2 + distance_cells` | the campaign's formula; seconds are the death's tick over 30 | 2026-10-25 campaign |
 
+## Dusk (`src/sim/sim.lu`, `src/tier/tier.lu`; pk03, innovation 4)
+
+| constant | value | meaning | set |
+|---|---|---|---|
+| `DUSK_START` | 600 | rows of afternoon (about two minutes at the trot) before the palette begins to turn | 2026-10-25 proposed |
+| `DUSK_FULL` | 1200 | rows at which the palette is dusk's keyframe (about four minutes) | 2026-10-25 proposed |
+| `NIGHT_FULL` | 1800 | rows at which it is night's, and holds (about six and a half minutes) | 2026-10-25 proposed |
+| `tier.PHASE_DUSK`, `tier.PHASE_NIGHT` | 256, 512 | the phase's units: `sim.phase` climbs from 0 at `DUSK_START` to 256 at `DUSK_FULL` and 512 at `NIGHT_FULL`, never by more than two a row | 2026-10-25 pk03 |
+
+The palette's keyframes are `docs/PALETTE.md`'s; the rich tier blends them in RGB by the phase and quantizes
+to the nearest index of the 256-colour cube and grey ramp, so the change comes in small steps (the path takes
+three on its way to night: 137, 95, 241, 59), never the keyframes' jump; the plain tier's sixteen colours
+step at the midpoints. The red eyes are the same at every phase, so shadows come with the dark. `--start
+750`, `1200` and `1800` show the blend, full dusk and the night at once (the goldens `dusk-early`, `dusk`,
+`night`).
+
+## The title card (`src/art/art.lu`, `src/best/best.lu`; pk03)
+
+| constant | value | meaning | set |
+|---|---|---|---|
+| `TITLE_COLS` x `TITLE_ROWS` | 56 x 14 | the title card's size, centred over the seed's forest at its start: the name, `any key to run`, the seed, the last score and the best (score, seed, date, the replay's name), the last saved replay, the keys, a prompt or message line | 2026-10-25 proposed |
+| the next seed | the seed + 1 after a run; `r` keeps it | R-pk03-4 A: deterministic, no clock, `--seed` stays meaningful; the title shows the seed | 2026-10-25 proposed |
+| `~/.pack/best` | one file | the best and the last score with seed, date and the replay's name, and the last saved replay's path (R-pk03-1 A) | 2026-10-25 proposed |
+
 ## The world (`src/world/world.lu`)
 
 | constant | value | meaning | set |
@@ -154,7 +215,11 @@ target is still in reach.
 | `DENSITY_CHANNEL` | 3 | the noise channel the density reads (1 is the centre, 2 the width) | 2026-10-25 proposed |
 | `DENSITY_CLEARING` | 72 | density below this (of 256) is a clearing: grass to the verge, the odd trunk | 2026-10-25 proposed |
 | `DENSITY_STAND` | 168 | density at or above this is a dense stand; between is thin woods. A stand draws the woods' foliage texture with more trunks (the trunk share up 4 points of 100): its own texture (canopy from the verge, deep forest three cells in) read as striped bands in play and was retired | 2026-10-25 the maintainer's word (the texture); the threshold proposed |
-| `SPAWN_BASE`, `SPAWN_DISTANCE`, `SPAWN_DENSITY` | 2, 200, 6 | the spawn rate, in thousandths of a shadow a tick: 2 at the start, one more every 200 rows, up to 6 more in a dense stand; logged under `--trace` as `spawn`, rolled each tick against the world's hash of the tick (pk02) | 2026-10-25 proposed |
+| `SPAWN_BASE`, `SPAWN_DISTANCE`, `SPAWN_DENSITY` | 1, 120, 6 | the difficulty curve's body (pk03): the shadows' spawn rate in thousandths a tick, 1 at the start, one more every 120 rows, up to 6 more in a dense stand | 2026-10-25 proposed |
+| `SPAWN_RAMP_BASE`, `SPAWN_RAMP_ROWS` | 1, 50 | the ramp the rate is held under from the start: 1 at row 0 however dense the forest, one more every 50 rows (eleven seconds at the trot), so groups (above `sim.GROUP_RATE` 5) come no sooner than row 250, about fifty seconds, and a clearing's later | 2026-10-25 proposed |
+| `SPAWN_CEILING` | 12 | the curve's ceiling: a shadow every 2.8 s on average, in groups of two or three; reached in a stand at about row 850 (three minutes) and in a clearing at about 1,300 | 2026-10-25 proposed |
+| `DEER_BASE`, `DEER_PER_SHADOW`, `DEER_CLEARING` | 2, 4, 3 | the deer's rate, thousandths a tick: a base, a quarter of the shadows' rate (so a long run is survivable with deer and not without), and up to 3 more in a clearing, where deer graze: 2 to 5 at the start, 5 to 8 at the ceiling | 2026-10-25 proposed |
+| the spawn side | the outside of the bend | a group lurks on the verge an unsteered pack drifts to: the side the path's centre moves away from between the alpha's row and the spawn row (over a cell of bend); a straight takes the seed's coin (pk03, from pk02's issue) | 2026-10-25 proposed |
 
 ## The engine (`src/clock`, `src/term`, `src/input`)
 

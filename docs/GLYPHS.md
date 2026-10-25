@@ -32,14 +32,14 @@ that is the expectation the columns above measure against.
 | U+00B7 | · | MIDDLE DOT | Latin-1 Supplement | C2 B7 | a path mark |
 | U+2024 | ․ | ONE DOT LEADER | General Punctuation | E2 80 A4 | a path mark |
 | U+2503 | ┃ | BOX DRAWINGS HEAVY VERTICAL | Box Drawing | E2 94 83 | a trunk |
-| U+2580 | ▀ | UPPER HALF BLOCK | Block Elements | E2 96 80 | the wolf's leg cells, the deer's head |
+| U+2580 | ▀ | UPPER HALF BLOCK | Block Elements | E2 96 80 | the wolf's leg cells, the cards' top edge |
 | U+2584 | ▄ | LOWER HALF BLOCK | Block Elements | E2 96 84 | the wolf's leg cells, the fainted wolf |
-| U+2588 | █ | FULL BLOCK | Block Elements | E2 96 88 | a wolf's body and head, a shadow, the deer |
+| U+2588 | █ | FULL BLOCK | Block Elements | E2 96 88 | a wolf's body and head, a shadow, the deer's body |
 | U+2591 | ░ | LIGHT SHADE | Block Elements | E2 96 91 | a path mark, the fainted wolf's head |
 | U+2593 | ▓ | DARK SHADE | Block Elements | E2 96 93 | the panting head |
 | U+2597 | ▗ | QUADRANT LOWER RIGHT | Block Elements | E2 96 97 | a leg cell |
-| U+2598 | ▘ | QUADRANT UPPER LEFT | Block Elements | E2 96 98 | a leg cell, the right ear |
-| U+259D | ▝ | QUADRANT UPPER RIGHT | Block Elements | E2 96 9D | the left ear |
+| U+2598 | ▘ | QUADRANT UPPER LEFT | Block Elements | E2 96 98 | a leg cell, the right ear, the deer's right antler |
+| U+259D | ▝ | QUADRANT UPPER RIGHT | Block Elements | E2 96 9D | the left ear, the deer's left antler |
 | U+25AA | ▪ | BLACK SMALL SQUARE | Geometric Shapes | E2 96 AA | a shadow's red eye |
 | U+2816 | ⠖ | BRAILLE PATTERN DOTS-235 | Braille Patterns | E2 A0 96 | grass |
 | U+2836 | ⠶ | BRAILLE PATTERN DOTS-2356 | Braille Patterns | E2 A0 B6 | grass, thin canopy |
@@ -51,7 +51,8 @@ Eighteen code points in five blocks: two already inside Latin-1 (PAX draws them 
 Punctuation, one from Box Drawing, nine from Block Elements, one from Geometric Shapes and five from
 Braille Patterns. The pack (pk01) and the shadows (pk02) reuse these cells: the shadow's fade is the full
 block, the dark shade and the light shade, its eyes pulse by colour, and the death card's frame is the two
-half blocks and the full block, all already here. The card's text is ASCII (U+0020 to U+007E), inside
-PAX's font today, so it adds no row (`tier.card_text`; `test_card_cells_need_no_font_row` holds it). The
-dusk shift (pk03) changes colours, not glyphs, and the deer reuses these cells, so the row for PAX is
-expected to stay this size.
+half blocks and the full block, all already here. The cards' text is ASCII (U+0020 to U+007E), inside
+PAX's font today, so the death card and the title card (pk03) add no row (`tier.card_text`;
+`test_card_cells_need_no_font_row` holds it). The dusk shift (pk03) changes colours, not glyphs, and the
+deer's antlers and body reuse the wolf's quadrants and the full block, so the row for PAX stayed this
+size through pk03: eighteen code points.

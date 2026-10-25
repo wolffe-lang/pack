@@ -70,8 +70,16 @@ dim eyes facing up it, and one fading.
 
 ## The deer
 
-Rich `▀` over `█` in 173, a tall shape with its head up the path; plain `Y|` in bright yellow. Sheet row 11,
-right.
+Rich, two cells wide and two tall: the antlers `▝▘` (the quadrant blocks the wolf's ears use, leaning out)
+over the body `██`, in a pale fawn (223) on the path's earth, so it stands against the earth where pk00's
+tan (173, the earth's own hue) did not; plain `YD` in bright yellow, bold. The head is up the path as it
+grazes toward the oncoming pack or flees from it. A deer is a lighter, paler, antlered shape beside the
+wolf's three-cell grey; what makes it prey is its motion against the pack's — the slow sideways wander
+across the path while everything else scrolls, and the bolt up the path at 1.5 v when a wolf comes within
+ten cells, pulling away from the trot until it tires and slows below it (`docs/DESIGN.md`, the deer table).
+A tired deer is not yet drawn differently (a head-down variant, `▄▄` over the body, is one glyph change in
+`SP_DEER` if play wants it). Sheet row 11, right; the golden `deer-flee` (seed 4) shows one grazing,
+bolting, tiring and run down on both tiers.
 
 ## The path
 
@@ -95,6 +103,23 @@ sprites: the same seed is the same forest, and a clearing sits in the bend it ca
 the three bands top to bottom (rows 0-7 a clearing, 8-15 woods, 16-23 a stand); the goldens `clearing`
 (seed 11) and `dense-stand` (seed 16) show each on both tiers.
 
+## The deer in the game
+
+The golden `deer-flee` (seed 4, one wolf down from tick 5): a deer grazes down the path at the walk from
+tick 39, bolts at 57 when a leader comes within `DEER_PERCEIVE`, pulls away at `FLEE_V` until its stamina
+is spent at 146 and it slows to `DEER_TIRED_V`, below the trot; the pack closes, two sprints (374, 398)
+run it down, and at 421 a leader within `CATCH_REACH` brings it down: the deer is gone, health is up by
+`FEED`, and the fainted wolf sprints back to its slot. Deer are bodies for the separation rule, so a wolf
+and a deer bump and never overlap, and a shadow may cross one (the deer are drawn under the live shadows).
+
+## Dusk
+
+The colours, not the glyphs, carry the time of day (campaign innovation 4): `docs/PALETTE.md`'s keyframes,
+blended by the distance travelled. At dusk the earth goes to a dull rose-grey and the canopy to a darker
+green; at night the path is grey, the canopy a dark blue over black, the fur dim, and a shadow's body is a
+shade off the earth so its red eyes are what the player sees first. The goldens `dusk-early`, `dusk` and
+`night` (seed 11 from rows 750, 1200 and 1800) show the three on both tiers.
+
 ## The death card
 
 At health 0 the alpha is alone and the next landed attack ends the run: the world stands still (the eyes
@@ -106,6 +131,16 @@ with their numbers at the right; and the offer `s saves the replay, q leaves`, w
 leaves` once `s` has written the file. These are the first numbers the player sees (innovation 5): a test
 scans every frame before the card for a digit. The golden `death-card` (seed 16, health taken to zero at
 tick 1) shows it on both tiers.
+
+## The title card
+
+The game opens on the title (pk03), drawn over the seed's forest at its start from the same cell model as
+the death card, `TITLE_COLS` by `TITLE_ROWS` centred: the name, `lead the pack up the forest path`, the
+seed the next run takes, the last score (and a replay's verdict), the best (score, seed, date, the replay's
+name) in bold, the last saved replay, what the keys do (`any key to run; r runs this seed again`, `p plays
+the last saved replay; / one by name`, `q leaves`), and a last line that is the prompt (`replay: name_`)
+when `/` opened it or a message (a verdict, a refusal by name). Its text is ASCII, so GLYPHS.md gains no
+row. The art study writes it on both tiers as `title-rich` and `title-plain` with a record to show.
 
 ## The pack in formation
 
@@ -146,4 +181,6 @@ are two (`DENSITY_CLEARING`, `DENSITY_STAND`); the formation's slots, lags, wand
 `PALETTE.md`'s; the fade is `FADE_TICKS`; the card's size is `CARD_COLS` by `CARD_ROWS` and its text is
 `art.card_with`'s six lines. The leap and the parry have no posture of their own beyond the lunge (the
 sprint's look for `LEAP_TICKS`): a parry stance for the window is one `draw_wolf` variant away if play wants
-one.
+one. The deer's shape and colour are `SP_DEER`'s three variants and `C_DEER`'s three keyframes; the dusk's
+keyframes are `tier.rich_key` and `tier.plain_key`, one line a role; the phase's distances are
+`DUSK_START`, `DUSK_FULL` and `NIGHT_FULL`.
