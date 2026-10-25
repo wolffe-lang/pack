@@ -142,14 +142,82 @@ fn test_turn_rate_bounds_the_heading_change() {
         sim.step(mut s, if i < 6 then one(sim.KEY_RIGHT) else none())
         let d = s.wolf.heading - prev
         assert(d <= sim.TURN_RATE && d >= 0 - sim.TURN_RATE, "turned {d} in one tick")
-        assert(s.wolf.heading <= sim.HEADING_MAX, "bounded")
+        assert(s.wolf.heading <= sim.STEER_HEADING, "bounded by the steer")
         prev = s.wolf.heading
         i += 1
     }
+    assert(s.wolf.heading_target == 0 && s.wolf.heading == 0, "straight again")
+}
+
+fn test_a_tap_holds_for_the_tap_ticks() {
+    var s = sim.new(1, 80, 24)
+    sim.step(mut s, one(sim.KEY_LEFT))
+    var held_ticks = 0
+    var i = 0
+    while i < 40 {
+        if s.wolf.heading_target != 0 {
+            held_ticks += 1
+        }
+        sim.step(mut s, none())
+        i += 1
+    }
+    assert(held_ticks == sim.HOLD_TAP_TICKS, "held for {held_ticks} ticks")
+}
+
+fn test_a_held_run_releases_within_the_interval_and_margin() {
+    // The keyboard: a press, the initial delay (10 ticks), then a repeat
+    // every 3 ticks for 60 ticks, then nothing.
+    var s = sim.new(1, 80, 24)
+    var last_press = 0
+    var i = 0
+    while i < 120 {
+        let press = i == 0 || i >= 10 && i <= 70 && (i - 10) % 3 == 0
+        if press {
+            last_press = i
+        }
+        sim.step(mut s, if press then one(sim.KEY_LEFT) else none())
+        if i >= 20 && i <= 70 {
+            assert(s.wolf.heading_target == 0 - sim.STEER_HEADING, "held through the run at {i}")
+        }
+        i += 1
+    }
+    // The hold ended within the interval plus the margin of the last press.
+    var t = sim.new(1, 80, 24)
+    var j = 0
+    var released_at = -1
+    while j < 120 {
+        let press = j == 0 || j >= 10 && j <= 70 && (j - 10) % 3 == 0
+        sim.step(mut t, if press then one(sim.KEY_LEFT) else none())
+        if j > 70 && released_at < 0 && t.wolf.heading_target == 0 {
+            released_at = j
+        }
+        j += 1
+    }
     assert(
-        s.wolf.heading_target == 0 || s.wolf.heading_target < sim.TURN_STEP,
-        "the target relaxed",
+        released_at > last_press && released_at <= last_press + 3 + sim.HOLD_MARGIN + 1,
+        "released at {released_at}, the last press at {last_press}",
     )
+    // Straight again at the turn rate, not by a slow relaxation.
+    assert(
+        t.wolf.heading == 0 && released_at + sim.STEER_HEADING / sim.TURN_RATE + 1 < 120,
+        "straight by tick 120",
+    )
+}
+
+fn test_both_steer_keys_held_cancel() {
+    var s = sim.new(1, 80, 24)
+    var keys = List[int]()
+    (mut keys).push(sim.KEY_LEFT)
+    (mut keys).push(sim.KEY_RIGHT)
+    sim.step(mut s, keys)
+    assert(s.wolf.heading_target == 0, "cancelled")
+}
+
+fn test_speed_scale_scales_the_trot() {
+    var s = sim.new(1, 80, 24)
+    s.speed_scale = 150
+    run(mut s, 60)
+    assert(s.wolf.speed == sim.TROT_V * 3 / 2, "speed {s.wolf.speed}")
 }
 
 fn test_steering_moves_the_wolf_sideways() {

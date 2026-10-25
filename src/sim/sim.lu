@@ -18,32 +18,52 @@
 
 use world
 
-/// Trot speed `v` in FP units a tick (0.375 cells a tick, 11.25 a second).
-pub const TROT_V: int = 96
+/// Trot speed `v` in FP units a tick: 0.156 cells a tick, 4.7 a second.
+/// The maintainer's word from play (2026-10-25): "think of them as
+/// migrating, not running the 100 m"; pk00's 96 was cut to 40.
+pub const TROT_V: int = 40
 
-/// Sprint speed, 1.8 v (the campaign's bar).
-pub const SPRINT_V: int = 172
+/// Sprint speed, 1.8 v (the campaign's bar): a bounded burst, clearly
+/// faster than the trot.
+pub const SPRINT_V: int = 72
 
 /// The speed cap in the forest edge, v/2.
-pub const FOREST_V: int = 48
+pub const FOREST_V: int = 20
 
-/// Acceleration, FP units a tick each tick.
-pub const ACCEL: int = 8
+/// Acceleration, FP units a tick each tick: the trot from a stop in 10 ticks.
+pub const ACCEL: int = 4
 
 /// Braking, FP units a tick each tick (a wolf stops faster than it starts).
-pub const BRAKE: int = 16
+pub const BRAKE: int = 8
 
-/// One steering tap moves the heading target this much.
-pub const TURN_STEP: int = 24
-
-/// The heading's bound: 64 is 45 degrees off the path's axis.
+/// The heading's reference: 64 is 45 degrees off the path's axis (the
+/// small-angle split of the speed is written against it).
 pub const HEADING_MAX: int = 64
 
-/// The maximum turn rate: heading units a tick toward the target.
-pub const TURN_RATE: int = 6
+/// The heading a held steer key turns toward: 48 is 34 degrees, enough to
+/// follow the path's steepest bend at the trot (world.path's bound).
+pub const STEER_HEADING: int = 48
 
-/// The heading target relaxes toward straight this much a tick.
-pub const RETURN_RATE: int = 1
+/// The maximum turn rate, heading units a tick: full steer in 4 ticks and
+/// straight again in 4 (133 ms) once the key is released. pk00 relaxed
+/// the heading one unit a tick after a tap and left the wolf drifting for
+/// two seconds; this is the realism bar's decay, and it is the whole of
+/// the residual motion after a release (the maintainer's ruling, 2026-10-25).
+pub const TURN_RATE: int = 12
+
+/// A terminal has no key-up: a held key arrives as its first byte and then
+/// the keyboard's autorepeat. A lone press is held this many ticks (400 ms,
+/// the span of a keyboard's initial repeat delay, so a key held for less
+/// than its own delay steers for the delay and a tap is a readable swerve).
+pub const HOLD_TAP_TICKS: int = 12
+
+/// An interval between two presses at most this long is the autorepeat
+/// rate (33 to 120 ms on the terminals measured); longer is the initial
+/// delay, or a second tap.
+pub const HOLD_RATE_MAX: int = 5
+
+/// The hold outlives the last repeat by the measured interval plus this.
+pub const HOLD_MARGIN: int = 1
 
 /// Stamina's ceiling.
 pub const STAMINA_MAX: int = 300
@@ -82,6 +102,47 @@ pub const POSTURE_SPRINT: int = 2
 /// Panting: exhausted, no sprint until `EXHAUST_RECOVER`.
 pub const POSTURE_PANT: int = 3
 
+/// A held key, from ticks alone (so a replay reproduces it): the ticks of
+/// the last two presses and the tick the hold ends.
+pub struct Hold {
+    last: int,
+    prev: int,
+    until: int,
+}
+
+/// No press yet.
+pub fn hold_new() -> Hold {
+    Hold { last: -1000, prev: -1000, until: -1 }
+}
+
+/// A press (the first byte or an autorepeat) at `tick`. A lone press holds
+/// `HOLD_TAP_TICKS`; a repeat holds the measured interval (the larger of
+/// the last two, since a 90 ms rate lands on alternating 2- and 3-tick
+/// gaps) plus the margin; the first repeat after the keyboard's initial
+/// delay holds `HOLD_RATE_MAX` plus the margin, the rate not yet known.
+pub fn hold_press(mut h: Hold, tick: int) {
+    let gap = tick - h.last
+    let prev_gap = h.last - h.prev
+    if gap <= HOLD_RATE_MAX {
+        var rate = gap
+        if prev_gap <= HOLD_RATE_MAX && prev_gap > rate {
+            rate = prev_gap
+        }
+        h.until = tick + rate + HOLD_MARGIN
+    } else if gap <= HOLD_TAP_TICKS + HOLD_MARGIN {
+        h.until = tick + HOLD_RATE_MAX + HOLD_MARGIN
+    } else {
+        h.until = tick + HOLD_TAP_TICKS
+    }
+    h.prev = h.last
+    h.last = tick
+}
+
+/// Whether the key is held at `tick`.
+pub fn held(h: Hold, tick: int) -> bool {
+    tick < h.until
+}
+
 /// One wolf.
 pub struct Wolf {
     x: int,
@@ -105,6 +166,9 @@ pub struct Sim {
     rows: int,
     tick: int,
     wolf: Wolf,
+    hold_left: Hold,
+    hold_right: Hold,
+    speed_scale: int,
     leaps: int,
     parries: int,
 }
@@ -131,9 +195,19 @@ pub fn new(seed: int, cols: int, rows: int) -> Sim {
             in_forest: false,
             scratches: 0,
         },
+        hold_left: hold_new(),
+        hold_right: hold_new(),
+        speed_scale: 100,
         leaps: 0,
         parries: 0,
     }
+}
+
+/// A speed constant under the debug knob `--speed-scale` (percent; 100 is
+/// the constants as written; the maintainer tunes by play, then the
+/// constant moves and the knob goes back to 100).
+pub fn scaled(s: Sim, v: int) -> int {
+    v * s.speed_scale / 100
 }
 
 /// The screen changed size: the field scales to it (never below the
@@ -204,20 +278,16 @@ fn abs(v: int) -> int {
 
 /// One tick: apply `keys` (in order), then move the wolf.
 pub fn step(mut s: Sim, keys: List[int]) {
+    // A run of the same key in one tick is one press (autorepeat bytes
+    // that arrived together); the hold decides how long it lasts.
+    var left = false
+    var right = false
     for k in keys {
         if k == KEY_LEFT {
-            s.wolf.heading_target = clamp(
-                s.wolf.heading_target - TURN_STEP,
-                0 - HEADING_MAX,
-                HEADING_MAX,
-            )
+            left = true
             s.wolf.stopping = false
         } else if k == KEY_RIGHT {
-            s.wolf.heading_target = clamp(
-                s.wolf.heading_target + TURN_STEP,
-                0 - HEADING_MAX,
-                HEADING_MAX,
-            )
+            right = true
             s.wolf.stopping = false
         } else if k == KEY_UP {
             s.wolf.stopping = false
@@ -233,21 +303,40 @@ pub fn step(mut s: Sim, keys: List[int]) {
             s.parries += 1
         }
     }
-    // Steering: the target relaxes toward straight, the heading turns
-    // toward the target at the turn rate.
-    s.wolf.heading_target = toward(s.wolf.heading_target, 0, RETURN_RATE)
+    if left {
+        hold_press(mut s.hold_left, s.tick)
+    }
+    if right {
+        hold_press(mut s.hold_right, s.tick)
+    }
+    // Steering: the heading target is the held steer (both held cancel),
+    // and the heading turns toward it at the turn rate; released, it
+    // returns to straight at the same rate and the sideways motion ends
+    // with it.
+    var steer = 0
+    if held(s.hold_left, s.tick) {
+        steer -= 1
+    }
+    if held(s.hold_right, s.tick) {
+        steer += 1
+    }
+    s.wolf.heading_target = steer * STEER_HEADING
     s.wolf.heading = toward(s.wolf.heading, s.wolf.heading_target, TURN_RATE)
     // Speed: toward the target the posture names, capped in the forest.
-    var target = TROT_V
+    var target = scaled(s, TROT_V)
     if s.wolf.stopping {
         target = 0
     } else if s.wolf.sprint_left > 0 {
-        target = SPRINT_V
+        target = scaled(s, SPRINT_V)
     }
-    if s.wolf.in_forest && target > FOREST_V {
-        target = FOREST_V
+    if s.wolf.in_forest && target > scaled(s, FOREST_V) {
+        target = scaled(s, FOREST_V)
     }
-    s.wolf.speed = toward(s.wolf.speed, target, if target < s.wolf.speed then BRAKE else ACCEL)
+    s.wolf.speed = toward(
+        s.wolf.speed,
+        target,
+        if target < s.wolf.speed then scaled(s, BRAKE) else scaled(s, ACCEL),
+    )
     // Stamina: a sprint drains, standing and trotting regenerate.
     if s.wolf.sprint_left > 0 {
         s.wolf.sprint_left -= 1
@@ -288,7 +377,7 @@ pub fn posture(s: Sim) -> int {
     if s.wolf.speed == 0 {
         return POSTURE_STAND
     }
-    if s.wolf.sprint_left > 0 && s.wolf.speed > TROT_V {
+    if s.wolf.sprint_left > 0 && s.wolf.speed > scaled(s, TROT_V) {
         return POSTURE_SPRINT
     }
     POSTURE_TROT
