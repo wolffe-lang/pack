@@ -56,7 +56,7 @@ Determinism is the oracle. A run is a pure function of the seed, the inputs, the
 (`tools/goldens`). The unit tests (`tools/test`, 66 of them) cover the diff renderer with a terminal model,
 the key decoder with every sequence split at every byte, the clock, the world, the simulation's bars and
 the tiers' promises. The pty runner (`tools/pty`) drives the real binary in a pseudo-terminal and checks
-that raw mode is undone and the alternate screen left on `q`, on SIGINT and on a planted trap, and that the
+that raw mode is undone and the alternate screen left on `q`, on Ctrl-C (the interrupt the line discipline raises) and on a planted trap, and that the
 bytes it captured, replayed through the model, equal the headless frames. `tools/perf` holds the render
 under a millisecond at 80x24 and under four at 200x60, and counts the loop's wake-ups at idle.
 `tools/check` runs all of it; CI runs it on Linux for every pull request and on macOS as well for trunk.

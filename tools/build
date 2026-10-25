@@ -30,7 +30,14 @@ esac
 for tier in $tiers; do
     mkdir -p "target/$tier"
     if [ "$tier" = release ]; then
-        "$WOLF" build --release --deny-warnings src/pack.lu -o target/release/pack
+        # WOLF_MIDEND=0: at wolf 0.2.35 the release tier's mid-end miscompiles
+        # the live loop's key path (every key decoded as the quit key while
+        # `pack --selftest` in the same binary passes; the native tier and the
+        # release tier with the mid-end off decode every key; witness: the pty
+        # runner's `quit` and `ctrl-c` rows and tests/cases under
+        # notes/pk00-the-engine.md, the wolf-lang issue to file). The guide's
+        # precedent for a mid-end fault (wolf-lang#146) is this switch.
+        WOLF_MIDEND=0 "$WOLF" build --release --no-cache --deny-warnings src/pack.lu -o target/release/pack
         cp target/release/pack target/pack
     else
         "$WOLF" build --deny-warnings src/pack.lu -o target/native/pack

@@ -135,12 +135,15 @@ fn finish_csi(mut d: Decoder, final: int, mut keys: List[int]) {
 /// Feed one byte at `now_ms` (any monotonic millisecond count; it only
 /// times a lone ESC), pushing the keys it completes onto `keys`.
 ///
-/// Written as a loop over at most two passes rather than a self-call: the
-/// release tier (wolf 0.2.35, LLVM with the mid-end) answered the constant
-/// of the recursive branch for EVERY byte when this function called itself
-/// after a stray byte following ESC (`notes/pk00-the-engine.md`, the
-/// wolf-lang issue to file; `pack --selftest` holds the shipped binary to
-/// the table).
+/// Written as a loop over at most two passes rather than a self-call. The
+/// release tier's mid-end (wolf 0.2.35) miscompiles the game's key path:
+/// the live loop saw every key as the quit key while the same binary's
+/// `pack --selftest` decoded the table right, and the first version of
+/// this function, which called itself after a stray byte following ESC,
+/// answered the quit key for every byte even in a probe. tools/build turns
+/// the mid-end off for the release tier (`WOLF_MIDEND=0`) until the
+/// wolf-lang issue named in `notes/pk00-the-engine.md` is answered; the
+/// loop shape is kept because it needs no recursion.
 pub fn feed(mut d: Decoder, b: byte, now_ms: int, mut keys: List[int]) {
     let v = b as int
     var again = true
