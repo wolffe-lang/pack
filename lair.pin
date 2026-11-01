@@ -1,4 +1,4 @@
-aa6c4dc0bc5071d3c07121451d913a8837cd2a6a
+df11d213785f7694bdf3f3572299abc550d8b903
 # lair.pin — the engine's commit (wolffe-lang/lair), the first line, forty
 # hex digits. tools/fetch-lair stages that tree into .lair/ and the engine's
 # tools (.lair/tools/*) refuse any other; src/<module> symlinks point into
@@ -6,3 +6,6 @@ aa6c4dc0bc5071d3c07121451d913a8837cd2a6a
 #
 # cb00 (2026-10-25): the first pin, the engine as extracted from pack at
 # 91d93ac; every golden byte-identical across the move.
+# r41q (2026-11-01): lair trunk df11d213, read twice; lr01's mixer, lr03's
+# held keys, lr04's control grammar and the engine's wolf 0.2.36 / lupin
+# 0.1.58 pin; the goldens re-run on Linux here and on macOS in tier full.
