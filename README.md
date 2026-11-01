@@ -67,7 +67,7 @@ and it tires and slows, then a sprint runs it down and the pack eats.
 pack runs on the lair engine (`wolffe-lang/lair`: the cell grid, the two glyph tiers, the terminal, the
 decoder, the clock, replays, the tools), pinned by commit in `lair.pin` and staged into `.lair/` by
 `tools/fetch-lair`, which refuses any other commit. The toolchain is the engine's pin (`.lair/wolf-toolchain.toml`:
-wolf 0.2.35, lupin 0.1.56, the std tree the compiler bundles), fetched by digest. Nothing is built from
+wolf 0.2.36, lupin 0.1.58, the std tree the compiler bundles), fetched by digest. Nothing is built from
 source but pack and the engine's modules it links; the only dependency under them is wolf-std.
 
 ```
@@ -100,7 +100,7 @@ deer fleeing and run down, dusk coming, dusk and night, alternating pack leaps, 
 windup captured every tick, plus nine aimed-leap cases including the default and Up, and eight last-key-only repeat cases covering every diagonal in both orders) are run headless on both tiers and diffed
 against `tests/goldens/` cell for cell (`.lair/tools/goldens`), with the art study's sheets and the title card.
 Shadows and deer are the seed's, never a replay event, so the same file meets the same on every machine.
-The unit tests (`.lair/tools/test`, 175 of them (pack 114, pinned engine 61)) cover the diff renderer with a terminal model, the key decoder
+The unit tests (`.lair/tools/test`, 190 of them (pack 128, pinned engine 62)) cover the diff renderer with a terminal model, the key decoder
 with every sequence split at every byte and the prompt's text mode, the clock, the world's noise and
 density, the curve and the deer's rate, the simulation's bars (the speeds, the turn rate, the held key, the
 formation's lag, the wander and the bumps, health's floors and returns, the shadows' roll, perception, the
