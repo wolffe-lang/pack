@@ -1,0 +1,118 @@
+rich up>right delay=6 attempt=1 presses={'up': [6, 15, 19, 24, 28, 34], 'right': [39]} Space=44 first_gap=10 second_gap=5 late=19 leap_ok=True held=8 rule_held=8 aim=(1, 1) rule_aim=(1, 1) realised=True
+rich up>right delay=9 attempt=1 presses={'up': [6, 15, 20, 25, 30, 35], 'right': [40, 45]} Space=50 first_gap=15 second_gap=5 late=25 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>right delay=9 attempt=2 presses={'up': [6, 17, 22, 27, 32, 37], 'right': [42, 47]} Space=52 first_gap=15 second_gap=5 late=27 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>right delay=9 attempt=3 presses={'up': [6, 18, 22, 28, 34, 39], 'right': [45, 50]} Space=56 first_gap=17 second_gap=6 late=32 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>right delay=9 attempt=4 presses={'up': [7, 19, 25, 30, 36, 41], 'right': [46, 52]} Space=57 first_gap=16 second_gap=5 late=32 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>right delay=12 attempt=1 presses={'up': [6, 17, 22, 27, 32, 37], 'right': [42, 48]} Space=52 first_gap=15 second_gap=4 late=25 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>right delay=12 attempt=2 presses={'up': [6, 16, 21, 25, 31, 36], 'right': [46, 54]} Space=63 first_gap=27 second_gap=9 late=43 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>right delay=12 attempt=3 presses={'up': [6, 18, 24, 28, 34, 39], 'right': [44, 49, 54]} Space=60 first_gap=21 second_gap=6 late=35 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>right delay=12 attempt=4 presses={'up': [6, 18, 23, 29, 35, 40], 'right': [45, 51]} Space=56 first_gap=16 second_gap=5 late=29 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich right>up delay=6 attempt=1 presses={'right': [7, 21, 27, 34, 40, 48], 'up': [55]} Space=61 first_gap=13 second_gap=6 late=37 leap_ok=True held=1 rule_held=1 aim=(1, 1) rule_aim=(1, 1) realised=True
+rich right>up delay=9 attempt=1 presses={'right': [7, 20, 26, 33, 40, 47], 'up': [48, 55]} Space=61 first_gap=14 second_gap=6 late=33 leap_ok=True held=0 rule_held=0 aim=(1, 1) rule_aim=(1, 1) realised=True
+rich right>up delay=12 attempt=1 presses={'right': [11, 21, 29, 69, 161, 211], 'up': [351]} Space=467 first_gap=256 second_gap=116 late=566 leap_ok=True held=0 rule_held=0 aim=(0, 1) rule_aim=(0, 1) realised=False
+  re-driven: the applied stream left the case (first_gap 256, Space 467)
+rich right>up delay=12 attempt=2 presses={'right': [9, 19, 28, 40, 51, 65], 'up': [81]} Space=95 first_gap=30 second_gap=14 late=72 leap_ok=True held=0 rule_held=0 aim=(0, 1) rule_aim=(0, 1) realised=False
+  re-driven: the applied stream left the case (first_gap 30, Space 95)
+rich right>up delay=12 attempt=3 presses={'right': [13, 24, 36, 47, 58, 69], 'up': [79, 89]} Space=99 first_gap=30 second_gap=10 late=74 leap_ok=True held=0 rule_held=0 aim=(0, 1) rule_aim=(0, 1) realised=False
+  re-driven: the applied stream left the case (first_gap 30, Space 99)
+rich right>up delay=12 attempt=4 presses={'right': [11, 22, 32, 47, 59, 68], 'up': [74, 80]} Space=86 first_gap=18 second_gap=6 late=55 leap_ok=True held=0 rule_held=0 aim=(0, 1) rule_aim=(0, 1) realised=False
+  re-driven: the applied stream left the case (first_gap 18, Space 86)
+rich up>left delay=6 attempt=1 presses={'up': [7, 15, 21, 28, 36, 43], 'left': [51]} Space=56 first_gap=13 second_gap=5 late=33 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>left delay=6 attempt=2 presses={'up': [6, 16, 21, 26, 31, 37], 'left': [42]} Space=48 first_gap=11 second_gap=6 late=23 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>left delay=6 attempt=3 presses={'up': [7, 19, 24, 30, 36, 42], 'left': [48]} Space=54 first_gap=12 second_gap=6 late=29 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>left delay=6 attempt=4 presses={'up': [7, 19, 25, 31, 37, 43], 'left': [49]} Space=54 first_gap=11 second_gap=5 late=29 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>left delay=9 attempt=1 presses={'up': [7, 19, 25, 31, 37, 42], 'left': [48, 54]} Space=59 first_gap=17 second_gap=5 late=35 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>left delay=9 attempt=2 presses={'up': [6, 16, 21, 27, 31, 37], 'left': [42, 48]} Space=52 first_gap=15 second_gap=4 late=28 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>left delay=9 attempt=3 presses={'up': [6, 16, 22, 27, 32, 38], 'left': [43, 52]} Space=56 first_gap=18 second_gap=4 late=35 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>left delay=9 attempt=4 presses={'up': [7, 17, 23, 29, 35, 41], 'left': [47, 55]} Space=61 first_gap=20 second_gap=6 late=39 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>left delay=12 attempt=1 presses={'up': [7, 20, 28, 35, 41, 47], 'left': [53, 59]} Space=65 first_gap=18 second_gap=6 late=38 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>left delay=12 attempt=2 presses={'up': [7, 19, 25, 30, 37, 42], 'left': [48, 54]} Space=59 first_gap=17 second_gap=5 late=32 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>left delay=12 attempt=3 presses={'up': [6, 18, 24, 29, 35, 41], 'left': [47, 53]} Space=60 first_gap=19 second_gap=7 late=34 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich up>left delay=12 attempt=4 presses={'up': [6, 17, 22, 28, 33, 38], 'left': [44, 49]} Space=55 first_gap=17 second_gap=6 late=28 leap_ok=False held=None rule_held=None aim=None rule_aim=None realised=False
+  re-driven: the applied stream left the case (the pack too tired to leap)
+rich left>up delay=6 attempt=1 presses={'left': [6, 17, 24, 26, 31, 34], 'up': [39]} Space=41 first_gap=7 second_gap=2 late=16 leap_ok=True held=1 rule_held=1 aim=(-1, 1) rule_aim=(-1, 1) realised=True
+rich left>up delay=9 attempt=1 presses={'left': [6, 17, 23, 25, 32, 34], 'up': [39, 46]} Space=51 first_gap=17 second_gap=5 late=28 leap_ok=True held=1 rule_held=1 aim=(0, 1) rule_aim=(0, 1) realised=False
+  re-driven: the applied stream left the case (first_gap 17, Space 51)
+rich left>up delay=9 attempt=2 presses={'left': [6, 18, 23, 25, 32, 34], 'up': [40, 46]} Space=51 first_gap=17 second_gap=5 late=28 leap_ok=True held=1 rule_held=1 aim=(0, 1) rule_aim=(0, 1) realised=False
+  re-driven: the applied stream left the case (first_gap 17, Space 51)
+rich left>up delay=9 attempt=3 presses={'left': [6, 18, 23, 25, 32, 34], 'up': [39, 41, 46]} Space=51 first_gap=17 second_gap=5 late=26 leap_ok=True held=1 rule_held=1 aim=(0, 1) rule_aim=(0, 1) realised=False
+  re-driven: the applied stream left the case (first_gap 17, Space 51)
+rich left>up delay=9 attempt=4 presses={'left': [7, 18, 24, 26, 31, 33], 'up': [38, 40, 45]} Space=51 first_gap=18 second_gap=6 late=25 leap_ok=True held=0 rule_held=0 aim=(0, 1) rule_aim=(0, 1) realised=False
+  re-driven: the applied stream left the case (first_gap 18, Space 51)
+rich left>up delay=12 attempt=1 presses={'left': [6, 17, 24, 26, 31, 33], 'up': [34, 38, 44]} Space=50 first_gap=17 second_gap=6 late=21 leap_ok=True held=0 rule_held=0 aim=(0, 1) rule_aim=(0, 1) realised=False
+  re-driven: the applied stream left the case (first_gap 17, Space 50)
+rich left>up delay=12 attempt=2 presses={'left': [6, 18, 24, 26, 31, 33], 'up': [34, 40, 45]} Space=51 first_gap=18 second_gap=6 late=23 leap_ok=True held=0 rule_held=0 aim=(0, 1) rule_aim=(0, 1) realised=False
+  re-driven: the applied stream left the case (first_gap 18, Space 51)
+rich left>up delay=12 attempt=3 presses={'left': [7, 20, 26, 32, 39, 41], 'up': [46, 48, 53]} Space=59 first_gap=18 second_gap=6 late=30 leap_ok=True held=0 rule_held=0 aim=(0, 1) rule_aim=(0, 1) realised=False
+  re-driven: the applied stream left the case (first_gap 18, Space 59)
+rich left>up delay=12 attempt=4 presses={'left': [7, 18, 23, 25, 32, 38], 'up': [39, 41, 46, 52]} Space=56 first_gap=18 second_gap=4 late=27 leap_ok=True held=1 rule_held=1 aim=(0, 1) rule_aim=(0, 1) realised=False
+  re-driven: the applied stream left the case (first_gap 18, Space 56)
+rich down>right delay=6 attempt=1 presses={'down': [6, 14, 16, 18, 20, 22], 'right': [23, 25, 27]} Space=29 first_gap=7 second_gap=2 late=0 leap_ok=True held=8 rule_held=8 aim=(1, -1) rule_aim=(1, -1) realised=True
+rich down>right delay=9 attempt=1 presses={'down': [7, 15, 17, 19, 21, 23], 'right': [24, 26, 28, 30, 35]} Space=36 first_gap=13 second_gap=1 late=6 leap_ok=True held=8 rule_held=8 aim=(1, -1) rule_aim=(1, -1) realised=True
+rich down>right delay=12 attempt=1 presses={'down': [6, 14, 16, 18, 20, 22], 'right': [23, 25, 27, 29, 31, 36]} Space=37 first_gap=15 second_gap=1 late=5 leap_ok=True held=8 rule_held=8 aim=(1, -1) rule_aim=(1, -1) realised=True
+rich right>down delay=6 attempt=1 presses={'right': [6, 18, 23, 25, 31, 33], 'down': [34, 39]} Space=40 first_gap=7 second_gap=1 late=14 leap_ok=True held=2 rule_held=2 aim=(1, -1) rule_aim=(1, -1) realised=True
+rich right>down delay=9 attempt=1 presses={'right': [6, 17, 23, 25, 31, 33], 'down': [34, 39, 41]} Space=44 first_gap=11 second_gap=3 late=15 leap_ok=True held=2 rule_held=2 aim=(1, -1) rule_aim=(1, -1) realised=True
+rich right>down delay=12 attempt=1 presses={'right': [7, 18, 23, 25, 32, 39], 'down': [40, 47, 49, 51]} Space=52 first_gap=13 second_gap=1 late=21 leap_ok=True held=2 rule_held=2 aim=(1, -1) rule_aim=(1, -1) realised=True
+rich down>left delay=6 attempt=1 presses={'down': [8, 17, 20, 23, 26, 29], 'left': [30, 32, 34]} Space=41 first_gap=12 second_gap=7 late=10 leap_ok=True held=0 rule_held=0 aim=(-1, -1) rule_aim=(-1, -1) realised=True
+rich down>left delay=9 attempt=1 presses={'down': [6, 14, 16, 18, 20, 22], 'left': [23, 25, 28, 30]} Space=36 first_gap=14 second_gap=6 late=5 leap_ok=True held=0 rule_held=0 aim=(-1, -1) rule_aim=(-1, -1) realised=True
+rich down>left delay=12 attempt=1 presses={'down': [6, 14, 17, 19, 22, 24], 'left': [25, 27, 30, 32, 38]} Space=39 first_gap=15 second_gap=1 late=9 leap_ok=True held=4 rule_held=4 aim=(-1, -1) rule_aim=(-1, -1) realised=True
+rich left>down delay=6 attempt=1 presses={'left': [6, 18, 23, 25, 31, 33], 'down': [34, 39]} Space=40 first_gap=7 second_gap=1 late=14 leap_ok=True held=2 rule_held=2 aim=(-1, -1) rule_aim=(-1, -1) realised=True
+rich left>down delay=9 attempt=1 presses={'left': [6, 18, 23, 25, 32, 34], 'down': [39, 42]} Space=44 first_gap=10 second_gap=2 late=17 leap_ok=True held=2 rule_held=2 aim=(-1, -1) rule_aim=(-1, -1) realised=True
+rich left>down delay=12 attempt=1 presses={'left': [6, 16, 18, 22, 24, 26], 'down': [30, 32, 34, 36, 39]} Space=40 first_gap=14 second_gap=1 late=9 leap_ok=True held=2 rule_held=2 aim=(-1, -1) rule_aim=(-1, -1) realised=True
+rich None>up delay=9 attempt=1 presses={'up': [6, 10, 15]} Space=20 first_gap=None second_gap=5 late=10 leap_ok=True held=1 rule_held=1 aim=(0, 1) rule_aim=(0, 1) realised=True
+rich None>down delay=9 attempt=1 presses={'down': [6, 11, 13]} Space=15 first_gap=None second_gap=2 late=3 leap_ok=True held=2 rule_held=2 aim=(0, -1) rule_aim=(0, -1) realised=True
+rich None>left delay=9 attempt=1 presses={'left': [6, 11, 15]} Space=16 first_gap=None second_gap=1 late=6 leap_ok=True held=4 rule_held=4 aim=(-1, 0) rule_aim=(-1, 0) realised=True
+rich None>right delay=9 attempt=1 presses={'right': [6, 11, 15]} Space=16 first_gap=None second_gap=1 late=6 leap_ok=True held=8 rule_held=8 aim=(1, 0) rule_aim=(1, 0) realised=True
+rich None>None delay=9 attempt=1 presses={} Space=16 first_gap=None second_gap=None late=1 leap_ok=True held=0 rule_held=0 aim=(0, 1) rule_aim=(0, 1) realised=True
+plain up>right delay=6 attempt=1 presses={'up': [5, 13, 17, 20, 22, 25], 'right': [28, 31]} Space=34 first_gap=9 second_gap=3 late=9 leap_ok=True held=8 rule_held=8 aim=(1, 1) rule_aim=(1, 1) realised=True
+plain up>right delay=9 attempt=1 presses={'up': [5, 13, 15, 18, 22, 25], 'right': [27, 30, 33]} Space=35 first_gap=10 second_gap=2 late=7 leap_ok=True held=8 rule_held=8 aim=(1, 1) rule_aim=(1, 1) realised=True
+plain up>right delay=12 attempt=1 presses={'up': [6, 14, 16, 20, 22, 26], 'right': [28, 32, 34, 38]} Space=39 first_gap=13 second_gap=1 late=9 leap_ok=True held=8 rule_held=8 aim=(1, 1) rule_aim=(1, 1) realised=True
+plain right>up delay=6 attempt=1 presses={'right': [6, 14, 16, 18, 20, 22], 'up': [23, 26, 29]} Space=30 first_gap=8 second_gap=1 late=3 leap_ok=True held=1 rule_held=1 aim=(1, 1) rule_aim=(1, 1) realised=True
+plain right>up delay=9 attempt=1 presses={'right': [5, 14, 16, 18, 23, 25], 'up': [26, 29, 32, 35]} Space=36 first_gap=11 second_gap=1 late=8 leap_ok=True held=1 rule_held=1 aim=(1, 1) rule_aim=(1, 1) realised=True
+plain right>up delay=12 attempt=1 presses={'right': [5, 15, 17, 19, 22, 24], 'up': [25, 29, 31, 35]} Space=37 first_gap=13 second_gap=2 late=7 leap_ok=True held=1 rule_held=1 aim=(1, 1) rule_aim=(1, 1) realised=True
+plain up>left delay=6 attempt=1 presses={'up': [5, 13, 15, 19, 21, 25], 'left': [27, 31]} Space=33 first_gap=8 second_gap=2 late=8 leap_ok=True held=4 rule_held=4 aim=(-1, 1) rule_aim=(-1, 1) realised=True
+plain up>left delay=9 attempt=1 presses={'up': [5, 13, 16, 19, 22, 25], 'left': [28, 31, 34]} Space=37 first_gap=12 second_gap=3 late=10 leap_ok=True held=4 rule_held=4 aim=(-1, 1) rule_aim=(-1, 1) realised=True
+plain up>left delay=12 attempt=1 presses={'up': [5, 13, 16, 19, 22, 25], 'left': [28, 31, 34, 37]} Space=38 first_gap=13 second_gap=1 late=10 leap_ok=True held=4 rule_held=4 aim=(-1, 1) rule_aim=(-1, 1) realised=True
+plain left>up delay=6 attempt=1 presses={'left': [6, 15, 17, 22, 24, 26], 'up': [29, 31]} Space=35 first_gap=9 second_gap=4 late=8 leap_ok=True held=0 rule_held=0 aim=(-1, 1) rule_aim=(-1, 1) realised=True
+plain left>up delay=9 attempt=1 presses={'left': [6, 14, 16, 18, 21, 24], 'up': [25, 29, 31, 33]} Space=34 first_gap=10 second_gap=1 late=4 leap_ok=True held=1 rule_held=1 aim=(-1, 1) rule_aim=(-1, 1) realised=True
+plain left>up delay=12 attempt=1 presses={'left': [5, 14, 16, 19, 22, 24], 'up': [25, 30, 32, 34, 38]} Space=40 first_gap=16 second_gap=2 late=11 leap_ok=True held=1 rule_held=1 aim=(0, 1) rule_aim=(0, 1) realised=False
+  re-driven: the applied stream left the case (first_gap 16, Space 40)
+plain left>up delay=12 attempt=2 presses={'left': [6, 15, 17, 22, 24, 26], 'up': [29, 31, 36, 40]} Space=42 first_gap=16 second_gap=2 late=14 leap_ok=True held=1 rule_held=1 aim=(0, 1) rule_aim=(0, 1) realised=False
+  re-driven: the applied stream left the case (first_gap 16, Space 42)
+plain left>up delay=12 attempt=3 presses={'left': [4, 14, 16, 18, 22, 25], 'up': [26, 30, 32, 34, 36]} Space=38 first_gap=13 second_gap=2 late=7 leap_ok=True held=1 rule_held=1 aim=(-1, 1) rule_aim=(-1, 1) realised=True
+plain down>right delay=6 attempt=1 presses={'down': [5, 13, 15, 17, 19, 21], 'right': [22, 24, 26]} Space=28 first_gap=7 second_gap=2 late=0 leap_ok=True held=8 rule_held=8 aim=(1, -1) rule_aim=(1, -1) realised=True
+plain down>right delay=9 attempt=1 presses={'down': [6, 14, 17, 19, 21, 23], 'right': [24, 26, 28, 30, 32]} Space=35 first_gap=12 second_gap=3 late=3 leap_ok=True held=0 rule_held=0 aim=(1, -1) rule_aim=(1, -1) realised=True
+plain down>right delay=12 attempt=1 presses={'down': [6, 14, 16, 18, 20, 22], 'right': [23, 25, 27, 29, 31, 34]} Space=35 first_gap=13 second_gap=1 late=1 leap_ok=True held=8 rule_held=8 aim=(1, -1) rule_aim=(1, -1) realised=True
+plain right>down delay=6 attempt=1 presses={'right': [5, 15, 17, 19, 22, 24], 'down': [25, 27, 30]} Space=31 first_gap=7 second_gap=1 late=5 leap_ok=True held=2 rule_held=2 aim=(1, -1) rule_aim=(1, -1) realised=True
+plain right>down delay=9 attempt=1 presses={'right': [4, 15, 17, 19, 23, 26], 'down': [27, 30, 32, 34]} Space=36 first_gap=10 second_gap=2 late=7 leap_ok=True held=2 rule_held=2 aim=(1, -1) rule_aim=(1, -1) realised=True
+plain right>down delay=12 attempt=1 presses={'right': [4, 15, 17, 19, 21, 23], 'down': [24, 26, 28, 30, 32, 34]} Space=36 first_gap=13 second_gap=2 late=3 leap_ok=True held=2 rule_held=2 aim=(1, -1) rule_aim=(1, -1) realised=True
+plain down>left delay=6 attempt=1 presses={'down': [5, 13, 15, 17, 19, 21], 'left': [23, 25, 27]} Space=28 first_gap=7 second_gap=1 late=1 leap_ok=True held=4 rule_held=4 aim=(-1, -1) rule_aim=(-1, -1) realised=True
+plain down>left delay=9 attempt=1 presses={'down': [3, 11, 14, 16, 18, 20], 'left': [21, 23, 28]} Space=30 first_gap=10 second_gap=2 late=4 leap_ok=True held=4 rule_held=4 aim=(-1, -1) rule_aim=(-1, -1) realised=True
+plain down>left delay=12 attempt=1 presses={'down': [4, 12, 14, 16, 18, 20], 'left': [21, 23, 25, 27, 29, 31]} Space=35 first_gap=15 second_gap=4 late=2 leap_ok=True held=0 rule_held=0 aim=(-1, -1) rule_aim=(-1, -1) realised=True
+plain left>down delay=6 attempt=1 presses={'left': [6, 14, 16, 18, 21, 23], 'down': [24, 26, 28]} Space=31 first_gap=8 second_gap=3 late=2 leap_ok=True held=0 rule_held=0 aim=(-1, -1) rule_aim=(-1, -1) realised=True
+plain left>down delay=9 attempt=1 presses={'left': [6, 15, 18, 22, 24, 26], 'down': [29, 31, 33, 35]} Space=36 first_gap=10 second_gap=1 late=6 leap_ok=True held=2 rule_held=2 aim=(-1, -1) rule_aim=(-1, -1) realised=True
+plain left>down delay=12 attempt=1 presses={'left': [5, 15, 17, 19, 23, 25], 'down': [26, 29, 31, 33, 36]} Space=38 first_gap=13 second_gap=2 late=6 leap_ok=True held=2 rule_held=2 aim=(-1, -1) rule_aim=(-1, -1) realised=True
+plain None>up delay=9 attempt=1 presses={'up': [6, 8, 10, 13]} Space=17 first_gap=None second_gap=4 late=3 leap_ok=True held=0 rule_held=0 aim=(0, 1) rule_aim=(0, 1) realised=True
+plain None>down delay=9 attempt=1 presses={'down': [5, 9, 11, 13]} Space=15 first_gap=None second_gap=2 late=3 leap_ok=True held=2 rule_held=2 aim=(0, -1) rule_aim=(0, -1) realised=True
+plain None>left delay=9 attempt=1 presses={'left': [4, 6, 8, 10, 15]} Space=16 first_gap=None second_gap=1 late=6 leap_ok=True held=4 rule_held=4 aim=(-1, 0) rule_aim=(-1, 0) realised=True
+plain None>right delay=9 attempt=1 presses={'right': [6, 8, 10, 14]} Space=15 first_gap=None second_gap=1 late=2 leap_ok=True held=8 rule_held=8 aim=(1, 0) rule_aim=(1, 0) realised=True
+plain None>None delay=9 attempt=1 presses={} Space=15 first_gap=None second_gap=None late=2 leap_ok=True held=0 rule_held=0 aim=(0, 1) rule_aim=(0, 1) realised=True

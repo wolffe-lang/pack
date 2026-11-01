@@ -1,0 +1,26 @@
+pk09: 23:03:07 gate ok: 10320 MiB free+inactive+speculative
+stress: dded677a1781a44bd85efd74db721d666ac341c5 at 2026-11-01T03:03:07Z on nomad
+pty: aim-window FAILED (darwin arm64):
+  evidence: 58 cases in 84 tick-paced sessions (34 re-driven, 2033 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pty/aim-window.txt
+  - rich up>right delay=9: SCHEDULE: not realised in 4 sessions
+  - rich up>right delay=12: SCHEDULE: not realised in 4 sessions
+  - rich right>up delay=12: SCHEDULE: not realised in 4 sessions
+  - rich up>left delay=6: SCHEDULE: not realised in 4 sessions
+  - rich up>left delay=9: SCHEDULE: not realised in 4 sessions
+  - rich up>left delay=12: SCHEDULE: not realised in 4 sessions
+  - rich left>up delay=9: SCHEDULE: not realised in 4 sessions
+  - rich left>up delay=12: SCHEDULE: not realised in 4 sessions
+stall: load 12, 211 s, the command's exit 1
+END aim-window-load12 exit=1
+pty: quit ok (darwin arm64, exit 0, 104619 bytes captured)
+pty: ctrl-c ok (darwin arm64, exit 0, 104348 bytes captured)
+pty: trap ok (darwin arm64, exit 134, 82839 bytes captured)
+pty: agree-rich ok (darwin arm64, exit 0, 353486 bytes captured)
+pty: agree-plain ok (darwin arm64, exit 0, 194867 bytes captured)
+pty: held-run ok (darwin arm64, exit 0, 516636 bytes captured; 26 sequences typed, last key at tick 55, peak |heading| 48, straight at 60, column at rest at 59)
+pty: card ok (darwin arm64, exit 0, 2548413 bytes captured; death in the trace, 11 events saved, last tick 921, re-run twice identical)
+pty: title ok (darwin arm64, exit 0, 5290816 bytes captured; score 179; 3 closing lines; best file written)
+pty: directional-chords ok (darwin arm64, exit 0, 68238 bytes captured; 18 fresh terminal sessions: default plus eight held aims, both tiers)
+pty: aim-window ok (darwin arm64, exit 0, 56728 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 12 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pty/aim-window.txt)
+stall: load 1, 215 s, the command's exit 0
+END all-rows-load1 exit=0
