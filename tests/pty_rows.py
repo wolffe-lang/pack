@@ -383,6 +383,12 @@ AIM_RULE_WINDOW = 15
 HOLD_RULE_TAP = 12
 HOLD_RULE_RATE_MAX = 5
 HOLD_RULE_MARGIN = 1
+# The leap's own preconditions (sim.lu `leap`: LEAP_STAMINA, the pant that
+# EXHAUST_RECOVER ends). The row judges the aim, not the sprint, but Up is a
+# sprint too: a stall that stretches the first arrow's run can tire the pack
+# until the leap is refused, which the game is right to do.
+LEAP_RULE_STAMINA = 60
+EXHAUST_RULE_RECOVER = 90
 
 # The schedule, in ticks (30 Hz): the first arrow's initial repeat delay
 # (~267 ms) and its repeat interval (~67 ms), then the second arrow from the
@@ -470,6 +476,24 @@ def aim_realised(first, second, presses, space):
         if name == first and space < hold_rule_until(ticks):
             return False
     return True
+
+
+def leap_rule_ok(rows, space):
+    """Whether the documented rule lets a leap start on step `space`, from
+    the trace's stamina: the line `tick space` (printed after step space-1)
+    holds the stamina the step starts with; the pant began on a line that
+    showed 0 and ended on a later line that showed EXHAUST_RULE_RECOVER or
+    more. No leap precedes Space in these sessions, so 0 is only the pant."""
+    stamina, panting = None, False
+    for r in rows:
+        if r["tick"] > space:
+            break
+        stamina = r.get("stamina")
+        if stamina == 0:
+            panting = True
+        elif panting and stamina is not None and stamina >= EXHAUST_RULE_RECOVER:
+            panting = False
+    return stamina is not None and stamina >= LEAP_RULE_STAMINA and not panting
 
 
 def first_applied(rows, seen):
@@ -567,26 +591,32 @@ def aim_session(bin, ctx, tier, first, second, delay):
     s.finish()
     ctx.common_checks(s, 0, problems)
     tag = "%s %s>%s delay=%d" % (tier, first, second, delay)
-    # Delivery: the sim's own record of each acknowledged byte.
+    # Delivery: the sim's own record of each acknowledged arrow.
     for name, step, before, applied, r in p.log:
-        if name == "space":
-            if r.get("leap_tick") != applied or r.get("tell") != 1:
-                problems.append("%s: DELIVERY: Space applied on step %d but the trace says leap_tick %s tell %s" % (
-                    tag, applied, r.get("leap_tick"), r.get("tell")))
-        elif r.get(name + "_at") != applied:
+        if name != "space" and r.get(name + "_at") != applied:
             problems.append("%s: DELIVERY: %s applied on step %d but the trace says %s_at %s" % (
                 tag, name, applied, name, r.get(name + "_at")))
     tells = [r for r in p.rows if r.get("tell") == 1]
-    if len(tells) != 1:
-        problems.append("%s: %d accepted Space rows, one wanted: %r" % (tag, len(tells), [r.get("tick") for r in tells]))
+    leap_ok = leap_rule_ok(p.rows, space)
+    late = sum(applied - step for name, step, before, applied, r in p.log)
+    rec.update({"space": space, "presses": presses, "late": late, "leap_ok": leap_ok,
+                "first_gap": space - presses[first][-1] if first else None,
+                "second_gap": space - presses[second][-1] if second else None})
+    if not leap_ok:
+        # The stream tired the pack: no leap is the rule's answer, and the
+        # session is out of its case.
+        if tells:
+            problems.append("%s: the game leapt on step %s where its stamina rule refuses (Space %d)" % (
+                tag, [r.get("leap_tick") for r in tells], space))
+        rec.update({"realised": False, "held": None, "aim": None, "rule_held": None, "rule_aim": None})
+        return s, rec, problems
+    if len(tells) != 1 or tells[0].get("leap_tick") != space:
+        problems.append("%s: one leap on Space's step %d wanted, the trace has %r" % (
+            tag, space, [(r.get("tick"), r.get("leap_tick")) for r in tells]))
     acc = tells[-1] if tells else {}
     rule_held, rule_aim = aim_rule(presses, space)
     game_held, game_aim = acc.get("leap_held"), (acc.get("aim_x"), acc.get("aim_y"))
-    late = sum(applied - step for name, step, before, applied, r in p.log)
-    rec.update({"space": space, "presses": presses, "rule_held": rule_held, "rule_aim": rule_aim,
-                "held": game_held, "aim": game_aim, "late": late,
-                "first_gap": space - presses[first][-1] if first else None,
-                "second_gap": space - presses[second][-1] if second else None,
+    rec.update({"rule_held": rule_held, "rule_aim": rule_aim, "held": game_held, "aim": game_aim,
                 "realised": aim_realised(first, second, presses, space)})
     if game_held != rule_held:
         problems.append("%s: the game's Hold at Space is %s where the rule on the applied ticks gives %s (presses %s, Space %d)" % (
@@ -629,6 +659,17 @@ def aim_controls():
     want("a cardinal inside the window", aim_realised(None, "left", {"left": [10]}, 25), True)
     want("a cardinal past it", aim_realised(None, "left", {"left": [10]}, 26), False)
     want("the default", aim_realised(None, None, {}, 20), True)
+    def lines(*stamina):
+        return [{"tick": t + 1, "stamina": v} for t, v in enumerate(stamina)]
+
+    want("a fresh pack leaps", leap_rule_ok(lines(300, 294, 288), 3), True)
+    want("60 is enough", leap_rule_ok(lines(300, 66, 60), 3), True)
+    want("59 is not", leap_rule_ok(lines(300, 65, 59), 3), False)
+    want("the pant refuses", leap_rule_ok(lines(6, 0, 1, 2), 4), False)
+    want("the pant past 89 still refuses", leap_rule_ok(lines(0, 88, 89), 3), False)
+    want("the pant ends at 90", leap_rule_ok(lines(0, 89, 90), 3), True)
+    want("lines after Space never count", leap_rule_ok(lines(300, 300, 0, 0), 2), True)
+
     # The second key dropped (the plant's fault) must not agree with the rule.
     if aim_rule({"up": up, "right": [27, 29]}, 31)[1] == (0, 1):
         bad.append("the rule cannot tell a dropped second key from the diagonal")
@@ -687,19 +728,18 @@ def row_aim_window(bin, ctx):
                     break
                 late += rec["late"]
                 evidence.append("%s %s>%s delay=%d attempt=%d presses=%s Space=%d first_gap=%s second_gap=%s "
-                                "late=%d held=%s rule_held=%s aim=%s,%s rule_aim=%s,%s realised=%s" % (
+                                "late=%d leap_ok=%s held=%s rule_held=%s aim=%s rule_aim=%s realised=%s" % (
                                     tier, first, second, delay, attempt, rec["presses"], rec["space"],
-                                    rec["first_gap"], rec["second_gap"], rec["late"], rec["held"],
-                                    rec["rule_held"], rec["aim"][0], rec["aim"][1], rec["rule_aim"][0],
-                                    rec["rule_aim"][1], rec["realised"]))
+                                    rec["first_gap"], rec["second_gap"], rec["late"], rec["leap_ok"], rec["held"],
+                                    rec["rule_held"], rec["aim"], rec["rule_aim"], rec["realised"]))
                 if found or rec["realised"]:
                     if not found and rec["rule_aim"] != (x, y):
                         problems.append("%s %s>%s delay=%d: realised, but the rule gives %s where the case is %s,%s" % (
                             tier, first, second, delay, rec["rule_aim"], x, y))
                     break
                 redriven += 1
-                evidence.append("  re-driven: the applied stream left the case (first_gap %s, Space %d)" % (
-                    rec["first_gap"], rec["space"]))
+                evidence.append("  re-driven: the applied stream left the case (%s)" % (
+                    "the pack too tired to leap" if not rec["leap_ok"] else "first_gap %s, Space %d" % (rec["first_gap"], rec["space"])))
             else:
                 problems.append("%s %s>%s delay=%d: SCHEDULE: not realised in %d sessions" % (
                     tier, first, second, delay, AIM_ATTEMPTS))
