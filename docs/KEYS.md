@@ -67,11 +67,20 @@ release and turn rate are unchanged; the window does not keep steering.
 | Up+Down or Left+Right | later arrow wins on that axis |
 
 The real-pty `aim-window` row types initial delay/repeats for the first
-arrow, then only repeats the second and sends Space 200, 300 and 400 ms
-later. Both orders of every diagonal, every single-arrow cardinal and
-the default run on both tiers. `--trace` records the accepted Space tick,
-the raw Hold mask (Up=1, Down=2, Left=4, Right=8), each arrow's last press
-tick and the chosen aim. This reproduces a last-key-only byte stream;
+arrow, then only repeats the second and sends Space 6, 9 and 12 ticks
+(200, 300 and 400 ms) after the second starts. Both orders of every
+diagonal, every single-arrow cardinal and the default run on both tiers.
+Every byte is written once the game's `--trace` shows the tick before its
+target and is acknowledged on the step that applied it; the row then
+checks the raw Hold mask (Up=1, Down=2, Left=4, Right=8) and the chosen
+aim against this section's rule applied to those applied ticks, never to
+the milliseconds it meant (pk09: a busy machine delivers a byte late, and
+the game is right to answer the late stream). A session a stall pushed
+out of its case (the first arrow still held, or past the window) is
+driven again, up to four times, and printed. The window counts the ticks
+the game applied the bytes on: a key read on a late wake is applied on
+the earliest tick then due, so a stall can move it earlier by the stall's
+length. This reproduces a last-key-only byte stream;
 it does not claim that every keyboard/terminal has been physically probed.
 
 The top row says `Leap N`, `Leap NE`, etc. for one tick before the group
