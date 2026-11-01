@@ -1,0 +1,4 @@
+trunk run 1: RED, 5 lines
+SUMMARY trunk: 0 green, 1 red, 0 without a verdict, of 1; red lines by class {'fixture Hold set': 5}; 58 sessions, the game's aim against the window on its own reported ticks: 0 disagree
+head run 1: pty: aim-window ok (darwin arm64, exit 0, 56728 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 19 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pt
+SUMMARY head: 1 green, 0 red, 0 without a verdict, of 1; 58 sessions, 0 re-driven, 19 ticks of late delivery, 0 where the game's Hold or aim differs from the rule's; red lines {}

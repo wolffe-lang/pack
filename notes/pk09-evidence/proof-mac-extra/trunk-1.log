@@ -1,0 +1,36 @@
+pk09: 22:46:36 the Mac build lock is held by pid 71900 (cb19); waiting
+pk09: 22:47:06 the Mac build lock is held by pid 71900 (cb19); waiting
+pk09: 22:47:36 the Mac build lock is held by pid 71900 (cb19); waiting
+pk09: 22:48:06 the Mac build lock is held by pid 71900 (cb19); waiting
+pk09: 22:48:36 the Mac build lock is held by pid 71900 (cb19); waiting
+pk09: 22:49:06 the Mac build lock is held by pid 71900 (cb19); waiting
+pk09: 22:49:36 the Mac build lock is held by pid 71900 (cb19); waiting
+pk09: 22:50:06 the Mac build lock is held by pid 71900 (cb19); waiting
+pk09: 22:50:36 the Mac build lock is held by pid 71900 (cb19); waiting
+pk09: 22:51:06 the Mac build lock is held by pid 2326 (s273); waiting
+pk09: 22:51:36 the Mac build lock is held by pid 62188 (is82); waiting
+pk09: 22:52:06 the Mac build lock is held by pid 62188 (is82); waiting
+pk09: 22:52:36 the Mac build lock is held by pid 62188 (is82); waiting
+pk09: 22:53:06 the Mac build lock is held by pid 62188 (is82); waiting
+pk09: 22:53:36 the Mac build lock is held by pid 62188 (is82); waiting
+pk09: 22:54:06 the Mac build lock is held by pid 62188 (is82); waiting
+pk09: 22:54:36 the Mac build lock is held by pid 62188 (is82); waiting
+pk09: 22:55:06 the Mac build lock is held by pid 62188 (is82); waiting
+pk09: 22:55:36 the Mac build lock is held by pid 62188 (is82); waiting
+pk09: 22:56:06 the Mac build lock is held by pid 62188 (is82); waiting
+pk09: 22:56:36 the Mac build lock is held by pid 62188 (is82); waiting
+pk09: 22:57:06 the Mac build lock is held by pid 62188 (is82); waiting
+pk09: 22:57:36 the Mac build lock is held by pid 62188 (is82); waiting
+pk09: 22:58:07 the Mac build lock is held by pid 62188 (is82); waiting
+pk09: 22:58:37 the Mac build lock is held by pid 62188 (is82); waiting
+pk09: 22:59:07 the Mac build lock is held by pid 62188 (is82); waiting
+pk09: 22:59:37 the Mac build lock is held by pid 62188 (is82); waiting
+pk09: 23:00:07 gate ok: 10447 MiB free+inactive+speculative
+pty: aim-window FAILED (darwin arm64):
+  evidence: 58 timed sessions; accepted Space/held/aim rows at /Users/mfwolffe/lanes/pk09/build-27848095/target/pty/aim-window.txt
+  - rich right>down delay=300ms actual=333ms Space=37 held=0 aim=1,-1 up_at=-1000 down_at=34 left_at=-1000 right_at=24: fixture Hold set is not the last key alone
+  - rich None>up delay=300ms actual=331ms Space=19 held=0 aim=0,1 up_at=16 down_at=-1000 left_at=-1000 right_at=-1000: fixture Hold set is not the last key alone
+  - rich None>right delay=300ms actual=331ms Space=19 held=0 aim=1,0 up_at=-1000 down_at=-1000 left_at=-1000 right_at=16: fixture Hold set is not the last key alone
+  - plain right>up delay=400ms actual=402ms Space=39 held=0 aim=1,1 up_at=37 down_at=-1000 left_at=-1000 right_at=25: fixture Hold set is not the last key alone
+  - plain down>right delay=400ms actual=400ms Space=39 held=0 aim=1,-1 up_at=-1000 down_at=25 left_at=-1000 right_at=37: fixture Hold set is not the last key alone
+stall: load 1, 84 s, the command's exit 1
