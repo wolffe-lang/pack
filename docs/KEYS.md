@@ -76,8 +76,9 @@ checks the raw Hold mask (Up=1, Down=2, Left=4, Right=8) and the chosen
 aim against this section's rule applied to those applied ticks, never to
 the milliseconds it meant (pk09: a busy machine delivers a byte late, and
 the game is right to answer the late stream). A session a stall pushed
-out of its case (the first arrow still held, or past the window) is
-driven again, up to four times, and printed. The window counts the ticks
+out of its case (the first arrow still held, past the window, or the
+pack sprinted too tired to leap) is driven again, up to four times, and
+printed. The window counts the ticks
 the game applied the bytes on: a key read on a late wake is applied on
 the earliest tick then due, so a stall can move it earlier by the stall's
 length. This reproduces a last-key-only byte stream;
