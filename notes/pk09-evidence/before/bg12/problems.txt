@@ -1,0 +1,10 @@
+rich right>up delay=200ms actual=204ms: accepted Space rows []
+rich down>right delay=200ms actual=233ms: accepted Space rows []
+rich right>down delay=300ms actual=315ms Space=31 held=0 aim=1,-1 up_at=-1000 down_at=29 left_at=-1000 right_at=20: fixture Hold set is not the last key alone
+rich down>left delay=400ms actual=407ms Space=35 held=0 aim=-1,-1 up_at=-1000 down_at=21 left_at=31 right_at=-1000: fixture Hold set is not the last key alone
+plain left>up delay=200ms actual=253ms Space=31 held=0 aim=-1,1 up_at=28 down_at=-1000 left_at=21 right_at=-1000: fixture Hold set is not the last key alone
+plain right>down delay=400ms actual=405ms Space=38 held=2 aim=0,-1 up_at=-1000 down_at=37 left_at=-1000 right_at=22 expected=1,-1
+plain down>left delay=400ms actual=430ms Space=36 held=0 aim=-1,-1 up_at=-1000 down_at=21 left_at=32 right_at=-1000: fixture Hold set is not the last key alone
+plain left>down delay=200ms actual=200ms Space=30 held=0 aim=-1,-1 up_at=-1000 down_at=27 left_at=22 right_at=-1000: fixture Hold set is not the last key alone
+plain left>down delay=400ms actual=401ms Space=35 held=2 aim=0,-1 up_at=-1000 down_at=34 left_at=19 right_at=-1000 expected=-1,-1
+plain None>down delay=300ms actual=328ms Space=15 held=0 aim=0,-1 up_at=-1000 down_at=12 left_at=-1000 right_at=-1000: fixture Hold set is not the last key alone
