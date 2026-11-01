@@ -1,0 +1,7 @@
+PROOF trunk run=1 exit=1 21:24:00
+PROOF head run=1 exit=0 21:25:25
+PROOF trunk run=2 exit=1 21:27:00
+PROOF head run=2 exit=0 21:28:24
+PROOF SUMMARY trunk: 0 green, 2 red of 2
+PROOF SUMMARY head: 2 green, 0 red of 2
+PROOF DONE

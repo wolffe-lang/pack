@@ -1,0 +1,2 @@
+pty: aim-window ok (linux x86_64, exit 0, 56699 bytes captured; 58 timed sessions; accepted Space/held/aim rows at /lane/trunk/target/pty/aim-window.txt)
+stall: load 1, 82 s, the command's exit 0

@@ -1,0 +1,9 @@
+pk09: 20:44:16 the Mac build lock is held by pid 55430 (is82); waiting
+pk09: 20:44:46 the Mac build lock is held by pid 55430 (is82); waiting
+pk09: 20:45:16 the Mac build lock is held by pid 55430 (is82); waiting
+pk09: 20:45:46 the Mac build lock is held by pid 56742 (cb19); waiting
+pk09: 20:46:16 the Mac build lock is held by pid 56742 (cb19); waiting
+pk09: 20:46:46 the Mac build lock is held by pid 56742 (cb19); waiting
+pk09: 20:47:16 the Mac build lock is held by pid 56742 (cb19); waiting
+pk09: 20:47:46 gate ok: 11006 MiB free+inactive+speculative
+pty: aim-window ok (darwin arm64, exit 0, 56699 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 0 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-ff10ee71/target/pty/aim-window.txt)

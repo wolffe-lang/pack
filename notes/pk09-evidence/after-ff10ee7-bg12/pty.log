@@ -1,0 +1,43 @@
+pk09: 20:49:26 the Mac build lock is held by pid 83198 (s273); waiting
+pk09: 20:49:56 the Mac build lock is held by pid 87026 (s273); waiting
+pk09: 20:50:26 the Mac build lock is held by pid 85887 (is82); waiting
+pk09: 20:50:56 the Mac build lock is held by pid 89629 (s273); waiting
+pk09: 20:51:26 the Mac build lock is held by pid 89629 (s273); waiting
+pk09: 20:51:56 the Mac build lock is held by pid 89629 (s273); waiting
+pk09: 20:52:26 the Mac build lock is held by pid 89629 (s273); waiting
+pk09: 20:52:56 the Mac build lock is held by pid 89629 (s273); waiting
+pk09: 20:53:26 the Mac build lock is held by pid 89629 (s273); waiting
+pk09: 20:53:56 the Mac build lock is held by pid 89629 (s273); waiting
+pk09: 20:54:26 the Mac build lock is held by pid 89629 (s273); waiting
+pk09: 20:54:56 the Mac build lock is held by pid 89629 (s273); waiting
+pk09: 20:55:26 the Mac build lock is held by pid 2304 (sc75); waiting
+pk09: 20:55:56 the Mac build lock is held by pid 90122 (cb19); waiting
+pk09: 20:56:26 gate ok: 10359 MiB free+inactive+speculative
+pty: aim-window FAILED (darwin arm64):
+  evidence: 58 cases in 65 tick-paced sessions (8 re-driven, 1007 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-ff10ee71/target/pty/aim-window.txt
+  - rich up>right delay=6: DELIVERY: Space applied on step 92 but the trace says leap_tick -1 tell 0
+  - rich up>right delay=6: 0 accepted Space rows, one wanted: []
+  - rich up>right delay=6: the game's Hold at Space is None where the rule on the applied ticks gives 8 (presses {'up': [13, 22, 40, 45, 48, 52], 'right': [55, 89]}, Space 92)
+  - rich up>right delay=6: the game aims None,None where the rule on the applied ticks gives 1,0 (presses {'up': [13, 22, 40, 45, 48, 52], 'right': [55, 89]}, Space 92)
+  - rich up>right delay=9: DELIVERY: Space applied on step 71 but the trace says leap_tick -1 tell 0
+  - rich up>right delay=9: 0 accepted Space rows, one wanted: []
+  - rich up>right delay=9: the game's Hold at Space is None where the rule on the applied ticks gives 8 (presses {'up': [12, 24, 36, 39, 44, 48], 'right': [52, 67]}, Space 71)
+  - rich up>right delay=9: the game aims None,None where the rule on the applied ticks gives 1,0 (presses {'up': [12, 24, 36, 39, 44, 48], 'right': [52, 67]}, Space 71)
+  - rich up>right delay=12: DELIVERY: Space applied on step 95 but the trace says leap_tick -1 tell 0
+  - rich up>right delay=12: 0 accepted Space rows, one wanted: []
+  - rich up>right delay=12: the game's Hold at Space is None where the rule on the applied ticks gives 8 (presses {'up': [20, 47, 50, 63, 68, 71], 'right': [75, 91]}, Space 95)
+  - rich up>right delay=12: the game aims None,None where the rule on the applied ticks gives 1,0 (presses {'up': [20, 47, 50, 63, 68, 71], 'right': [75, 91]}, Space 95)
+  - rich up>left delay=6: DELIVERY: Space applied on step 174 but the trace says leap_tick -1 tell 0
+  - rich up>left delay=6: 0 accepted Space rows, one wanted: []
+  - rich up>left delay=6: the game's Hold at Space is None where the rule on the applied ticks gives 4 (presses {'up': [6, 29, 122, 132, 144, 153], 'left': [168]}, Space 174)
+  - rich up>left delay=6: the game aims None,None where the rule on the applied ticks gives -1,0 (presses {'up': [6, 29, 122, 132, 144, 153], 'left': [168]}, Space 174)
+  - rich up>left delay=9: DELIVERY: Space applied on step 60 but the trace says leap_tick -1 tell 0
+  - rich up>left delay=9: 0 accepted Space rows, one wanted: []
+  - rich up>left delay=9: the game's Hold at Space is None where the rule on the applied ticks gives 0 (presses {'up': [8, 20, 25, 31, 36, 42], 'left': [49, 54]}, Space 60)
+  - rich up>left delay=9: the game aims None,None where the rule on the applied ticks gives -1,0 (presses {'up': [8, 20, 25, 31, 36, 42], 'left': [49, 54]}, Space 60)
+  - rich up>left delay=12: DELIVERY: Space applied on step 62 but the trace says leap_tick -1 tell 0
+  - rich up>left delay=12: 0 accepted Space rows, one wanted: []
+  - rich up>left delay=12: the game's Hold at Space is None where the rule on the applied ticks gives 0 (presses {'up': [8, 20, 26, 32, 38, 44], 'left': [50, 56]}, Space 62)
+  - rich up>left delay=12: the game aims None,None where the rule on the applied ticks gives -1,0 (presses {'up': [8, 20, 26, 32, 38, 44], 'left': [50, 56]}, Space 62)
+  - rich left>up delay=12: SCHEDULE: not realised in 4 sessions
+stall: load 12, 138 s, the command's exit 1
