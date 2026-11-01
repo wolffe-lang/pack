@@ -1,0 +1,42 @@
+trunk run 01: RED, 3 lines
+trunk run 02: RED, 2 lines
+trunk run 03: RED, 1 lines
+trunk run 04: RED, 6 lines
+trunk run 05: RED, 3 lines
+trunk run 06: RED, 10 lines
+trunk run 07: RED, 8 lines
+trunk run 08: RED, 8 lines
+trunk run 09: RED, 1 lines
+trunk run 10: RED, 1 lines
+trunk run 11: RED, 7 lines
+trunk run 12: RED, 4 lines
+trunk run 13: RED, 6 lines
+trunk run 14: RED, 6 lines
+trunk run 15: RED, 7 lines
+trunk run 16: RED, 5 lines
+trunk run 17: RED, 1 lines
+trunk run 18: RED, 3 lines
+trunk run 19: RED, 5 lines
+trunk run 20: RED, 5 lines
+SUMMARY trunk: 0 green, 20 red, 0 without a verdict, of 20; red lines by class {'fixture Hold set': 74, 'expected=': 12, 'accepted Space rows': 6}; 1154 sessions, the game's aim against the window on its own reported ticks: 0 disagree
+head run 01: pty: aim-window ok (darwin arm64, exit 0, 56728 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 22 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pt
+head run 02: pty: aim-window ok (darwin arm64, exit 0, 56728 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 19 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pt
+head run 03: pty: aim-window ok (darwin arm64, exit 0, 56728 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 15 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pt
+head run 04: pty: aim-window ok (darwin arm64, exit 0, 56728 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 25 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pt
+head run 05: NO VERDICT
+head run 06: pty: aim-window ok (darwin arm64, exit 0, 56839 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 21 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pt
+head run 07: pty: aim-window ok (darwin arm64, exit 0, 56728 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 19 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pt
+head run 08: pty: aim-window ok (darwin arm64, exit 0, 56728 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 8 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pty
+head run 09: pty: aim-window ok (darwin arm64, exit 0, 56717 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 20 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pt
+head run 10: pty: aim-window ok (darwin arm64, exit 0, 56728 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 26 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pt
+head run 11: pty: aim-window ok (darwin arm64, exit 0, 56699 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 12 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pt
+head run 12: pty: aim-window ok (darwin arm64, exit 0, 56728 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 11 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pt
+head run 13: pty: aim-window ok (darwin arm64, exit 0, 56699 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 14 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pt
+head run 14: pty: aim-window ok (darwin arm64, exit 0, 56699 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 15 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pt
+head run 15: pty: aim-window ok (darwin arm64, exit 0, 56728 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 9 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pty
+head run 16: pty: aim-window ok (darwin arm64, exit 0, 56699 bytes captured; 58 cases in 60 tick-paced sessions (2 re-driven, 108 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/p
+head run 17: pty: aim-window ok (darwin arm64, exit 0, 56717 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 28 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pt
+head run 18: pty: aim-window ok (darwin arm64, exit 0, 56728 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 13 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pt
+head run 19: pty: aim-window ok (darwin arm64, exit 0, 56839 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 12 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pt
+head run 20: pty: aim-window ok (darwin arm64, exit 0, 56728 bytes captured; 58 cases in 58 tick-paced sessions (0 re-driven, 16 ticks of late delivery); rows at /Users/mfwolffe/lanes/pk09/build-dded677a/target/pt
+SUMMARY head: 19 green, 0 red, 1 without a verdict, of 20; 1104 sessions, 2 re-driven, 413 ticks of late delivery, 0 where the game's Hold or aim differs from the rule's; red lines {}

@@ -1,0 +1,12 @@
+pk09: 22:09:52 gate ok: 11316 MiB free+inactive+speculative
+pty: aim-window FAILED (darwin arm64):
+  evidence: 58 timed sessions; accepted Space/held/aim rows at /Users/mfwolffe/lanes/pk09/build-27848095/target/pty/aim-window.txt
+  - rich left>up delay=300ms actual=308ms Space=36 held=0 aim=-1,1 up_at=34 down_at=-1000 left_at=24 right_at=-1000: fixture Hold set is not the last key alone
+  - rich right>down delay=200ms actual=232ms Space=34 held=0 aim=1,-1 up_at=-1000 down_at=31 left_at=-1000 right_at=25: fixture Hold set is not the last key alone
+  - plain right>up delay=400ms actual=434ms Space=40 held=0 aim=0,1 up_at=37 down_at=-1000 left_at=-1000 right_at=24: fixture Hold set is not the last key alone
+  - plain right>up delay=400ms actual=434ms Space=40 held=0 aim=0,1 up_at=37 down_at=-1000 left_at=-1000 right_at=24 expected=1,1
+  - plain right>down delay=400ms actual=433ms Space=40 held=0 aim=1,-1 up_at=-1000 down_at=37 left_at=-1000 right_at=25: fixture Hold set is not the last key alone
+  - plain None>down delay=300ms actual=334ms Space=19 held=0 aim=0,-1 up_at=-1000 down_at=16 left_at=-1000 right_at=-1000: fixture Hold set is not the last key alone
+  - plain None>left delay=300ms actual=334ms Space=19 held=0 aim=-1,0 up_at=-1000 down_at=-1000 left_at=16 right_at=-1000: fixture Hold set is not the last key alone
+  - plain None>right delay=300ms actual=300ms Space=18 held=0 aim=1,0 up_at=-1000 down_at=-1000 left_at=-1000 right_at=16: fixture Hold set is not the last key alone
+stall: load 1, 84 s, the command's exit 1

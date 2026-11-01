@@ -1,0 +1,5 @@
+pk09: 22:35:14 gate ok: 9983 MiB free+inactive+speculative
+pty: aim-window FAILED (darwin arm64):
+  evidence: 58 timed sessions; accepted Space/held/aim rows at /Users/mfwolffe/lanes/pk09/build-27848095/target/pty/aim-window.txt
+  - rich up>right delay=200ms actual=201ms Space=33 held=0 aim=1,1 up_at=25 down_at=-1000 left_at=-1000 right_at=31: fixture Hold set is not the last key alone
+stall: load 1, 84 s, the command's exit 1

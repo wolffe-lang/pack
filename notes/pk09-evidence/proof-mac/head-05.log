@@ -1,0 +1,17 @@
+pk09: 21:41:53 the Mac build lock is held by pid 19712 (cb19); waiting
+pk09: 21:42:23 the Mac build lock is held by pid 19712 (cb19); waiting
+pk09: 21:42:53 the Mac build lock is held by pid 19712 (cb19); waiting
+pk09: 21:43:23 the Mac build lock is held by pid 19712 (cb19); waiting
+pk09: 21:43:53 the Mac build lock is held by pid 19712 (cb19); waiting
+pk09: 21:44:23 the Mac build lock is held by pid 19712 (cb19); waiting
+pk09: 21:44:53 the Mac build lock is held by pid 19712 (cb19); waiting
+pk09: 21:45:23 the Mac build lock is held by pid 19712 (cb19); waiting
+pk09: 21:45:53 the Mac build lock is held by pid 19712 (cb19); waiting
+pk09: 21:46:23 the Mac build lock is held by pid 19712 (cb19); waiting
+pk09: 21:46:53 the Mac build lock is held by pid 19712 (cb19); waiting
+pk09: 21:47:23 the Mac build lock is held by pid ? (?); waiting
+pk09: 21:47:53 the Mac build lock is held by pid ? (?); waiting
+pk09: 21:48:23 the Mac build lock is held by pid ? (?); waiting
+pk09: 21:48:53 the Mac build lock is held by pid ? (?); waiting
+pk09: 21:49:23 the Mac build lock is held by pid 30995 (cb19); waiting
+/Users/mfwolffe/lanes/pk09/run: line 24: pages: unbound variable

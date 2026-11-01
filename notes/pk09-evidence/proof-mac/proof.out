@@ -1,0 +1,43 @@
+PROOF trunk run=01 exit=1 21:30:04
+PROOF head run=01 exit=0 21:31:27
+PROOF trunk run=02 exit=1 21:32:51
+PROOF head run=02 exit=0 21:34:15
+PROOF trunk run=03 exit=1 21:35:42
+PROOF head run=03 exit=0 21:37:05
+PROOF trunk run=04 exit=1 21:38:29
+PROOF head run=04 exit=0 21:39:53
+PROOF trunk run=05 exit=1 21:41:18
+PROOF head run=05 exit=0 21:49:53
+PROOF trunk run=06 exit=1 22:05:31
+PROOF head run=06 exit=0 22:06:55
+PROOF trunk run=07 exit=1 22:08:28
+PROOF head run=07 exit=0 22:09:52
+PROOF trunk run=08 exit=1 22:11:16
+PROOF head run=08 exit=0 22:12:40
+PROOF trunk run=09 exit=1 22:14:03
+PROOF head run=09 exit=0 22:15:27
+PROOF trunk run=10 exit=1 22:16:51
+PROOF head run=10 exit=0 22:18:14
+PROOF trunk run=11 exit=1 22:19:38
+PROOF head run=11 exit=0 22:21:01
+PROOF trunk run=12 exit=1 22:22:25
+PROOF head run=12 exit=0 22:23:49
+PROOF trunk run=13 exit=1 22:25:13
+PROOF head run=13 exit=0 22:26:37
+PROOF trunk run=14 exit=1 22:28:01
+PROOF head run=14 exit=0 22:29:24
+PROOF trunk run=15 exit=1 22:30:54
+PROOF head run=15 exit=0 22:32:17
+PROOF trunk run=16 exit=1 22:33:45
+PROOF head run=16 exit=0 22:35:14
+PROOF trunk run=17 exit=1 22:36:37
+PROOF head run=17 exit=0 22:38:01
+PROOF trunk run=18 exit=1 22:39:25
+PROOF head run=18 exit=0 22:40:48
+PROOF trunk run=19 exit=1 22:42:12
+PROOF head run=19 exit=0 22:43:36
+PROOF trunk run=20 exit=1 22:45:00
+PROOF head run=20 exit=0 22:46:23
+PROOF SUMMARY trunk: 0 green, 20 red of 20
+PROOF SUMMARY head: 19 green, 0 red of 20
+PROOF DONE

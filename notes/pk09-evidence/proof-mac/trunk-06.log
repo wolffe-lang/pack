@@ -1,0 +1,42 @@
+pk09: 21:49:53 the Mac build lock is held by pid ? (?); waiting
+pk09: 21:50:23 the Mac build lock is held by pid ? (?); waiting
+pk09: 21:50:53 the Mac build lock is held by pid 50635 (pk09); waiting
+pk09: 21:51:23 the Mac build lock is held by pid 50635 (pk09); waiting
+pk09: 21:51:53 the Mac build lock is held by pid 50635 (pk09); waiting
+pk09: 21:52:23 the Mac build lock is held by pid 50635 (pk09); waiting
+pk09: 21:52:53 the Mac build lock is held by pid 50635 (pk09); waiting
+pk09: 21:53:23 the Mac build lock is held by pid 50635 (pk09); waiting
+pk09: 21:53:53 the Mac build lock is held by pid 50635 (pk09); waiting
+pk09: 21:54:23 the Mac build lock is held by pid 54054 (is82); waiting
+pk09: 21:54:53 the Mac build lock is held by pid 54054 (is82); waiting
+pk09: 21:55:23 the Mac build lock is held by pid 54054 (is82); waiting
+pk09: 21:55:53 the Mac build lock is held by pid 54054 (is82); waiting
+pk09: 21:56:23 the Mac build lock is held by pid 54054 (is82); waiting
+pk09: 21:56:53 the Mac build lock is held by pid 54054 (is82); waiting
+pk09: 21:57:23 the Mac build lock is held by pid 54054 (is82); waiting
+pk09: 21:57:53 the Mac build lock is held by pid 54054 (is82); waiting
+pk09: 21:58:23 the Mac build lock is held by pid 54054 (is82); waiting
+pk09: 21:58:53 the Mac build lock is held by pid 59361 (cb19); waiting
+pk09: 21:59:23 the Mac build lock is held by pid 59361 (cb19); waiting
+pk09: 21:59:53 the Mac build lock is held by pid 59361 (cb19); waiting
+pk09: 22:00:23 the Mac build lock is held by pid 59361 (cb19); waiting
+pk09: 22:00:54 the Mac build lock is held by pid 59361 (cb19); waiting
+pk09: 22:01:24 the Mac build lock is held by pid 59361 (cb19); waiting
+pk09: 22:01:54 the Mac build lock is held by pid 59361 (cb19); waiting
+pk09: 22:02:24 the Mac build lock is held by pid 59361 (cb19); waiting
+pk09: 22:02:54 the Mac build lock is held by pid 59361 (cb19); waiting
+pk09: 22:03:24 the Mac build lock is held by pid 59361 (cb19); waiting
+pk09: 22:03:54 gate ok: 10602 MiB free+inactive+speculative
+pty: aim-window FAILED (darwin arm64):
+  evidence: 56 timed sessions; accepted Space/held/aim rows at /Users/mfwolffe/lanes/pk09/build-27848095/target/pty/aim-window.txt
+  - rich up>right delay=300ms actual=444ms: accepted Space rows []
+  - rich up>right delay=400ms actual=457ms: accepted Space rows []
+  - rich right>up delay=200ms actual=639ms Space=51 held=1 aim=0,1 up_at=51 down_at=-1000 left_at=-1000 right_at=33 expected=1,1
+  - rich right>up delay=400ms actual=433ms Space=40 held=9 aim=1,1 up_at=40 down_at=-1000 left_at=-1000 right_at=34: fixture Hold set is not the last key alone
+  - rich down>right delay=200ms actual=233ms Space=34 held=0 aim=1,-1 up_at=-1000 down_at=25 left_at=-1000 right_at=31: fixture Hold set is not the last key alone
+  - rich down>right delay=400ms actual=433ms Space=40 held=0 aim=1,-1 up_at=-1000 down_at=25 left_at=-1000 right_at=37: fixture Hold set is not the last key alone
+  - rich left>down delay=300ms actual=301ms Space=36 held=0 aim=-1,-1 up_at=-1000 down_at=34 left_at=25 right_at=-1000: fixture Hold set is not the last key alone
+  - plain right>up delay=200ms actual=233ms Space=34 held=0 aim=1,1 up_at=31 down_at=-1000 left_at=-1000 right_at=25: fixture Hold set is not the last key alone
+  - plain left>up delay=300ms actual=300ms Space=36 held=0 aim=-1,1 up_at=34 down_at=-1000 left_at=25 right_at=-1000: fixture Hold set is not the last key alone
+  - plain down>left delay=300ms actual=301ms Space=36 held=0 aim=-1,-1 up_at=-1000 down_at=25 left_at=34 right_at=-1000: fixture Hold set is not the last key alone
+stall: load 1, 97 s, the command's exit 1
