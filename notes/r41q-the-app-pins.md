@@ -34,8 +34,11 @@ source read. No source, test, golden, tool or workflow of pack changed: `lair.pi
 
 ## Inputs verified
 
-- Base: pack trunk `27848095`, as the contract read it on 2026-10-31. pk09 is live on pack with no branch
-  yet; this PR touches only the pins (and the README lines they move), and whichever merges second rebases.
+- Base: pack trunk `27848095`, as the contract read it on 2026-10-31; **rebased once onto `c4b20d29`**,
+  pk09's merge (pack#46, 04:24Z), since pk09 merged first. pk09 changed no source and no golden (its
+  non-note paths are `tests/pty_rows.py`, `docs/KEYS.md` and one README paragraph), so the counts below
+  hold across the rebase; the gauntlet ran at the rebased head. This PR touches only the pins and the
+  README lines they move.
 - The engine between `aa6c4dc0` and `df11d213`: 44 commits, lr01's mixer, lr03's held keys and lr04's
   control grammar in `src/` (17 files), plus r41q's toolchain pin. pack links no `sound` module and opts
   into neither input mode. lair#26's own gauntlet already ran pack's trunk on `df11d213`: 190 tests
@@ -44,11 +47,10 @@ source read. No source, test, golden, tool or workflow of pack changed: `lair.pi
   and the README name `.lair/wolf-toolchain.toml`; every tool runs from `.lair/`). Moved to the engine's
   values exactly (a `diff` of the two files' non-comment lines is empty) and proved against both API
   passes by script.
-- **A finding, not this PR's:** pack's trunk nightly is red every night since 2026-10-26 on one macOS pty
-  row, `aim-window` (pack#44; runs 40313128861, 40490102077, 40679567517, 40866380912, 41048076666,
-  41194811528, all at `27848095` with the old pins), on timing: `rich up>right delay=400ms actual=433ms …
-  aim=1,0 … expected=1,1`. The labelled `tier full` will likely show the same row red. pack#44 stays open;
-  it is pack's own lane's (pk09 or after).
+- **The prediction's `tier full` warning is withdrawn.** It expected pack's macOS `aim-window` row red,
+  as on every nightly at `27848095` since 2026-10-26 (pack#44; runs 40313128861 to 41194811528). pk09
+  re-paced that row by the game's trace ticks and closed pack#44 at 04:31Z; its trunk push run
+  41272974780 is green at `c4b20d29`, which this branch now sits on.
 - README read: the toolchain sentence moves to `wolf 0.2.36, lupin 0.1.58`, and the unit-test count to
   "190 of them (pack 128, pinned engine 62)", a README-only commit. The old split "175 (pack 114, pinned
   engine 61)" did not match trunk either: trunk's nightly ran 175 as 128 pack's and 47 the engine's (by
@@ -68,10 +70,11 @@ source read. No source, test, golden, tool or workflow of pack changed: `lair.pi
 
 ## Evidence index
 
-- `da7c53b` Predict lair.pin at df11d213 moves no frame
-- `66f5570` lair.pin: the engine at df11d213 (wolf 0.2.36 / lupin 0.1.58)
-- `2d25ad0` wolf-toolchain.toml: the engine's pair, 0.2.36 / 0.1.58 (CI reads .lair's)
-- `085ba97` README: the pair 0.2.36 / 0.1.58 and 190 tests, pack 128 + engine 62 (README only)
+- `68d6abd` Predict lair.pin at df11d213 moves no frame
+- `6a50e43` lair.pin: the engine at df11d213 (wolf 0.2.36 / lupin 0.1.58)
+- `c9db5de` wolf-toolchain.toml: the engine's pair, 0.2.36 / 0.1.58 (CI reads .lair's)
+- `1e49b71` README: the pair 0.2.36 / 0.1.58 and 190 tests, pack 128 + engine 62 (README only)
+- `3cfc9e4` notes/r41q-the-app-pins.md: the lane's record for pack
 - The gauntlet at the final head, on hasu block B (`/home/mfwolffe/lanes/r41q/bin/gauntlet-game.sh pack
   <sha>`, its log under `/home/mfwolffe/lanes/r41q/logs/`): the head asserted, `lair.pin` against lair's
   trunk read live, this repo's own toolchain file proved against the API passes, `tools/fetch-lair` (the
@@ -85,4 +88,4 @@ source read. No source, test, golden, tool or workflow of pack changed: `lair.pi
 
 The PR is open at its final head with `tier pr` green there, `Footprint: cross-cutting` (a pin), the audit
 run once and passing but for the labelled `tier full`, which the orchestrator labels and watches (the
-second host's goldens). Nothing to close or file here. pack#44 stays open (above).
+second host's goldens). Nothing to close or file here (pack#44 is closed, by pk09).
