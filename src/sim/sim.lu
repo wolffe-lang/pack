@@ -389,12 +389,36 @@ pub fn aim_arrows(s: Sim) -> int {
     let down = aim_recent(s.hold_down, s.tick)
     let left = aim_recent(s.hold_left, s.tick)
     let right = aim_recent(s.hold_right, s.tick)
-    var arrows = 0
-    if up && (!down || s.aim_up_order > s.aim_down_order) { arrows += HELD_UP }
-    if down && (!up || s.aim_down_order > s.aim_up_order) { arrows += HELD_DOWN }
-    if left && (!right || s.aim_left_order > s.aim_right_order) { arrows += HELD_LEFT }
-    if right && (!left || s.aim_right_order > s.aim_left_order) { arrows += HELD_RIGHT }
-    arrows
+    var vertical = 0
+    var vertical_order = 0
+    if up && (!down || s.aim_up_order > s.aim_down_order) {
+        vertical = HELD_UP
+        vertical_order = s.aim_up_order
+    }
+    if down && (!up || s.aim_down_order > s.aim_up_order) {
+        vertical = HELD_DOWN
+        vertical_order = s.aim_down_order
+    }
+    var sideways = 0
+    var sideways_order = 0
+    if left && (!right || s.aim_left_order > s.aim_right_order) {
+        sideways = HELD_LEFT
+        sideways_order = s.aim_left_order
+    }
+    if right && (!left || s.aim_right_order > s.aim_left_order) {
+        sideways = HELD_RIGHT
+        sideways_order = s.aim_right_order
+    }
+    // pk09-plant-aim, the deliberate break (never merged): a diagonal keeps
+    // the arrow pressed first and drops the second.
+    if vertical != 0 && sideways != 0 {
+        if vertical_order > sideways_order {
+            vertical = 0
+        } else {
+            sideways = 0
+        }
+    }
+    vertical + sideways
 }
 
 /// The ticks between leaps.
