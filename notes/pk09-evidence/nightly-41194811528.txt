@@ -1,0 +1,9 @@
+# nightly run 41194811528 (2026-10-31), job 124518756771 'macOS arm64 (build, goldens, pty rows)', the aim-window lines verbatim
+2026-10-31T11:06:46.0908810Z pty: aim-window FAILED (darwin arm64):
+2026-10-31T11:06:46.0909430Z   evidence: 58 timed sessions; accepted Space/held/aim rows at /Users/runner/work/pack/pack/target/pty/aim-window.txt
+2026-10-31T11:06:46.0910850Z   - rich up>right delay=200ms actual=214ms Space=33 held=0 aim=1,1 up_at=25 down_at=-1000 left_at=-1000 right_at=31: fixture Hold set is not the last key alone
+2026-10-31T11:06:46.0911860Z   - rich up>right delay=400ms actual=433ms Space=40 held=8 aim=1,0 up_at=24 down_at=-1000 left_at=-1000 right_at=38 expected=1,1
+2026-10-31T11:06:46.0912760Z   - rich down>left delay=400ms actual=434ms Space=40 held=4 aim=-1,0 up_at=-1000 down_at=24 left_at=38 right_at=-1000 expected=-1,-1
+2026-10-31T11:06:46.0913560Z   - rich left>down delay=400ms actual=440ms Space=40 held=2 aim=0,-1 up_at=-1000 down_at=38 left_at=24 right_at=-1000 expected=-1,-1
+2026-10-31T11:06:46.0914620Z   - plain right>up delay=200ms actual=232ms Space=34 held=0 aim=1,1 up_at=31 down_at=-1000 left_at=-1000 right_at=25: fixture Hold set is not the last key alone
+2026-10-31T11:06:46.0920530Z   - plain left>up delay=400ms actual=405ms Space=41 held=1 aim=0,1 up_at=41 down_at=-1000 left_at=25 right_at=-1000 expected=-1,1
