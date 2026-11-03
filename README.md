@@ -12,8 +12,8 @@ shared engine (`wolffe-lang/lair`, pinned in `lair.pin`).
 
 | machine | tier | state |
 |---|---|---|
-| macOS, Terminal.app or iTerm2 (arm64) | rich: block elements, braille, 256 colours, true colour where `COLORTERM` says so | playtested; the pty rows run on every push to trunk |
-| Linux, any UTF-8 terminal emulator (x86-64) | rich | the pty rows run on every pull request, inside a container |
+| macOS, Terminal.app or iTerm2 (arm64) | rich: block elements, braille, 256 colours, true colour where `COLORTERM` says so | playtested; the pty rows run in opted-in full CI and nightly |
+| Linux, any UTF-8 terminal emulator (x86-64) | rich | the pty rows run in opted-in full CI and nightly, inside a container |
 | a Linux virtual terminal (`TERM=linux`) | plain: code points 0-255 and the sixteen colours | detected from `TERM`; untested on a VT itself |
 | PAX's console | plain today; rich once PAX's font draws `docs/GLYPHS.md` | the installer row and the font row are the next PAX pass's |
 
@@ -120,7 +120,7 @@ records the score and the saved replay in its own `HOME`, and plays the replay b
 holds the render under a millisecond at 80x24 and under four at 200x60 with a dozen shadows and three deer
 at dusk, counts the loop's wake-ups at idle, and times a key to the frame that carries it (median under a
 tick and a render, p90 under two ticks). `.lair/tools/check` runs the unit tests, builds, goldens and pty rows; `.lair/tools/perf` runs the
-performance gates separately. CI checks Linux for every pull request and adds macOS and perf for trunk.
+performance gates separately. Unlabelled PRs run one cheap job. The `ci` or `full-matrix` label runs the full set, including macOS and performance. Trunk pushes run it only on cross-cutting paths; the nightly still runs the full set.
 
 ## Documents
 
