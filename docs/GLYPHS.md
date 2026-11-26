@@ -17,7 +17,7 @@ into the matching column below with the date. The pseudo-terminal runner cannot 
 font. What it does check is that the model and the live stream agree on cell positions, which is a
 different fact.
 
-| | Terminal.app | iTerm2 | Linux VT (kasumi's kernel) | PAX's console |
+| | Terminal.app | iTerm2 | Linux VT (a development host's kernel) | PAX's console |
 |---|---|---|---|---|
 | measured | owed: run `pack --probe-glyphs` here and record the date | owed, the same way | owed; the VT draws from its own font and substitutes what it lacks | draws `?` for every code point at or above U+0100 today (`kernel/screen/screen.lu`'s header); pk05's row |
 
