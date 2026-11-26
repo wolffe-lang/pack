@@ -95,7 +95,7 @@ not a Down hold. All other Shift+arrows follow the bare-arrow mapping.
 
 | terminal | arrows | Shift+arrow | measured |
 |---|---|---|---|
-| the Linux VT (kasumi's kernel 7.2) | `ESC [ A`-`D` | `ESC [ 1 ; 2 A`-`D`; with Ctrl `1 ; 5`, Alt `1 ; 3`, Shift+Ctrl `1 ; 6`, Shift+Alt `1 ; 4` | pax lane px59, black-box through a pty on the VT, `pax/notes/px59/vt2.rows` lines 72-89 (2026-10) |
+| the Linux VT (a development host's kernel 7.2) | `ESC [ A`-`D` | `ESC [ 1 ; 2 A`-`D`; with Ctrl `1 ; 5`, Alt `1 ; 3`, Shift+Ctrl `1 ; 6`, Shift+Alt `1 ; 4` | pax lane px59, black-box through a pty on the VT, `pax/notes/px59/vt2.rows` lines 72-89 (2026-10) |
 | PAX's console | the VT's, by construction | the VT's: `ESC [ 1 ; m X`, m = 1 + Shift + 2 Alt + 4 Ctrl | pax `kernel/console/console.lu`'s header (px58, px59), which cites the same rows |
 | the pseudo-terminal runner (the engine's `.lair/tools/pty`) | sends `ESC [ B` and `ESC [ 1 ; 2 B` itself | the game decoded both in every run of the `quit` and `sigint` rows on macOS and Linux (pk00) | pk00, 2026-10-25 |
 | macOS Terminal.app | owed | owed | run `.lair/tools/keyprobe` in Terminal.app, press each control, paste the table here with the date |
